@@ -7,6 +7,9 @@ import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import ProjectNew from './pages/ProjectNew';
 import ProjectDetail from './pages/ProjectDetail';
+import Configuracoes from './pages/Configuracoes';
+import Relatorios from './pages/Relatorios';
+import AdminPage from './pages/AdminPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -50,8 +53,9 @@ function AppRoutes() {
         <Route path="projetos" element={<Navigate to="/app/dashboard" replace />} />
         <Route path="projetos/novo" element={<ProjectNew />} />
         <Route path="projetos/:id" element={<ProjectDetail />} />
-        <Route path="relatorios" element={<Navigate to="/app/dashboard" replace />} />
-        <Route path="configuracoes" element={<Navigate to="/app/dashboard" replace />} />
+        <Route path="relatorios" element={<Relatorios />} />
+        <Route path="configuracoes" element={<Configuracoes />} />
+        <Route path="admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

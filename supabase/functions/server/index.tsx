@@ -18,7 +18,7 @@ app.use('*', logger(console.log));
 app.use("/*", cors({
   origin: "*",
   allowHeaders: ["Content-Type", "Authorization"],
-  allowMethods: ["GET", "POST", "OPTIONS"],
+  allowMethods: ["GET", "POST", "PATCH", "OPTIONS"],
   maxAge: 600,
 }));
 
@@ -178,6 +178,72 @@ Se não souber com certeza, retorne certeza "baixa" e uma sugestão.`;
   if (!rawText) return c.json({ error: 'Resposta vazia do Gemini' }, 500);
 
   return c.json(JSON.parse(rawText));
+});
+
+// =========================================================
+// ADMIN ENDPOINTS — requires admin@ambisafe.com.br email
+// Uses service role key (bypasses RLS automatically)
+// =========================================================
+
+const ADMIN_EMAIL = 'admin@ambisafe.com.br';
+
+async function requireAdmin(c: Parameters<Parameters<typeof app.get>[1]>[0]) {
+  const user = await getUser(c);
+  if (!user || user.email !== ADMIN_EMAIL) return null;
+  return user;
+}
+
+// GET /admin/stats
+app.get("/make-server-eed79e88/admin/stats", async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) return c.json({ error: "Forbidden" }, 403);
+
+  const [empresasRes, projetosRes, usersRes] = await Promise.all([
+    supabase.from('empresas').select('*', { count: 'exact', head: true }),
+    supabase.from('projetos').select('*', { count: 'exact', head: true }),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+  ]);
+
+  return c.json({
+    totalEmpresas: empresasRes.count ?? 0,
+    totalProjetos: projetosRes.count ?? 0,
+    totalUsers: usersRes.count ?? 0,
+  });
+});
+
+// GET /admin/empresas
+app.get("/make-server-eed79e88/admin/empresas", async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) return c.json({ error: "Forbidden" }, 403);
+
+  const { data: empresas, error } = await supabase
+    .from('empresas')
+    .select('*, profiles(id, name, role), projetos(id)')
+    .order('created_at', { ascending: false });
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ empresas: empresas ?? [] });
+});
+
+// PATCH /admin/empresas/:id — update plan
+app.patch("/make-server-eed79e88/admin/empresas/:id", async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) return c.json({ error: "Forbidden" }, 403);
+
+  const id = c.req.param('id');
+  const body = await c.req.json() as { plan?: string; trial_ends_at?: string };
+
+  const updateData: Record<string, string> = {};
+  if (body.plan) updateData.plan = body.plan;
+  if (body.trial_ends_at) updateData.trial_ends_at = body.trial_ends_at;
+
+  const { error } = await supabase
+    .from('empresas')
+    .update(updateData)
+    .eq('id', id);
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ success: true });
 });
 
 Deno.serve(app.fetch);
