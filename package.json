@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node ./node_modules/vite/bin/vite.js build",
     "dev": "vite",
+    "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\" --max-warnings=0",
     "prebuild": "npm rebuild esbuild --silent || true",
     "postinstall": "npm rebuild esbuild --silent || true"
   },
@@ -73,7 +74,11 @@
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
     "vite": "6.3.5",
-    "esbuild": "^0.18.0"
+    "esbuild": "^0.18.0",
+    "eslint": "^8.47.0",
+    "eslint-plugin-react": "^7.32.2",
+    "@typescript-eslint/parser": "^6.1.0",
+    "@typescript-eslint/eslint-plugin": "^6.1.0"
   },
   "engines": {
     "node": "24.x"
