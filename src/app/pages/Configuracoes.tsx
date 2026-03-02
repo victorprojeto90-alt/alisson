@@ -6,14 +6,24 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
-import { User, Building2, Crown, Loader2, Check, Clock } from 'lucide-react';
+import { User, Building2, Crown, Loader2, Check, Clock, UserCheck, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Configuracoes() {
   const { user, profile, empresa } = useAuth();
+
   const [name, setName] = useState(profile?.name ?? '');
-  const [companyName, setCompanyName] = useState(empresa?.name ?? '');
+  const [telefone, setTelefone] = useState(profile?.telefone ?? '');
+  const [cpfCnpj, setCpfCnpj] = useState(profile?.cpf_cnpj ?? '');
+  const [cidade, setCidade] = useState(profile?.cidade ?? '');
+  const [estadoUf, setEstadoUf] = useState(profile?.estado_uf ?? '');
   const [savingProfile, setSavingProfile] = useState(false);
+
+  const [companyName, setCompanyName] = useState(empresa?.name ?? '');
+  const [companyTelefone, setCompanyTelefone] = useState(empresa?.telefone ?? '');
+  const [companyCnpj, setCompanyCnpj] = useState(empresa?.cnpj ?? '');
+  const [companyCidade, setCompanyCidade] = useState(empresa?.cidade ?? '');
+  const [companyEstado, setCompanyEstado] = useState(empresa?.estado_uf ?? '');
   const [savingEmpresa, setSavingEmpresa] = useState(false);
 
   const handleSaveProfile = async () => {
@@ -21,7 +31,7 @@ export default function Configuracoes() {
     setSavingProfile(true);
     const { error } = await supabase
       .from('profiles')
-      .update({ name: name.trim() })
+      .update({ name: name.trim(), telefone, cpf_cnpj: cpfCnpj, cidade, estado_uf: estadoUf })
       .eq('id', user.id);
     setSavingProfile(false);
     if (error) toast.error('Erro ao salvar perfil: ' + error.message);
@@ -33,7 +43,13 @@ export default function Configuracoes() {
     setSavingEmpresa(true);
     const { error } = await supabase
       .from('empresas')
-      .update({ name: companyName.trim() })
+      .update({
+        name: companyName.trim(),
+        telefone: companyTelefone,
+        cnpj: companyCnpj,
+        cidade: companyCidade,
+        estado_uf: companyEstado,
+      })
       .eq('id', empresa.id);
     setSavingEmpresa(false);
     if (error) toast.error('Erro ao salvar empresa: ' + error.message);
@@ -45,6 +61,7 @@ export default function Configuracoes() {
     ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0;
   const isTrialExpired = trialEndsAt ? trialEndsAt < new Date() : false;
+  const tipoUsuario = profile?.tipo_usuario ?? 'pessoa_fisica';
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto">
@@ -61,30 +78,66 @@ export default function Configuracoes() {
               <div className="w-10 h-10 bg-[#0B3D2E]/10 rounded-lg flex items-center justify-center">
                 <User className="w-5 h-5 text-[#0B3D2E]" />
               </div>
-              <div>
+              <div className="flex-1">
                 <CardTitle className="text-base">Perfil</CardTitle>
                 <CardDescription className="text-xs">Suas informações pessoais</CardDescription>
               </div>
+              <Badge variant="outline" className={
+                tipoUsuario === 'empresa'
+                  ? 'text-blue-600 border-blue-200 bg-blue-50 gap-1'
+                  : 'text-green-600 border-green-200 bg-green-50 gap-1'
+              }>
+                {tipoUsuario === 'empresa'
+                  ? <><Briefcase className="w-3 h-3" /> Empresa</>
+                  : <><UserCheck className="w-3 h-3" /> Pessoa Física</>
+                }
+              </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="profile-name">Nome</Label>
-              <Input
-                id="profile-name"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Seu nome completo"
-              />
+              <Label htmlFor="profile-name">Nome Completo</Label>
+              <Input id="profile-name" value={name} onChange={e => setName(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>E-mail</Label>
-              <Input
-                value={user?.email ?? ''}
-                disabled
-                className="bg-gray-50 text-gray-500 cursor-not-allowed"
-              />
+              <Input value={user?.email ?? ''} disabled className="bg-gray-50 text-gray-500 cursor-not-allowed" />
               <p className="text-xs text-gray-400">O e-mail não pode ser alterado</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>{tipoUsuario === 'empresa' ? 'CPF do Responsável' : 'CPF'}</Label>
+                <Input
+                  placeholder="000.000.000-00"
+                  value={cpfCnpj}
+                  onChange={e => setCpfCnpj(e.target.value)}
+                  maxLength={14}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Telefone</Label>
+                <Input
+                  placeholder="(00) 90000-0000"
+                  value={telefone}
+                  onChange={e => setTelefone(e.target.value)}
+                  type="tel"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Cidade</Label>
+                <Input placeholder="Sua cidade" value={cidade} onChange={e => setCidade(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>UF</Label>
+                <Input
+                  placeholder="AM"
+                  value={estadoUf}
+                  onChange={e => setEstadoUf(e.target.value.toUpperCase().slice(0, 2))}
+                  maxLength={2}
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Função</Label>
@@ -96,7 +149,7 @@ export default function Configuracoes() {
             </div>
             <Button
               onClick={handleSaveProfile}
-              disabled={savingProfile || !name.trim()}
+              disabled={savingProfile}
               className="bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white"
             >
               {savingProfile
@@ -115,20 +168,54 @@ export default function Configuracoes() {
                 <Building2 className="w-5 h-5 text-[#0B3D2E]" />
               </div>
               <div>
-                <CardTitle className="text-base">Empresa</CardTitle>
-                <CardDescription className="text-xs">Dados da sua organização</CardDescription>
+                <CardTitle className="text-base">Empresa / Organização</CardTitle>
+                <CardDescription className="text-xs">Dados da sua conta</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="company-name">Nome da Empresa</Label>
+              <Label>Nome</Label>
               <Input
-                id="company-name"
                 value={companyName}
                 onChange={e => setCompanyName(e.target.value)}
                 placeholder="Nome da organização"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>CNPJ</Label>
+                <Input
+                  placeholder="00.000.000/0000-00"
+                  value={companyCnpj}
+                  onChange={e => setCompanyCnpj(e.target.value)}
+                  maxLength={18}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Telefone</Label>
+                <Input
+                  placeholder="(00) 90000-0000"
+                  value={companyTelefone}
+                  onChange={e => setCompanyTelefone(e.target.value)}
+                  type="tel"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Cidade</Label>
+                <Input placeholder="Cidade" value={companyCidade} onChange={e => setCompanyCidade(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>UF</Label>
+                <Input
+                  placeholder="AM"
+                  value={companyEstado}
+                  onChange={e => setCompanyEstado(e.target.value.toUpperCase().slice(0, 2))}
+                  maxLength={2}
+                />
+              </div>
             </div>
 
             {/* Plano */}
@@ -140,7 +227,7 @@ export default function Configuracoes() {
                     <Crown className="w-5 h-5 text-[#16A34A]" />
                     <div>
                       <p className="font-semibold text-[#0B3D2E]">Profissional</p>
-                      <p className="text-xs text-gray-500">Acesso completo a todos os recursos</p>
+                      <p className="text-xs text-gray-500">Acesso completo</p>
                     </div>
                     <Badge className="ml-auto bg-[#16A34A] text-white border-0">Ativo</Badge>
                   </div>
@@ -160,7 +247,7 @@ export default function Configuracoes() {
                       )}
                     </div>
                     <p className="text-xs text-gray-400">
-                      Para assinar o plano Profissional, entre em contato: <strong>contato@ambisafe.com.br</strong>
+                      Contato para assinar: <strong>contato@ambisafe.com.br</strong>
                     </p>
                   </div>
                 )}
@@ -169,7 +256,7 @@ export default function Configuracoes() {
 
             <Button
               onClick={handleSaveEmpresa}
-              disabled={savingEmpresa || !companyName.trim()}
+              disabled={savingEmpresa}
               className="bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white"
             >
               {savingEmpresa
@@ -180,8 +267,8 @@ export default function Configuracoes() {
           </CardContent>
         </Card>
 
-        {/* Conta */}
-        <Card className="border-0 shadow-sm border-red-100">
+        {/* Zona de Perigo */}
+        <Card className="border-0 shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="text-base text-gray-700">Zona de Perigo</CardTitle>
             <CardDescription className="text-xs">Ações irreversíveis</CardDescription>
@@ -190,15 +277,13 @@ export default function Configuracoes() {
             <div className="flex items-center justify-between p-4 border border-red-100 rounded-xl bg-red-50/50">
               <div>
                 <p className="text-sm font-medium text-gray-800">Excluir minha conta</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Remove permanentemente todos os seus dados e projetos
-                </p>
+                <p className="text-xs text-gray-500 mt-0.5">Remove permanentemente todos os dados</p>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 className="border-red-200 text-red-600 hover:bg-red-50"
-                onClick={() => toast.error('Para excluir sua conta, entre em contato com contato@ambisafe.com.br')}
+                onClick={() => toast.error('Para excluir, contate contato@ambisafe.com.br')}
               >
                 Excluir Conta
               </Button>

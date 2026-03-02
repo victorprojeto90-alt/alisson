@@ -6,9 +6,13 @@ export interface Empresa {
   id: string;
   name: string;
   plan: string;
-  trial_ends_at: string;
+  trial_ends_at: string | null;
   owner_id: string;
   created_at: string;
+  telefone?: string | null;
+  cnpj?: string | null;
+  cidade?: string | null;
+  estado_uf?: string | null;
 }
 
 export interface Profile {
@@ -16,7 +20,20 @@ export interface Profile {
   empresa_id: string;
   name: string;
   role: 'admin' | 'engineer' | 'viewer';
+  tipo_usuario?: 'pessoa_fisica' | 'empresa';
+  telefone?: string | null;
+  cpf_cnpj?: string | null;
+  cidade?: string | null;
+  estado_uf?: string | null;
   empresa: Empresa;
+}
+
+export interface ExtraSignUpData {
+  tipoUsuario?: 'pessoa_fisica' | 'empresa';
+  telefone?: string;
+  cpfCnpj?: string;
+  cidade?: string;
+  estadoUf?: string;
 }
 
 interface AuthContextType {
@@ -25,7 +42,7 @@ interface AuthContextType {
   empresa: Empresa | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, name: string, companyName: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, name: string, companyName: string, extra?: ExtraSignUpData) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -48,27 +65,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // User exists in auth but has no empresa/profile yet (e.g. signed up before migration
-    // or email confirmation flow where insert ran before session was established).
-    // Auto-provision both records so the app works immediately.
+    // Auto-provision empresa + profile for users created before migration
+    // or when email confirmation is required (session comes after confirmation).
     const { data: { user: authUser } } = await supabase.auth.getUser();
+    const meta = authUser?.user_metadata ?? {};
     const emailBase = authUser?.email?.split('@')[0] ?? 'Empresa';
-    const companyName = (authUser?.user_metadata?.company_name as string | undefined)
+    const companyName = (meta.company_name as string | undefined)
       ?? (emailBase.charAt(0).toUpperCase() + emailBase.slice(1));
+
+    const empresaInsert: Record<string, string | null> = {
+      name: companyName,
+      owner_id: userId,
+    };
+    if (meta.telefone) empresaInsert.telefone = meta.telefone as string;
+    if (meta.cpf_cnpj && meta.tipo_usuario === 'empresa') empresaInsert.cnpj = meta.cpf_cnpj as string;
+    if (meta.cidade) empresaInsert.cidade = meta.cidade as string;
+    if (meta.estado_uf) empresaInsert.estado_uf = meta.estado_uf as string;
 
     const { data: empresa } = await supabase
       .from('empresas')
-      .insert({ name: companyName, owner_id: userId })
+      .insert(empresaInsert)
       .select()
       .single();
 
     if (empresa) {
-      await supabase.from('profiles').insert({
+      const profileInsert: Record<string, string | null> = {
         id: userId,
         empresa_id: empresa.id,
-        name: authUser?.user_metadata?.name ?? companyName,
+        name: (meta.name as string | undefined) ?? companyName,
         role: 'admin',
-      });
+        tipo_usuario: (meta.tipo_usuario as string | undefined) ?? 'pessoa_fisica',
+      };
+      if (meta.telefone) profileInsert.telefone = meta.telefone as string;
+      if (meta.cpf_cnpj) profileInsert.cpf_cnpj = meta.cpf_cnpj as string;
+      if (meta.cidade) profileInsert.cidade = meta.cidade as string;
+      if (meta.estado_uf) profileInsert.estado_uf = meta.estado_uf as string;
+
+      await supabase.from('profiles').insert(profileInsert);
 
       const { data: newProfile } = await supabase
         .from('profiles')
@@ -107,14 +140,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   };
 
-  const signUp = async (email: string, password: string, name: string, companyName: string) => {
-    // Only create the auth user here. Empresa + profile are provisioned by loadProfile
-    // once the user has a valid session (immediately if email confirmation is off,
-    // or after email confirmation otherwise).
+  const signUp = async (
+    email: string,
+    password: string,
+    name: string,
+    companyName: string,
+    extra?: ExtraSignUpData
+  ) => {
+    // Store all data as user metadata. Empresa + profile records are created
+    // by loadProfile when the user first gets a valid session.
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, company_name: companyName } },
+      options: {
+        data: {
+          name,
+          company_name: companyName,
+          tipo_usuario: extra?.tipoUsuario ?? 'pessoa_fisica',
+          telefone: extra?.telefone ?? null,
+          cpf_cnpj: extra?.cpfCnpj ?? null,
+          cidade: extra?.cidade ?? null,
+          estado_uf: extra?.estadoUf ?? null,
+        },
+      },
     });
     if (authError) return { error: authError.message };
     if (!authData.user) return { error: 'Erro ao criar usuário' };
