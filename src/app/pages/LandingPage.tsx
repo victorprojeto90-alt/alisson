@@ -97,7 +97,7 @@ export default function LandingPage() {
           <nav className="hidden md:flex items-center gap-6 text-sm text-white/70">
             <a href="#como-funciona" className="hover:text-white transition-colors">Como funciona</a>
             <a href="#funcionalidades" className="hover:text-white transition-colors">Funcionalidades</a>
-            <a href="#plano" className="hover:text-white transition-colors">Plano</a>
+            <a href="#planos" className="hover:text-white transition-colors">Planos</a>
           </nav>
           <div className="flex items-center gap-3">
             <Button
@@ -325,22 +325,72 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Plano */}
-      <section id="plano" className="py-24 bg-white">
+      {/* Planos */}
+      <section id="planos" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Plano simples, sem surpresas</h2>
-            <p className="text-xl text-gray-500">Um único plano com tudo incluso</p>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Planos para cada perfil</h2>
+            <p className="text-xl text-gray-500">14 dias grátis em qualquer plano · sem cartão de crédito</p>
           </div>
-          <div className="max-w-md mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+
+            {/* Pessoa Física */}
+            <div className="rounded-3xl border-2 border-gray-200 p-8 relative overflow-hidden hover:border-[#16A34A]/40 transition-colors">
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-2 bg-green-50 border border-green-100 rounded-full px-3 py-1 mb-4">
+                  <span className="text-[#16A34A] text-xs font-medium">Pessoa Física</span>
+                </div>
+                <h3 className="text-gray-900 font-bold text-xl mb-1">Profissional</h3>
+                <p className="text-gray-500 text-sm">Engenheiro, consultor ou estudante autônomo</p>
+              </div>
+              <div className="flex items-baseline gap-2 mb-6">
+                <span className="text-gray-400 text-lg">R$</span>
+                <span className="text-gray-900 font-bold text-6xl">150</span>
+                <span className="text-gray-400">/mês</span>
+              </div>
+              <ul className="space-y-3 mb-8">
+                {[
+                  'Até 10 projetos ativos',
+                  'Upload CSV e XLSX',
+                  'Todos os cálculos florestais',
+                  '12+ tabelas automáticas',
+                  'Pré-relatório com IA Gemini',
+                  'Exportação PDF, Word e Excel',
+                  'Score AMBISAFE',
+                  '1 usuário',
+                  'Suporte por e-mail',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-3 text-gray-600 text-sm">
+                    <CheckCircle2 className="w-4 h-4 text-[#16A34A] flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button
+                className="w-full bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white py-4 h-auto text-base gap-2"
+                onClick={() => navigate('/auth')}
+              >
+                Começar Teste Grátis
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+              <p className="text-gray-400 text-xs text-center mt-3">
+                Sem cartão de crédito · Cancele quando quiser
+              </p>
+            </div>
+
+            {/* Empresa */}
             <div className="bg-[#0B3D2E] rounded-3xl p-8 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-[#16A34A]/20 rounded-full -translate-y-1/2 translate-x-1/2" />
               <div className="relative">
-                <div className="inline-flex items-center gap-2 bg-[#16A34A]/20 border border-[#16A34A]/30 rounded-full px-3 py-1 mb-6">
-                  <span className="text-[#10B981] text-xs font-medium">14 dias grátis · sem cartão</span>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="inline-flex items-center gap-2 bg-[#16A34A]/20 border border-[#16A34A]/30 rounded-full px-3 py-1">
+                    <span className="text-[#10B981] text-xs font-medium">Empresa</span>
+                  </div>
+                  <span className="bg-[#16A34A] text-white text-xs font-bold px-3 py-1 rounded-full">MAIS POPULAR</span>
                 </div>
-                <h3 className="text-white font-bold text-xl mb-2">Plano Profissional</h3>
-                <div className="flex items-baseline gap-2 mb-6">
+                <h3 className="text-white font-bold text-xl mb-1">Corporativo</h3>
+                <p className="text-white/60 text-sm">Consultoria, órgão público ou empresa ambiental</p>
+                <div className="flex items-baseline gap-2 my-6">
                   <span className="text-white/50 text-lg">R$</span>
                   <span className="text-white font-bold text-6xl">300</span>
                   <span className="text-white/50">/mês</span>
@@ -356,6 +406,7 @@ export default function LandingPage() {
                     'Score AMBISAFE',
                     'Multiusuário (até 5 usuários)',
                     'Suporte técnico prioritário',
+                    'CNPJ e dados empresariais',
                   ].map((item, i) => (
                     <li key={i} className="flex items-center gap-3 text-white/80 text-sm">
                       <CheckCircle2 className="w-4 h-4 text-[#16A34A] flex-shrink-0" />
@@ -375,7 +426,15 @@ export default function LandingPage() {
                 </p>
               </div>
             </div>
+
           </div>
+
+          <p className="text-center text-gray-400 text-sm mt-10">
+            Precisa de um plano personalizado para grandes volumes?{' '}
+            <a href="mailto:contato@ambisafe.com.br" className="text-[#16A34A] hover:underline font-medium">
+              Fale conosco
+            </a>
+          </p>
         </div>
       </section>
 

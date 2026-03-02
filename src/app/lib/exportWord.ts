@@ -1,7 +1,7 @@
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   HeadingLevel, AlignmentType, WidthType, ShadingType,
-  TableOfContents, PageBreak,
+  PageBreak,
 } from 'docx';
 import type { ResultadoInventario } from './calculations';
 import { gerarRelatorioCompleto, type ProjetoParaRelatorio } from './reportText';
@@ -60,7 +60,7 @@ export async function exportarWord(
   const secoes = gerarRelatorioCompleto(projeto, resultado);
   const dg = resultado.dados_gerais;
 
-  const children: (Paragraph | Table | TableOfContents)[] = [
+  const children: (Paragraph | Table)[] = [
     // Capa
     new Paragraph({
       children: [new TextRun({ text: 'AMBISAFE Geotecnologias', bold: true, size: 48, font: 'Arial', color: '0B3D2E' })],
@@ -169,7 +169,6 @@ export async function exportarWord(
     sections: [{ children }],
   });
 
-  const buffer = await Packer.toBuffer(doc);
-  saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }),
-    `${nomeArquivo}.docx`);
+  const blob = await Packer.toBlob(doc);
+  saveAs(blob, `${nomeArquivo}.docx`);
 }
