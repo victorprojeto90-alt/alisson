@@ -1,421 +1,279 @@
-import { useState } from 'react';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import ProjectsModule from '../components/ProjectsModule';
-import { 
-  Trees, 
-  BarChart3, 
-  FileText, 
-  Settings, 
-  LogOut, 
-  Plus,
-  TrendingUp,
-  Users,
-  Crown,
-  Menu,
-  X
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import {
+  Plus,
+  Trees,
+  TrendingUp,
+  BarChart3,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  FileText,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react';
 
-interface DashboardProps {
-  userRole: 'admin' | 'user';
+interface Projeto {
+  id: string;
+  nome: string;
+  municipio: string | null;
+  estado: string | null;
+  area_total_ha: number | null;
+  tipo_inventario: string | null;
+  motivo_inventario: string | null;
+  status: string;
+  created_at: string;
+  score?: number | null;
 }
 
-export default function Dashboard({ userRole }: DashboardProps) {
-  const { user, signOut, empresa } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'projects' | 'reports' | 'settings' | 'admin'>('dashboard');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+const TIPO_LABEL: Record<string, string> = {
+  casual_simples: 'Casual Simples',
+  sistematico: 'Sistemático',
+  estratificado: 'Estratificado',
+  censo: 'Censo 100%',
+};
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-5 h-5" /> },
-    { id: 'projects', label: 'Projetos', icon: <Trees className="w-5 h-5" /> },
-    { id: 'reports', label: 'Relatórios', icon: <FileText className="w-5 h-5" /> },
-    { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
-  ];
+const MOTIVO_LABEL: Record<string, string> = {
+  licenciamento: 'Licenciamento',
+  manejo: 'Manejo Florestal',
+  supressao: 'Supressão Vegetal',
+  academico: 'Acadêmico',
+};
 
-  if (userRole === 'admin') {
-    menuItems.push({ id: 'admin', label: 'Admin Supremo', icon: <Crown className="w-5 h-5" /> });
-  }
+const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  rascunho: {
+    label: 'Rascunho',
+    icon: <Clock className="w-3.5 h-3.5" />,
+    color: 'bg-gray-100 text-gray-600 border-gray-200',
+  },
+  processado: {
+    label: 'Processado',
+    icon: <BarChart3 className="w-3.5 h-3.5" />,
+    color: 'bg-blue-50 text-blue-700 border-blue-200',
+  },
+  finalizado: {
+    label: 'Finalizado',
+    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+    color: 'bg-green-50 text-green-700 border-green-200',
+  },
+};
+
+function ScoreBadge({ score }: { score: number | null | undefined }) {
+  if (score == null) return <span className="text-xs text-gray-400">—</span>;
+  const color = score >= 80 ? 'text-green-600' : score >= 50 ? 'text-yellow-600' : 'text-red-600';
+  const bg = score >= 80 ? 'bg-green-50' : score >= 50 ? 'bg-yellow-50' : 'bg-red-50';
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${bg} ${color}`}>
+      {score >= 80 ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+      {score}/100
+    </span>
+  );
+}
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const { empresa, profile } = useAuth();
+  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!empresa?.id) return;
+    loadProjetos();
+  }, [empresa?.id]);
+
+  const loadProjetos = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('projetos')
+      .select('*')
+      .eq('empresa_id', empresa!.id)
+      .order('created_at', { ascending: false });
+
+    if (data) {
+      // Fetch scores
+      const projetosComScore = await Promise.all(data.map(async (p) => {
+        const { data: res } = await supabase
+          .from('resultados')
+          .select('score')
+          .eq('projeto_id', p.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        return { ...p, score: res?.score?.total ?? null };
+      }));
+      setProjetos(projetosComScore);
+    }
+    setLoading(false);
+  };
 
   const stats = [
-    { 
-      title: 'Projetos Ativos', 
-      value: '12', 
-      change: '+3 este mês',
-      icon: <Trees className="w-8 h-8 text-secondary" />,
-      color: 'bg-secondary/10'
+    {
+      title: 'Total de Projetos',
+      value: projetos.length,
+      icon: <Trees className="w-6 h-6 text-[#16A34A]" />,
+      bg: 'bg-green-50',
+      sub: `${projetos.filter(p => p.status === 'processado' || p.status === 'finalizado').length} processados`,
     },
-    { 
-      title: 'Volume Total (m³)', 
-      value: '45.890', 
-      change: '+12% vs mês anterior',
-      icon: <TrendingUp className="w-8 h-8 text-primary" />,
-      color: 'bg-primary/10'
+    {
+      title: 'Área Total (ha)',
+      value: projetos.reduce((s, p) => s + (p.area_total_ha ?? 0), 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 }),
+      icon: <TrendingUp className="w-6 h-6 text-[#0B3D2E]" />,
+      bg: 'bg-emerald-50',
+      sub: 'soma de todos projetos',
     },
-    { 
-      title: 'Score AMBISAFE', 
-      value: '87/100', 
-      change: 'Excelente',
-      icon: <BarChart3 className="w-8 h-8 text-accent" />,
-      color: 'bg-accent/10'
+    {
+      title: 'Score Médio',
+      value: (() => {
+        const comScore = projetos.filter(p => p.score != null);
+        if (comScore.length === 0) return '—';
+        const avg = comScore.reduce((s, p) => s + (p.score ?? 0), 0) / comScore.length;
+        return `${Math.round(avg)}/100`;
+      })(),
+      icon: <BarChart3 className="w-6 h-6 text-[#10B981]" />,
+      bg: 'bg-teal-50',
+      sub: 'AMBISAFE Score',
     },
-    { 
-      title: 'Usuários Ativos', 
-      value: '8', 
-      change: 'Consultores',
-      icon: <Users className="w-8 h-8 text-muted-foreground" />,
-      color: 'bg-muted'
+    {
+      title: 'Finalizados',
+      value: projetos.filter(p => p.status === 'finalizado').length,
+      icon: <FileText className="w-6 h-6 text-blue-600" />,
+      bg: 'bg-blue-50',
+      sub: 'prontos para exportar',
     },
-  ];
-
-  const recentProjects = [
-    { name: 'Fazenda Santa Helena', area: '1.250 ha', status: 'Em análise', score: 92 },
-    { name: 'Reserva Amazônia Verde', area: '3.800 ha', status: 'Concluído', score: 88 },
-    { name: 'Mata Atlântica Sul', area: '850 ha', status: 'Em processamento', score: 75 },
-    { name: 'Floresta Nacional do Norte', area: '5.200 ha', status: 'Aguardando dados', score: null },
   ];
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex md:flex-col w-64 bg-sidebar text-sidebar-foreground border-r">
-        <div className="p-6 border-b border-sidebar-border">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
-              <Trees className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold">AMBISAFE</h1>
-              <p className="text-xs text-sidebar-foreground/70">Geotecnologias</p>
-            </div>
-          </div>
-          {empresa && (
-            <p className="text-sm text-sidebar-foreground/90 mt-2">{empresa.nome || 'Minha Empresa'}</p>
-          )}
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            Olá, {profile?.name?.split(' ')[0] || 'Bem-vindo'} 👋
+          </h1>
+          <p className="text-gray-500 mt-1">
+            {empresa?.name} · {empresa?.plan === 'trial' ? 'Período de trial' : 'Plano Profissional'}
+          </p>
         </div>
-
-        <nav className="flex-1 p-4 space-y-2">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as any)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                activeTab === item.id
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent'
-              }`}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-sidebar-border">
-          <div className="flex items-center gap-3 mb-4 px-2">
-            <div className="w-10 h-10 bg-sidebar-primary rounded-full flex items-center justify-center text-white font-bold">
-              {user?.email?.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.email}</p>
-              <p className="text-xs text-sidebar-foreground/70">
-                {userRole === 'admin' ? 'Administrador' : 'Usuário'}
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            onClick={signOut}
-            className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sair
-          </Button>
-        </div>
-      </aside>
-
-      {/* Mobile Menu Button */}
-      <div className="md:hidden fixed top-4 left-4 z-50">
         <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="bg-white shadow-lg"
+          onClick={() => navigate('/app/projetos/novo')}
+          className="bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white gap-2 self-start sm:self-auto"
         >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          <Plus className="w-4 h-4" />
+          Novo Inventário
         </Button>
       </div>
 
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setMobileMenuOpen(false)}>
-          <aside className="w-64 h-full bg-sidebar text-sidebar-foreground" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-sidebar-border">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
-                  <Trees className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold">AMBISAFE</h1>
-                  <p className="text-xs text-sidebar-foreground/70">Geotecnologias</p>
-                </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {stats.map((stat, i) => (
+          <Card key={i} className="border-0 shadow-sm">
+            <CardContent className="p-5">
+              <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center mb-3`}>
+                {stat.icon}
               </div>
+              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{stat.title}</p>
+              <p className="text-xs text-gray-400 mt-1">{stat.sub}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Projects List */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Meus Inventários</CardTitle>
+              <CardDescription>Todos os seus projetos de inventário florestal</CardDescription>
             </div>
-
-            <nav className="flex-1 p-4 space-y-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id as any);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    activeTab === item.id
-                      ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent'
-                  }`}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </nav>
-
-            <div className="p-4 border-t border-sidebar-border">
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="py-16 text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-[#16A34A] mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">Carregando projetos...</p>
+            </div>
+          ) : projetos.length === 0 ? (
+            <div className="py-16 text-center border-2 border-dashed border-gray-200 rounded-xl">
+              <Trees className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <h3 className="font-semibold text-gray-700 mb-2">Nenhum inventário ainda</h3>
+              <p className="text-gray-400 text-sm mb-6">
+                Crie seu primeiro projeto de inventário florestal
+              </p>
               <Button
-                variant="ghost"
-                onClick={signOut}
-                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
+                onClick={() => navigate('/app/projetos/novo')}
+                className="bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white gap-2"
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sair
+                <Plus className="w-4 h-4" />
+                Criar Primeiro Inventário
               </Button>
             </div>
-          </aside>
-        </div>
-      )}
+          ) : (
+            <div className="space-y-3">
+              {projetos.map(projeto => {
+                const statusCfg = STATUS_CONFIG[projeto.status] || STATUS_CONFIG['rascunho'];
+                return (
+                  <div
+                    key={projeto.id}
+                    onClick={() => navigate(`/app/projetos/${projeto.id}`)}
+                    className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-[#16A34A]/30 hover:bg-gray-50 cursor-pointer transition-all group"
+                  >
+                    <div className="w-11 h-11 bg-[#0B3D2E]/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Trees className="w-5 h-5 text-[#0B3D2E]" />
+                    </div>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="container mx-auto p-4 md:p-8 max-w-7xl">
-          {/* Dashboard Tab */}
-          {activeTab === 'dashboard' && (
-            <>
-              <div className="mb-8">
-                <h1 className="text-3xl md:text-4xl font-bold mb-2">Dashboard</h1>
-                <p className="text-muted-foreground">Visão geral dos seus projetos e indicadores</p>
-              </div>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-                {stats.map((stat, index) => (
-                  <Card key={index} className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className={`p-3 rounded-lg ${stat.color}`}>
-                          {stat.icon}
-                        </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h4 className="font-semibold text-gray-900 truncate">{projeto.nome}</h4>
+                        <Badge
+                          variant="outline"
+                          className={`flex-shrink-0 text-xs gap-1 ${statusCfg.color}`}
+                        >
+                          {statusCfg.icon}
+                          {statusCfg.label}
+                        </Badge>
                       </div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-1">
-                        {stat.title}
-                      </h3>
-                      <p className="text-2xl md:text-3xl font-bold mb-1">{stat.value}</p>
-                      <p className="text-xs text-muted-foreground">{stat.change}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Recent Projects */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Projetos Recentes</CardTitle>
-                      <CardDescription>Últimos inventários florestais</CardDescription>
-                    </div>
-                    <Button onClick={() => setActiveTab('projects')}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Novo Projeto
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {recentProjects.map((project, index) => (
-                      <div
-                        key={index}
-                        className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3 cursor-pointer"
-                        onClick={() => setActiveTab('projects')}
-                      >
-                        <div className="flex-1">
-                          <h4 className="font-semibold mb-1">{project.name}</h4>
-                          <p className="text-sm text-muted-foreground">Área: {project.area}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="text-sm font-medium">{project.status}</p>
-                            {project.score !== null && (
-                              <p className="text-sm text-muted-foreground">
-                                Score: {project.score}/100
-                              </p>
-                            )}
-                          </div>
-                          <Button variant="outline" size="sm">
-                            Ver detalhes
-                          </Button>
-                        </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
+                        {projeto.municipio && (
+                          <span>{projeto.municipio}{projeto.estado ? `/${projeto.estado}` : ''}</span>
+                        )}
+                        {projeto.area_total_ha && (
+                          <span>{projeto.area_total_ha.toLocaleString('pt-BR')} ha</span>
+                        )}
+                        {projeto.tipo_inventario && (
+                          <span>{TIPO_LABEL[projeto.tipo_inventario] || projeto.tipo_inventario}</span>
+                        )}
+                        {projeto.motivo_inventario && (
+                          <span className="bg-gray-100 px-2 py-0.5 rounded-full">
+                            {MOTIVO_LABEL[projeto.motivo_inventario] || projeto.motivo_inventario}
+                          </span>
+                        )}
                       </div>
-                    ))}
+                    </div>
+
+                    <div className="flex items-center gap-4 flex-shrink-0">
+                      <div className="hidden sm:block text-right">
+                        <ScoreBadge score={projeto.score} />
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(projeto.created_at).toLocaleDateString('pt-BR')}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#16A34A] transition-colors" />
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </>
+                );
+              })}
+            </div>
           )}
-
-          {/* Projects Tab */}
-          {activeTab === 'projects' && (
-            <ProjectsModule />
-          )}
-
-          {/* Reports Tab */}
-          {activeTab === 'reports' && (
-            <>
-              <div className="mb-8">
-                <h1 className="text-3xl md:text-4xl font-bold mb-2">Relatórios</h1>
-                <p className="text-muted-foreground">Documentos técnicos e executivos gerados por IA</p>
-              </div>
-
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">Nenhum Relatório Disponível</h3>
-                  <p className="text-muted-foreground">
-                    Crie um projeto para gerar relatórios automáticos com IA
-                  </p>
-                </CardContent>
-              </Card>
-            </>
-          )}
-
-          {/* Settings Tab */}
-          {activeTab === 'settings' && (
-            <>
-              <div className="mb-8">
-                <h1 className="text-3xl md:text-4xl font-bold mb-2">Configurações</h1>
-                <p className="text-muted-foreground">Gerencie sua conta e preferências</p>
-              </div>
-
-              <div className="grid gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Informações da Conta</CardTitle>
-                    <CardDescription>Atualize seus dados pessoais</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">E-mail</label>
-                      <p className="text-sm text-muted-foreground">{user?.email}</p>
-                    </div>
-                    <Button variant="outline">Editar Perfil</Button>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Assinatura</CardTitle>
-                    <CardDescription>Plano Profissional - R$ 300/mês</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Próxima cobrança: 01/04/2026
-                    </p>
-                    <div className="flex gap-3">
-                      <Button variant="outline">Gerenciar Assinatura</Button>
-                      <Button variant="outline">Histórico de Pagamentos</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </>
-          )}
-
-          {/* Admin Tab */}
-          {activeTab === 'admin' && userRole === 'admin' && (
-            <>
-              <div className="mb-8">
-                <div className="flex items-center gap-3 mb-2">
-                  <Crown className="w-8 h-8 text-yellow-500" />
-                  <h1 className="text-3xl md:text-4xl font-bold">Admin Supremo</h1>
-                </div>
-                <p className="text-muted-foreground">Painel de controle geral da plataforma</p>
-              </div>
-
-              <div className="grid gap-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-xl">Empresas</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-4xl font-bold mb-2">245</p>
-                      <p className="text-sm text-muted-foreground">+12 este mês</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-xl">MRR</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-4xl font-bold mb-2">R$ 73.5K</p>
-                      <p className="text-sm text-muted-foreground">+8% vs mês anterior</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-xl">Taxa Conversão</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-4xl font-bold mb-2">67%</p>
-                      <p className="text-sm text-muted-foreground">Trial → Pago</p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Controle Operacional</CardTitle>
-                    <CardDescription>Ferramentas de administração</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <Button variant="outline" className="justify-start">
-                        <Users className="w-4 h-4 mr-2" />
-                        Gerenciar Empresas
-                      </Button>
-                      <Button variant="outline" className="justify-start">
-                        <BarChart3 className="w-4 h-4 mr-2" />
-                        Consumo de IA
-                      </Button>
-                      <Button variant="outline" className="justify-start">
-                        <FileText className="w-4 h-4 mr-2" />
-                        Logs de Auditoria
-                      </Button>
-                      <Button variant="outline" className="justify-start">
-                        <Settings className="w-4 h-4 mr-2" />
-                        Configurações Globais
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </>
-          )}
-        </div>
-      </main>
+        </CardContent>
+      </Card>
     </div>
   );
 }

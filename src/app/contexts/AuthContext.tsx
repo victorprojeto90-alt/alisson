@@ -1,109 +1,123 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+
+export interface Empresa {
+  id: string;
+  name: string;
+  plan: string;
+  trial_ends_at: string;
+  owner_id: string;
+  created_at: string;
+}
+
+export interface Profile {
+  id: string;
+  empresa_id: string;
+  name: string;
+  role: 'admin' | 'engineer' | 'viewer';
+  empresa: Empresa;
+}
 
 interface AuthContextType {
   user: User | null;
+  profile: Profile | null;
+  empresa: Empresa | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, name: string, companyName: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  empresa: any;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [empresa, setEmpresa] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const loadProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*, empresa:empresas(*)')
+      .eq('id', userId)
+      .single();
+    if (data) setProfile(data as Profile);
+  };
+
   useEffect(() => {
-    // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        loadEmpresa(session.user.id);
+        loadProfile(session.user.id).finally(() => setLoading(false));
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        loadEmpresa(session.user.id);
+        loadProfile(session.user.id);
       } else {
-        setEmpresa(null);
+        setProfile(null);
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadEmpresa = async (userId: string) => {
-    try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
-      
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-eed79e88/empresa`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setEmpresa(data);
-      }
-    } catch (error) {
-      console.error('Error loading empresa:', error);
-    }
-  };
-
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    return { error: error?.message ?? null };
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
-    try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-eed79e88/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
-        body: JSON.stringify({ email, password, name })
-      });
-      
-      const data = await response.json();
-      if (!response.ok) {
-        return { error: data.error || 'Erro ao criar conta' };
-      }
-      
-      return { error: null };
-    } catch (error: any) {
-      return { error: error.message };
-    }
+  const signUp = async (email: string, password: string, name: string, companyName: string) => {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    });
+    if (authError) return { error: authError.message };
+    if (!authData.user) return { error: 'Erro ao criar usuário' };
+
+    const { data: empresa, error: empresaError } = await supabase
+      .from('empresas')
+      .insert({ name: companyName, owner_id: authData.user.id })
+      .select()
+      .single();
+    if (empresaError) return { error: empresaError.message };
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({ id: authData.user.id, empresa_id: empresa.id, name, role: 'admin' });
+    if (profileError) return { error: profileError.message };
+
+    return { error: null };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setEmpresa(null);
+    setProfile(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, empresa }}>
+    <AuthContext.Provider value={{
+      user,
+      profile,
+      empresa: profile?.empresa ?? null,
+      loading,
+      signIn,
+      signUp,
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
-};
+}

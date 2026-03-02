@@ -33,8 +33,9 @@ export function useApi() {
       }
 
       return data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      setError(message);
       throw err;
     } finally {
       setLoading(false);
