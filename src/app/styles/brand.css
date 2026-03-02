@@ -1,110 +1,110 @@
 ﻿:root{
-  --ambisafe-dark:#0b5a2b;
-  --ambisafe-dark-2:#083e1b;
-  --ambisafe-lime:#b7d434;
-  --ambisafe-bg:#f6fbf2;
-  --text:#122214;
-  --muted:#667069;
-  --card-bg:#ffffff;
+	--ambisafe-dark:#0b5a2b;
+	--ambisafe-dark-2:#083e1b;
+	--ambisafe-lime:#b7d434;
+	--ambisafe-bg:#f6fbf2;
+	--text:#122214;
+	--muted:#667069;
+	--card-bg:#ffffff;
 }
 
 body{
-  background:var(--ambisafe-bg);
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  margin:0;
+	background:var(--ambisafe-bg);
+	color:var(--text);
+	font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+	margin:0;
 }
 
-  background: linear-gradient(90deg, rgba(11,90,43,1) 0%, rgba(11,90,43,0.95) 70%);
-  color: white;
-  padding: 14px 20px;
-  display:flex;
-  align-items:center;
-  gap:16px;
-  box-shadow: 0 6px 24px rgba(6,30,14,0.08);
-  position:sticky;
-  top:0;
-  z-index:40;
-  box-shadow: 0 2px 6px rgba(6,30,14,0.08);
+.brand-header{
+	background: linear-gradient(90deg, rgba(11,90,43,1) 0%, rgba(11,90,43,0.95) 70%);
+	color: white;
+	padding: 14px 20px;
+	display:flex;
+	align-items:center;
+	gap:16px;
+	box-shadow: 0 6px 24px rgba(6,30,14,0.08);
+	position:sticky;
+	top:0;
+	z-index:40;
 }
 
 .brand-header .logo{
-  display:flex;
-  align-items:center;
-  gap:12px;
+	display:flex;
+	align-items:center;
+	gap:12px;
 }
 
-  height:44px;
-  display:block;
-  height:44px;
+.brand-header img.logo-img{
+	height:44px;
+	display:block;
 }
 
 .brand-header .brand-title{
-  font-weight:700;
-  font-size:20px;
-  color:#fff;
+	font-weight:700;
+	font-size:20px;
+	color:#fff;
 }
 
+.brand-header nav{ margin-left: auto; display:flex; gap:12px; align-items:center; }
 
 .brand-header .menu-toggle{ display:none; background:transparent; border:0; color:#fff; font-size:20px; cursor:pointer }
 
 .mobile-nav{ display:none; position:absolute; right:16px; top:64px; background:var(--card-bg); color:var(--text); border-radius:10px; box-shadow:0 12px 40px rgba(6,30,14,0.12); padding:12px; min-width:180px; }
 .mobile-nav a{ display:block; padding:8px 6px; color:var(--text); text-decoration:none }
 .mobile-nav a:hover{ background:rgba(0,0,0,0.03); }
-.brand-header nav{ margin-left: auto; display:flex; gap:12px; align-items:center; }
 
 .btn-primary{
-  background:var(--ambisafe-lime);
-  color:var(--ambisafe-dark-2);
-  border:none;
-  padding:8px 14px;
-  border-radius:6px;
-  font-weight:600;
-  cursor:pointer;
-  box-shadow: none;
+	background:var(--ambisafe-lime);
+	color:var(--ambisafe-dark-2);
+	border:none;
+	padding:8px 14px;
+	border-radius:6px;
+	font-weight:600;
+	cursor:pointer;
+	box-shadow: none;
+}
 .btn-primary:hover{ transform:translateY(-1px); box-shadow:0 8px 18px rgba(11,90,43,0.08) }
 
 .muted-link{ color:rgba(255,255,255,0.9); text-decoration:none }
-}
 
-  display:flex;
-  gap:24px;
-  align-items:center;
-  padding:56px 24px;
-  max-width:1200px;
-  margin:0 auto;
-  padding:48px 36px;
+.hero{
+	display:flex;
+	gap:24px;
+	align-items:center;
+	padding:56px 24px;
+	max-width:1200px;
+	margin:0 auto;
 }
 
 .hero .hero-left{
-  max-width:720px;
+	max-width:720px;
 }
 .hero h1{ font-size:44px; margin:0 0 12px; color:var(--ambisafe-dark-2); line-height:1.05 }
 .hero p{ color:var(--muted); font-size:18px; margin:0 0 20px; }
-.hero p{ color:var(--muted); font-size:16px; margin:0 0 20px; }
 
 .feature-cards{ display:flex; gap:12px; flex-wrap:wrap; margin-top:20px; }
 .card{
-  background:var(--card-bg);
-  padding:16px;
-  border-radius:10px;
-  min-width:220px;
-  box-shadow:0 6px 18px rgba(6,30,14,0.06);
+	background:var(--card-bg);
+	padding:16px;
+	border-radius:10px;
+	min-width:220px;
+	box-shadow:0 6px 18px rgba(6,30,14,0.06);
+}
 
 /* Responsive */
 @media (max-width: 900px){
-  .hero{ flex-direction:column; padding:28px 18px }
-  .hero h1{ font-size:30px }
-  .brand-header nav{ display:none }
-  .brand-header .menu-toggle{ display:block }
-  .container{ padding:12px 18px }
+	.hero{ flex-direction:column; padding:28px 18px }
+	.hero h1{ font-size:30px }
+	.brand-header nav{ display:none }
+	.brand-header .menu-toggle{ display:block }
+	.container{ padding:12px 18px }
 }
 
 @media (max-width:480px){
-  .hero h1{ font-size:24px }
-  .card{ min-width:140px }
-}
+	.hero h1{ font-size:24px }
+	.card{ min-width:140px }
 }
 
 .container{ padding:20px 36px; }
 .footer{ padding:20px 36px; color:var(--muted); font-size:13px; border-top:1px solid rgba(0,0,0,0.04); background:transparent; }
+
