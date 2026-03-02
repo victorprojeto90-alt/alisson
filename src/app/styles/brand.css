@@ -1,0 +1,82 @@
+﻿/* filepath: c:\Users\Victor Almeida\alisson\src\app\styles\brand.css */
+:root{
+  --ambisafe-dark:#0b5a2b;
+  --ambisafe-dark-2:#083e1b;
+  --ambisafe-lime:#b7d434;
+  --ambisafe-bg:#f6fbf2;
+  --text:#122214;
+  --muted:#667069;
+  --card-bg:#ffffff;
+}
+
+body{
+  background:var(--ambisafe-bg);
+  color:var(--text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  margin:0;
+}
+
+.brand-header{
+  background: linear-gradient(90deg, rgba(11,90,43,1) 0%, rgba(11,90,43,0.95) 70%);
+  color: white;
+  padding: 12px 20px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+  box-shadow: 0 2px 6px rgba(6,30,14,0.08);
+}
+
+.brand-header .logo{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.brand-header img.logo-img{
+  height:44px;
+}
+
+.brand-header .brand-title{
+  font-weight:700;
+  font-size:20px;
+  color:#fff;
+}
+
+.brand-header nav{ margin-left: auto; display:flex; gap:12px; align-items:center; }
+
+.btn-primary{
+  background:var(--ambisafe-lime);
+  color:var(--ambisafe-dark-2);
+  border:none;
+  padding:8px 14px;
+  border-radius:6px;
+  font-weight:600;
+  cursor:pointer;
+  box-shadow: none;
+}
+
+.hero{
+  display:flex;
+  gap:24px;
+  align-items:center;
+  padding:48px 36px;
+}
+
+.hero .hero-left{
+  max-width:720px;
+}
+
+.hero h1{ font-size:40px; margin:0 0 12px; color:var(--ambisafe-dark-2); }
+.hero p{ color:var(--muted); font-size:16px; margin:0 0 20px; }
+
+.feature-cards{ display:flex; gap:12px; flex-wrap:wrap; margin-top:20px; }
+.card{
+  background:var(--card-bg);
+  padding:16px;
+  border-radius:10px;
+  min-width:220px;
+  box-shadow:0 6px 18px rgba(6,30,14,0.06);
+}
+
+.container{ padding:20px 36px; }
+.footer{ padding:20px 36px; color:var(--muted); font-size:13px; border-top:1px solid rgba(0,0,0,0.04); background:transparent; }
