@@ -1,7 +1,7 @@
 ﻿/* filepath: c:\Users\Victor Almeida\alisson\src\app\components\Header.tsx */
 import React, { useEffect, useState } from "react";
 import "../../app/styles/brand.css";
-const logo = require("../../assets/ambisafe-logo.png").default || "../../assets/ambisafe-logo.png";
+import logo from "../../assets/Ambi.png";
 
 export default function Header(){
   const [phone, setPhone] = useState<string>("+55 83 9114-4456");
