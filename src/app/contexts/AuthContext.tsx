@@ -41,18 +41,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('profiles')
       .select('*, empresa:empresas(*)')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setProfile(data as Profile);
       return;
     }
 
-    // User exists in auth but has no empresa/profile yet (e.g. signed up before migration).
+    // User exists in auth but has no empresa/profile yet (e.g. signed up before migration
+    // or email confirmation flow where insert ran before session was established).
     // Auto-provision both records so the app works immediately.
     const { data: { user: authUser } } = await supabase.auth.getUser();
     const emailBase = authUser?.email?.split('@')[0] ?? 'Empresa';
-    const companyName = emailBase.charAt(0).toUpperCase() + emailBase.slice(1);
+    const companyName = (authUser?.user_metadata?.company_name as string | undefined)
+      ?? (emailBase.charAt(0).toUpperCase() + emailBase.slice(1));
 
     const { data: empresa } = await supabase
       .from('empresas')
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .select('*, empresa:empresas(*)')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (newProfile) setProfile(newProfile as Profile);
     }
@@ -106,26 +108,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, name: string, companyName: string) => {
+    // Only create the auth user here. Empresa + profile are provisioned by loadProfile
+    // once the user has a valid session (immediately if email confirmation is off,
+    // or after email confirmation otherwise).
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: { data: { name, company_name: companyName } },
     });
     if (authError) return { error: authError.message };
     if (!authData.user) return { error: 'Erro ao criar usuário' };
-
-    const { data: empresa, error: empresaError } = await supabase
-      .from('empresas')
-      .insert({ name: companyName, owner_id: authData.user.id })
-      .select()
-      .single();
-    if (empresaError) return { error: empresaError.message };
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({ id: authData.user.id, empresa_id: empresa.id, name, role: 'admin' });
-    if (profileError) return { error: profileError.message };
-
     return { error: null };
   };
 
