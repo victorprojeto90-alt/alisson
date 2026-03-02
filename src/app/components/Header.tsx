@@ -5,6 +5,7 @@ import logo from "../../assets/Ambi.png";
 
 export default function Header(){
   const [phone, setPhone] = useState<string>("+55 83 9114-4456");
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
 
   useEffect(() => {
     let mounted = true;
@@ -41,6 +42,16 @@ export default function Header(){
           <button className="btn-primary" onClick={() => window.location.href = "/projetos/novo"}>Iniciar novo inventário</button>
         </div>
       </nav>
+      <button className="menu-toggle" onClick={() => setMobileOpen(v => !v)} aria-label="Abrir menu">☰</button>
+      {mobileOpen && (
+        <div className="mobile-nav" role="menu">
+          <a href="/projetos">Projetos</a>
+          <a href="/relatorios">Relatórios</a>
+          <a href="/config">Configurações</a>
+          <a href="/projetos/novo">Iniciar novo inventário</a>
+          <a href={"tel:" + phone.replace(/\s+/g,"")}>Suporte: {phone}</a>
+        </div>
+      )}
     </header>
   );
 }
