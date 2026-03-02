@@ -42,7 +42,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('*, empresa:empresas(*)')
       .eq('id', userId)
       .single();
-    if (data) setProfile(data as Profile);
+
+    if (data) {
+      setProfile(data as Profile);
+      return;
+    }
+
+    // User exists in auth but has no empresa/profile yet (e.g. signed up before migration).
+    // Auto-provision both records so the app works immediately.
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const emailBase = authUser?.email?.split('@')[0] ?? 'Empresa';
+    const companyName = emailBase.charAt(0).toUpperCase() + emailBase.slice(1);
+
+    const { data: empresa } = await supabase
+      .from('empresas')
+      .insert({ name: companyName, owner_id: userId })
+      .select()
+      .single();
+
+    if (empresa) {
+      await supabase.from('profiles').insert({
+        id: userId,
+        empresa_id: empresa.id,
+        name: authUser?.user_metadata?.name ?? companyName,
+        role: 'admin',
+      });
+
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .select('*, empresa:empresas(*)')
+        .eq('id', userId)
+        .single();
+
+      if (newProfile) setProfile(newProfile as Profile);
+    }
   };
 
   useEffect(() => {
