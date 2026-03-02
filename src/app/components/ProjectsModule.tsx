@@ -112,13 +112,29 @@ export default function ProjectsModule() {
       return;
     }
 
+    // Validate uploaded file columns if present
+    if (fileData && fileData.length > 0) {
+      const first = fileData[0] || {};
+      const cols = Object.keys(first).map((c) => c.trim().toLowerCase());
+      const hasParcela = cols.includes('parcela');
+      const hasEspecie = cols.includes('espécie') || cols.includes('especie');
+      const hasDAP = cols.includes('dap') || cols.includes('cap');
+      const hasHT = cols.includes('ht') || cols.includes('altura') || cols.includes('altura total');
+
+      if (!hasParcela || !hasEspecie || !hasDAP || !hasHT) {
+        alert('A planilha não contém as colunas obrigatórias. Verifique: Parcela, Espécie, DAP/CAP, HT');
+        return;
+      }
+    }
+
     try {
       const result = await apiCall('/projects', {
         method: 'POST',
         body: JSON.stringify({
           name: newProjectName,
           area: newProjectArea,
-          tipo_amostragem: newProjectType
+          tipo_amostragem: newProjectType,
+          fileData: fileData || null
         })
       });
 
@@ -159,6 +175,34 @@ export default function ProjectsModule() {
   };
 
   if (selectedProject) {
+    const generateReport = async (type: 'technical' | 'executive' | 'management') => {
+      try {
+        const res = await apiCall('/ai/generate-report', {
+          method: 'POST',
+          body: JSON.stringify({ projectId: selectedProject.id, reportType: type })
+        });
+
+        if (!res || !res.report) {
+          alert('Erro ao gerar relatório');
+          return;
+        }
+
+        const content = `${res.report.type.toUpperCase()}\n\nGerado em: ${res.report.generated_at}\n\nResumo: ${res.report.summary}\n\nConteúdo:\n${res.report.content}`;
+
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${selectedProject.name.replace(/\s+/g, '_')}_${res.report.type}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error('Erro ao gerar relatório:', e);
+        alert('Falha ao gerar relatório');
+      }
+    };
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -241,27 +285,28 @@ export default function ProjectsModule() {
               <CardDescription>Documentos técnicos gerados automaticamente</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button className="w-full justify-between" variant="outline">
+              <Button className="w-full justify-between" variant="outline" onClick={() => generateReport('technical')}>
                 <div className="flex items-center gap-2">
                   <Brain className="w-4 h-4" />
                   <span>Relatório Técnico Completo</span>
                 </div>
                 <Download className="w-4 h-4" />
               </Button>
-              <Button className="w-full justify-between" variant="outline">
+              <Button className="w-full justify-between" variant="outline" onClick={() => generateReport('executive')}>
                 <div className="flex items-center gap-2">
                   <Brain className="w-4 h-4" />
                   <span>Relatório Executivo</span>
                 </div>
                 <Download className="w-4 h-4" />
               </Button>
-              <Button className="w-full justify-between" variant="outline">
+              <Button className="w-full justify-between" variant="outline" onClick={() => generateReport('management')}>
                 <div className="flex items-center gap-2">
                   <Brain className="w-4 h-4" />
                   <span>Plano de Manejo Sustentável</span>
                 </div>
                 <Download className="w-4 h-4" />
               </Button>
+              
             </CardContent>
           </Card>
 

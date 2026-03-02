@@ -189,6 +189,15 @@ app.post("/make-server-eed79e88/projects", async (c) => {
 
     await kv.set(`project:${empresaId}:${projectId}`, projectData);
 
+    // If uploaded file data is provided, persist it associated to the project
+    try {
+      if (body.fileData) {
+        await kv.set(`projectdata:${empresaId}:${projectId}`, body.fileData);
+      }
+    } catch (e) {
+      console.warn('Não foi possível salvar fileData no KV store:', e);
+    }
+
     return c.json({ success: true, project: projectData });
   } catch (error: any) {
     console.error('Error creating project:', error);
@@ -215,12 +224,26 @@ app.post("/make-server-eed79e88/ai/generate-report", async (c) => {
     const { projectId, reportType } = body;
 
     // Note: In production, integrate with Google Gemini API
-    // For now, return a simulated response
+    // For now, return a simulated response enriched with stored project data info
+    let projectDataStored = null;
+    try {
+      projectDataStored = await kv.get(`projectdata:${empresaId}:${projectId}`);
+    } catch (e) {
+      console.warn('Erro ao recuperar dados do projeto para relatório:', e);
+    }
+
+    const rows = Array.isArray(projectDataStored) ? projectDataStored.length : 0;
+    const cols = projectDataStored && projectDataStored[0] ? Object.keys(projectDataStored[0]).length : 0;
+
     const simulatedReport = {
       type: reportType,
       generated_at: new Date().toISOString(),
       content: `Relatório ${reportType === 'technical' ? 'Técnico' : 'Executivo'} gerado por IA.`,
-      summary: 'Análise completa do inventário florestal com base nos dados fornecidos.',
+      summary: `Análise gerada a partir de ${rows} registros${cols ? ` e ${cols} colunas` : ''}.`,
+      metadata: {
+        rows,
+        cols,
+      }
     };
 
     // Log AI usage
