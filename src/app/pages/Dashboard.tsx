@@ -16,6 +16,7 @@ import {
   FileText,
   ChevronRight,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 
 interface Projeto {
@@ -77,14 +78,15 @@ function ScoreBadge({ score }: { score: number | null | undefined }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { empresa, profile } = useAuth();
+  const { empresa, profile, loading: authLoading } = useAuth();
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!empresa?.id) return;
+    if (authLoading) return;
+    if (!empresa?.id) { setLoading(false); return; }
     loadProjetos();
-  }, [empresa?.id]);
+  }, [empresa?.id, authLoading]);
 
   const loadProjetos = async () => {
     setLoading(true);
@@ -146,6 +148,70 @@ export default function Dashboard() {
       sub: 'prontos para exportar',
     },
   ];
+
+  if (!authLoading && !empresa) {
+    return (
+      <div className="p-4 md:p-8 max-w-2xl mx-auto pt-16">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-yellow-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-8 h-8 text-yellow-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Conta não configurada</h1>
+          <p className="text-gray-500 text-sm max-w-md mx-auto">
+            Sua conta foi criada mas os dados da empresa ainda não foram registrados no banco.
+            Isso acontece quando há um problema de configuração no Supabase.
+          </p>
+        </div>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Para corrigir, execute este SQL no Supabase:</h3>
+            <div className="bg-gray-900 rounded-xl p-4 text-xs text-green-400 font-mono overflow-x-auto">
+              <pre>{`DROP POLICY IF EXISTS "admin_all_empresas" ON empresas;
+DROP POLICY IF EXISTS "admin_all_profiles" ON profiles;
+DROP POLICY IF EXISTS "admin_all_projetos" ON projetos;
+DROP POLICY IF EXISTS "admin_all_parcelas" ON parcelas;
+DROP POLICY IF EXISTS "admin_all_arvores" ON arvores;
+DROP POLICY IF EXISTS "admin_all_resultados" ON resultados;
+
+CREATE POLICY "admin_all_empresas" ON empresas FOR ALL
+  USING (auth.email() = 'admin@ambisafe.com.br')
+  WITH CHECK (auth.email() = 'admin@ambisafe.com.br');
+
+CREATE POLICY "admin_all_profiles" ON profiles FOR ALL
+  USING (auth.email() = 'admin@ambisafe.com.br')
+  WITH CHECK (auth.email() = 'admin@ambisafe.com.br');
+
+CREATE POLICY "admin_all_projetos" ON projetos FOR ALL
+  USING (auth.email() = 'admin@ambisafe.com.br')
+  WITH CHECK (auth.email() = 'admin@ambisafe.com.br');
+
+CREATE POLICY "admin_all_parcelas" ON parcelas FOR ALL
+  USING (auth.email() = 'admin@ambisafe.com.br')
+  WITH CHECK (auth.email() = 'admin@ambisafe.com.br');
+
+CREATE POLICY "admin_all_arvores" ON arvores FOR ALL
+  USING (auth.email() = 'admin@ambisafe.com.br')
+  WITH CHECK (auth.email() = 'admin@ambisafe.com.br');
+
+CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
+  USING (auth.email() = 'admin@ambisafe.com.br')
+  WITH CHECK (auth.email() = 'admin@ambisafe.com.br');`}</pre>
+            </div>
+            <p className="text-xs text-gray-500">
+              Após executar o SQL, clique em &quot;Recarregar&quot; para tentar novamente.
+            </p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="w-full bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Recarregar página
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">

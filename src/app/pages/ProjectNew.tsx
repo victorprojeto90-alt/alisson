@@ -8,7 +8,7 @@ import { Card, CardContent, CardTitle, CardDescription } from '../components/ui/
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Trees } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Trees, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const BIOMAS = [
@@ -93,7 +93,7 @@ const STEPS = [
 
 export default function ProjectNew() {
   const navigate = useNavigate();
-  const { empresa } = useAuth();
+  const { empresa, loading: authLoading } = useAuth();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -163,6 +163,23 @@ export default function ProjectNew() {
     toast.success('Projeto criado com sucesso!');
     navigate(`/app/projetos/${data.id}`);
   };
+
+  if (!authLoading && !empresa) {
+    return (
+      <div className="p-4 md:p-8 max-w-lg mx-auto pt-16 text-center">
+        <div className="w-14 h-14 bg-yellow-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <AlertTriangle className="w-7 h-7 text-yellow-500" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Conta não configurada</h2>
+        <p className="text-gray-500 text-sm mb-6">
+          Sua conta ainda não foi vinculada a uma empresa. Acesse o Dashboard para ver as instruções de correção.
+        </p>
+        <Button onClick={() => navigate('/app/dashboard')} className="bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white">
+          Ir para o Dashboard
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto">

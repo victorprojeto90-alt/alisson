@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error: selectError } = await supabase
       .from('profiles')
       .select('*, empresa:empresas(*)')
       .eq('id', userId)
@@ -63,6 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data) {
       setProfile(data as Profile);
       return;
+    }
+
+    // Log permission errors (broken admin SQL policies) but continue trying to provision.
+    if (selectError && selectError.code !== 'PGRST116') {
+      console.warn('[AuthContext] Profile query error:', selectError.message, '— tentando provisionar...');
     }
 
     // Auto-provision empresa + profile for users created before migration
@@ -82,11 +87,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (meta.cidade) empresaInsert.cidade = meta.cidade as string;
     if (meta.estado_uf) empresaInsert.estado_uf = meta.estado_uf as string;
 
-    const { data: empresa } = await supabase
+    const { data: empresa, error: empresaError } = await supabase
       .from('empresas')
       .insert(empresaInsert)
       .select()
       .single();
+
+    if (empresaError) {
+      console.error('[AuthContext] Falha ao provisionar empresa:', empresaError.message,
+        '— Execute o SQL de correção das policies no Supabase.');
+      return;
+    }
 
     if (empresa) {
       const profileInsert: Record<string, string | null> = {
@@ -101,7 +112,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (meta.cidade) profileInsert.cidade = meta.cidade as string;
       if (meta.estado_uf) profileInsert.estado_uf = meta.estado_uf as string;
 
-      await supabase.from('profiles').insert(profileInsert);
+      const { error: profileError } = await supabase.from('profiles').insert(profileInsert);
+      if (profileError) {
+        console.error('[AuthContext] Falha ao provisionar profile:', profileError.message);
+        return;
+      }
 
       const { data: newProfile } = await supabase
         .from('profiles')
