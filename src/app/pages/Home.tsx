@@ -27,20 +27,20 @@ export default function Home(){
         <div className="hero-left">
           <h1>AMBISAFE — Inventário florestal mais rápido e preciso</h1>
           <p>Processamento automático de planilhas, cálculo estatístico, geração de tabelas e pré‑relatórios técnicos prontos para exportação (PDF/DOCX/Excel).</p>
-          <div style={{display:"flex", gap:12}}>
+          <div className="hero-actions">
             <button className="btn-primary" onClick={() => window.location.href = "/projetos/novo"}>Iniciar novo inventário</button>
-            <a href="#features" style={{alignSelf:"center", color:"var(--ambisafe-dark-2)", fontWeight:600}}>Ver funcionalidades →</a>
+            <a className="muted-link" href="#features">Ver funcionalidades →</a>
           </div>
 
           <div className="feature-cards">
-            <div className="card"><strong>Upload automatizado</strong><div style={{fontSize:13,color:"var(--muted)"}}>Detecta colunas e associa automaticamente.</div></div>
-            <div className="card"><strong>Cálculos técnicos</strong><div style={{fontSize:13,color:"var(--muted)"}}>DAP, área basal, volume, estatísticas amostrais.</div></div>
-            <div className="card"><strong>Relatórios prontos</strong><div style={{fontSize:13,color:"var(--muted)"}}>Exportação em PDF e DOCX com layout técnico.</div></div>
+            <div className="card"><strong>Upload automatizado</strong><div className="muted">Detecta colunas e associa automaticamente.</div></div>
+            <div className="card"><strong>Cálculos técnicos</strong><div className="muted">DAP, área basal, volume, estatísticas amostrais.</div></div>
+            <div className="card"><strong>Relatórios prontos</strong><div className="muted">Exportação em PDF e DOCX com layout técnico.</div></div>
           </div>
         </div>
 
-        <div style={{flex:1, textAlign:"center"}}>
-          <img src={logo} alt="AMBISAFE" style={{maxWidth:360}}/>
+        <div className="hero-right">
+          <img src={logo} alt="Logo Ambisafe" className="hero-image"/>
         </div>
       </section>
 
