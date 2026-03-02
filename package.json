@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "prebuild": "npm rebuild esbuild --silent || true",
+    "postinstall": "npm rebuild esbuild --silent || true"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
