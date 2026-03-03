@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Trees, ArrowLeft, Eye, EyeOff, UserCheck, Briefcase, Mail } from 'lucide-react';
+import { Trees, ArrowLeft, Eye, EyeOff, UserCheck, Briefcase, Mail, KeyRound } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
@@ -16,6 +16,10 @@ export default function AuthPage() {
 
   const [isSignIn, setIsSignIn] = useState(true);
   const [isForgot, setIsForgot] = useState(false);
+  const [isRecovery, setIsRecovery] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario>('pessoa_fisica');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,6 +31,35 @@ export default function AuthPage() {
   const [estadoUf, setEstadoUf] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Detecta redirecionamento do Supabase com token no hash
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecovery(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) { toast.error('Senha deve ter pelo menos 6 caracteres'); return; }
+    if (newPassword !== confirmPassword) { toast.error('As senhas não coincidem'); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setLoading(false);
+    if (error) {
+      toast.error('Erro ao atualizar senha: ' + error.message);
+    } else {
+      toast.success('Senha atualizada com sucesso! Redirecionando...');
+      setIsRecovery(false);
+      setNewPassword('');
+      setConfirmPassword('');
+      // Pequeno delay para o toast aparecer antes de redirecionar
+      setTimeout(() => navigate('/app/dashboard'), 1500);
+    }
+  };
 
   const formatCpfCnpj = (v: string) => {
     const digits = v.replace(/\D/g, '');
@@ -135,21 +168,77 @@ export default function AuthPage() {
             </div>
             <div className="text-center">
               <CardTitle className="text-xl">
-                {isForgot ? 'Redefinir senha' : isSignIn ? 'Bem-vindo de volta' : 'Criar conta'}
+                {isRecovery ? 'Criar nova senha'
+                  : isForgot ? 'Redefinir senha'
+                  : isSignIn ? 'Bem-vindo de volta'
+                  : 'Criar conta'}
               </CardTitle>
               <CardDescription className="mt-1">
-                {isForgot
-                  ? 'Enviaremos um link para seu e-mail'
-                  : isSignIn
-                    ? 'Entre com suas credenciais para acessar a plataforma'
-                    : 'Teste grátis por 14 dias, sem cartão de crédito'}
+                {isRecovery ? 'Escolha uma senha segura para sua conta'
+                  : isForgot ? 'Enviaremos um link para seu e-mail'
+                  : isSignIn ? 'Entre com suas credenciais para acessar a plataforma'
+                  : 'Teste grátis por 14 dias, sem cartão de crédito'}
               </CardDescription>
             </div>
           </CardHeader>
 
           <CardContent>
+            {/* ── Tela de definir nova senha (vindo do link do e-mail) ── */}
+            {isRecovery && (
+              <form onSubmit={handleUpdatePassword} className="space-y-4">
+                <div className="text-center mb-2">
+                  <div className="w-12 h-12 bg-[#0B3D2E]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <KeyRound className="w-6 h-6 text-[#0B3D2E]" />
+                  </div>
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    Digite sua nova senha abaixo. Use pelo menos 6 caracteres.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Nova senha *</label>
+                  <div className="relative">
+                    <Input
+                      type={showNewPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      autoFocus
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Confirmar senha *</label>
+                  <Input
+                    type={showNewPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white h-auto py-2.5"
+                  disabled={loading}
+                >
+                  {loading ? 'Salvando...' : 'Definir nova senha'}
+                </Button>
+              </form>
+            )}
+
             {/* ── Tela de redefinição de senha ── */}
-            {isForgot && (
+            {!isRecovery && isForgot && (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="text-center mb-2">
                   <div className="w-12 h-12 bg-[#0B3D2E]/10 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -191,7 +280,7 @@ export default function AuthPage() {
             )}
 
             {/* ── Tela de login / cadastro ── */}
-            {!isForgot && (
+            {!isRecovery && !isForgot && (
             <form onSubmit={handleSubmit} className="space-y-3">
               {/* Tipo de usuário — só no cadastro */}
               {!isSignIn && (
