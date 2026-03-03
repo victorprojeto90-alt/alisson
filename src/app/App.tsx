@@ -9,6 +9,7 @@ import ProjectNew from './pages/ProjectNew';
 import ProjectDetail from './pages/ProjectDetail';
 import Configuracoes from './pages/Configuracoes';
 import Relatorios from './pages/Relatorios';
+import Projetos from './pages/Projetos';
 import AdminPage from './pages/AdminPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -50,7 +51,7 @@ function AppRoutes() {
       }>
         <Route index element={<Navigate to="/app/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="projetos" element={<Navigate to="/app/dashboard" replace />} />
+        <Route path="projetos" element={<Projetos />} />
         <Route path="projetos/novo" element={<ProjectNew />} />
         <Route path="projetos/:id" element={<ProjectDetail />} />
         <Route path="relatorios" element={<Relatorios />} />

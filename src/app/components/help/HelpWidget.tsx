@@ -122,6 +122,17 @@ export default function HelpWidget() {
         }),
       });
 
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const isNotDeployed = res.status === 404 || res.status === 0;
+        const answer = isNotDeployed
+          ? 'O serviço de IA ainda não está ativo. Enquanto isso, consulte os artigos sugeridos acima ou envie um e-mail para suporte@ambisafe.com.br.'
+          : `Erro do servidor (${res.status}): ${errData.error ?? 'Tente novamente.'}`;
+        setMessages(prev => [...prev, { role: 'assistant', content: answer }]);
+        setLoading(false);
+        return;
+      }
+
       const data = await res.json();
       const answer = data.answer ?? 'Não consegui processar sua pergunta. Tente novamente ou contate o suporte.';
 
@@ -150,7 +161,10 @@ export default function HelpWidget() {
     } catch {
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Erro de conexão. Verifique sua internet e tente novamente.' },
+        {
+          role: 'assistant',
+          content: 'O serviço de IA precisa ser ativado. Consulte os artigos de ajuda acima ou entre em contato: suporte@ambisafe.com.br',
+        },
       ]);
     }
 

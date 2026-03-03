@@ -31,7 +31,16 @@ interface EmpresaAdmin {
   cnpj?: string | null;
   cidade?: string | null;
   estado_uf?: string | null;
-  profiles: { id: string; name: string; role: string; tipo_usuario?: string; email?: string }[];
+  profiles: {
+    id: string;
+    name: string;
+    role: string;
+    tipo_usuario?: string;
+    telefone?: string | null;
+    cpf_cnpj?: string | null;
+    cidade?: string | null;
+    estado_uf?: string | null;
+  }[];
   projetos: { id: string; status: string }[];
 }
 
@@ -49,7 +58,7 @@ export default function AdminPage() {
     const [empresasRes, helpRes] = await Promise.all([
       supabase
         .from('empresas')
-        .select('*, profiles(id, name, role, tipo_usuario), projetos(id, status)')
+        .select('*, profiles(id, name, role, tipo_usuario, telefone, cpf_cnpj, cidade, estado_uf), projetos(id, status)')
         .order('created_at', { ascending: false }),
       supabase
         .from('help_questions')
@@ -378,6 +387,7 @@ export default function AdminPage() {
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Empresa / Responsável</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Tipo</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Contato</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Projetos</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Plano</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Trial</th>
@@ -413,6 +423,24 @@ export default function AdminPage() {
                             : <><UserCheck className="w-3 h-3" /> Pessoa Física</>
                           }
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-xs space-y-0.5">
+                          {emp.profiles?.[0]?.telefone && (
+                            <p className="text-gray-700">{emp.profiles[0].telefone}</p>
+                          )}
+                          {(emp.profiles?.[0]?.cidade || emp.profiles?.[0]?.estado_uf) && (
+                            <p className="text-gray-400">
+                              {[emp.profiles[0].cidade, emp.profiles[0].estado_uf].filter(Boolean).join('/')}
+                            </p>
+                          )}
+                          {emp.profiles?.[0]?.cpf_cnpj && (
+                            <p className="text-gray-300 font-mono text-[10px]">{emp.profiles[0].cpf_cnpj}</p>
+                          )}
+                          {!emp.profiles?.[0]?.telefone && !emp.profiles?.[0]?.cidade && (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-xs">
