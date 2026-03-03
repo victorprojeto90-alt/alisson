@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Trees, ArrowLeft, Eye, EyeOff, UserCheck, Briefcase } from 'lucide-react';
+import { Trees, ArrowLeft, Eye, EyeOff, UserCheck, Briefcase, Mail } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
 type TipoUsuario = 'pessoa_fisica' | 'empresa';
@@ -14,6 +15,7 @@ export default function AuthPage() {
   const { signIn, signUp } = useAuth();
 
   const [isSignIn, setIsSignIn] = useState(true);
+  const [isForgot, setIsForgot] = useState(false);
   const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario>('pessoa_fisica');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -82,8 +84,25 @@ export default function AuthPage() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) { toast.error('Informe seu e-mail'); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/auth`,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error('Erro ao enviar e-mail: ' + error.message);
+    } else {
+      toast.success('Link enviado! Verifique sua caixa de entrada.');
+      setIsForgot(false);
+    }
+  };
+
   const switchMode = () => {
     setIsSignIn(!isSignIn);
+    setIsForgot(false);
     resetForm();
   };
 
@@ -116,17 +135,63 @@ export default function AuthPage() {
             </div>
             <div className="text-center">
               <CardTitle className="text-xl">
-                {isSignIn ? 'Bem-vindo de volta' : 'Criar conta'}
+                {isForgot ? 'Redefinir senha' : isSignIn ? 'Bem-vindo de volta' : 'Criar conta'}
               </CardTitle>
               <CardDescription className="mt-1">
-                {isSignIn
-                  ? 'Entre com suas credenciais para acessar a plataforma'
-                  : 'Teste grátis por 14 dias, sem cartão de crédito'}
+                {isForgot
+                  ? 'Enviaremos um link para seu e-mail'
+                  : isSignIn
+                    ? 'Entre com suas credenciais para acessar a plataforma'
+                    : 'Teste grátis por 14 dias, sem cartão de crédito'}
               </CardDescription>
             </div>
           </CardHeader>
 
           <CardContent>
+            {/* ── Tela de redefinição de senha ── */}
+            {isForgot && (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="text-center mb-2">
+                  <div className="w-12 h-12 bg-[#0B3D2E]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Mail className="w-6 h-6 text-[#0B3D2E]" />
+                  </div>
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    Informe o e-mail cadastrado e enviaremos um link para redefinir sua senha.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">E-mail *</label>
+                  <Input
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    autoFocus
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white h-auto py-2.5"
+                  disabled={loading}
+                >
+                  {loading ? 'Enviando...' : 'Enviar link de redefinição'}
+                </Button>
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsForgot(false)}
+                    className="text-sm text-[#16A34A] hover:text-[#15803d] hover:underline"
+                  >
+                    Voltar para o login
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ── Tela de login / cadastro ── */}
+            {!isForgot && (
             <form onSubmit={handleSubmit} className="space-y-3">
               {/* Tipo de usuário — só no cadastro */}
               {!isSignIn && (
@@ -253,7 +318,18 @@ export default function AuthPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Senha *</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">Senha *</label>
+                  {isSignIn && (
+                    <button
+                      type="button"
+                      onClick={() => setIsForgot(true)}
+                      className="text-xs text-[#16A34A] hover:text-[#15803d] hover:underline"
+                    >
+                      Esqueceu a senha?
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <Input
                     type={showPassword ? 'text' : 'password'}
@@ -306,6 +382,7 @@ export default function AuthPage() {
                 </p>
               )}
             </form>
+            )}
           </CardContent>
         </Card>
 
