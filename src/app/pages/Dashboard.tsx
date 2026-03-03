@@ -35,8 +35,7 @@ interface Projeto {
 
 const TIPO_LABEL: Record<string, string> = {
   casual_simples: 'Casual Simples',
-  sistematico: 'Sistemático',
-  estratificado: 'Estratificado',
+  estratificado: 'Casual Estratificada',
   censo: 'Censo 100%',
 };
 
@@ -123,14 +122,14 @@ export default function Dashboard() {
       sub: `${projetos.filter(p => p.status === 'processado' || p.status === 'finalizado').length} processados`,
     },
     {
-      title: 'Área Total (ha)',
-      value: projetos.reduce((s, p) => s + (p.area_total_ha ?? 0), 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 }),
+      title: 'Área Total Inventariada',
+      value: `${projetos.reduce((s, p) => s + (p.area_total_ha ?? 0), 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ha`,
       icon: <TrendingUp className="w-6 h-6 text-[#0B3D2E]" />,
       bg: 'bg-emerald-50',
-      sub: 'soma de todos projetos',
+      sub: 'soma de todos os projetos',
     },
     {
-      title: 'Score Médio',
+      title: 'Score Médio AMBISAFE',
       value: (() => {
         const comScore = projetos.filter(p => p.score != null);
         if (comScore.length === 0) return '—';
@@ -139,7 +138,7 @@ export default function Dashboard() {
       })(),
       icon: <BarChart3 className="w-6 h-6 text-[#10B981]" />,
       bg: 'bg-teal-50',
-      sub: 'AMBISAFE Score',
+      sub: 'Qualidade técnica do inventário (0–100)',
     },
     {
       title: 'Finalizados',

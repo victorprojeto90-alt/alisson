@@ -14,7 +14,7 @@ import { Button } from '../ui/button';
 import { cn } from '../ui/utils';
 
 const navItems = [
-  { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/app/dashboard', label: 'Painel de Controle', icon: LayoutDashboard },
   { to: '/app/projetos', label: 'Projetos', icon: Trees },
   { to: '/app/relatorios', label: 'Relatórios', icon: FileText },
   { to: '/app/configuracoes', label: 'Configurações', icon: Settings },

@@ -8,7 +8,7 @@ import { Card, CardContent, CardTitle, CardDescription } from '../components/ui/
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Trees, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Trees, AlertTriangle, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
 
 const BIOMAS = [
@@ -32,19 +32,14 @@ const TIPOS_INVENTARIO = [
     desc: 'Parcelas alocadas aleatoriamente na área de estudo',
   },
   {
-    value: 'sistematico',
-    label: 'Amostragem Sistemática',
-    desc: 'Parcelas distribuídas em grid regular sobre a área',
-  },
-  {
     value: 'estratificado',
-    label: 'Amostragem Estratificada',
-    desc: 'Área dividida em estratos homogêneos com parcelas proporcionais',
+    label: 'Amostragem Casual Estratificada',
+    desc: 'Área dividida em estratos homogêneos com parcelas alocadas aleatoriamente em cada estrato',
   },
   {
     value: 'censo',
     label: 'Inventário 100% (Censo)',
-    desc: 'Todos os indivíduos da área são mensurados',
+    desc: 'Todos os indivíduos da área são mensurados individualmente',
   },
 ];
 
@@ -73,6 +68,8 @@ const MOTIVOS = [
 
 interface FormData {
   nome: string;
+  data_inventario: string;
+  descricao: string;
   municipio: string;
   estado: string;
   bioma: string;
@@ -99,6 +96,8 @@ export default function ProjectNew() {
 
   const [form, setForm] = useState<FormData>({
     nome: '',
+    data_inventario: new Date().toISOString().split('T')[0],
+    descricao: '',
     municipio: '',
     estado: '',
     bioma: '',
@@ -106,7 +105,7 @@ export default function ProjectNew() {
     tipo_inventario: 'casual_simples',
     motivo_inventario: 'licenciamento',
     precisao_requerida: '10',
-    nivel_confianca: '95',
+    nivel_confianca: '90',
     tamanho_parcela_m2: '400',
     fator_forma: '0.7',
   });
@@ -143,6 +142,8 @@ export default function ProjectNew() {
       .insert({
         empresa_id: empresa.id,
         nome: form.nome.trim(),
+        data_inventario: form.data_inventario || null,
+        descricao: form.descricao.trim() || null,
         municipio: form.municipio.trim() || null,
         estado: form.estado || null,
         bioma: form.bioma || null,
@@ -237,6 +238,31 @@ export default function ProjectNew() {
                   placeholder="Ex: Fazenda Santa Helena - Inventário Supressão"
                   value={form.nome}
                   onChange={e => set('nome', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="data_inventario" className="flex items-center gap-1.5">
+                  <CalendarDays className="w-3.5 h-3.5 text-gray-400" />
+                  Data do Inventário
+                </Label>
+                <Input
+                  id="data_inventario"
+                  type="date"
+                  value={form.data_inventario}
+                  onChange={e => set('data_inventario', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="descricao">Descrição / Anotações</Label>
+                <textarea
+                  id="descricao"
+                  placeholder="Ex: Inventário para instrução de licença de supressão vegetal. Parcelas distribuídas na faixa leste da propriedade..."
+                  value={form.descricao}
+                  onChange={e => set('descricao', e.target.value)}
+                  rows={3}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
                 />
               </div>
 
@@ -402,7 +428,7 @@ export default function ProjectNew() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="5">5%</SelectItem>
-                      <SelectItem value="10">10% (recomendado)</SelectItem>
+                      <SelectItem value="10">10%</SelectItem>
                       <SelectItem value="15">15%</SelectItem>
                       <SelectItem value="20">20%</SelectItem>
                     </SelectContent>
@@ -415,8 +441,8 @@ export default function ProjectNew() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="90">90%</SelectItem>
-                      <SelectItem value="95">95% (recomendado)</SelectItem>
+                      <SelectItem value="90">90% (recomendado)</SelectItem>
+                      <SelectItem value="95">95%</SelectItem>
                       <SelectItem value="99">99%</SelectItem>
                     </SelectContent>
                   </Select>
