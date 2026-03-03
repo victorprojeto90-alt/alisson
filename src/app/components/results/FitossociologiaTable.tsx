@@ -23,10 +23,17 @@ function THead({ cols }: { cols: string[] }) {
 export default function FitossociologiaTable({ especies, familias }: Props) {
   const sorted = [...especies].sort((a, b) => b.vi - a.vi);
 
+  // Totals for the espécies por VI% table
+  const totNI = sorted.reduce((s, e) => s + e.n_individuos, 0);
+  const totDA = sorted.reduce((s, e) => s + e.da, 0);
+  const totDoA = sorted.reduce((s, e) => s + e.doa, 0);
+  const totVI = sorted.reduce((s, e) => s + e.vi, 0);
+  const totVol = sorted.reduce((s, e) => s + e.vol_ha, 0);
+
   return (
     <Card className="border-0 shadow-sm">
       <CardHeader>
-        <CardTitle className="text-base">Análise Fitossociológica</CardTitle>
+        <CardTitle className="text-base">Análise Fitossociológica da Estrutura Horizontal</CardTitle>
         <p className="text-sm text-gray-400">Parâmetros fitossociológicos das espécies e famílias amostradas</p>
       </CardHeader>
       <CardContent className="p-0">
@@ -69,12 +76,39 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
                       <td className="py-2 px-3 font-mono text-right">{fmt.num(e.vol_ha, 4)}</td>
                     </tr>
                   ))}
+                  {/* Totals row */}
+                  <tr className="bg-[#0B3D2E]/5 border-t-2 border-[#0B3D2E]/30 font-bold text-xs">
+                    <td className="py-2 px-3 text-gray-500"></td>
+                    <td className="py-2 px-3 text-gray-800" colSpan={3}>TOTAL</td>
+                    <td className="py-2 px-3 font-mono text-right">{totNI}</td>
+                    <td className="py-2 px-3 font-mono text-right">{fmt.num(totDA, 2)}</td>
+                    <td className="py-2 px-3 font-mono text-right">100,00</td>
+                    <td className="py-2 px-3 font-mono text-right">{fmt.num(totDoA, 4)}</td>
+                    <td className="py-2 px-3 font-mono text-right">100,00</td>
+                    <td className="py-2 px-3 font-mono text-right">—</td>
+                    <td className="py-2 px-3 font-mono text-right">100,00</td>
+                    <td className="py-2 px-3 font-mono text-right">{fmt.num(totVI, 2)}</td>
+                    <td className="py-2 px-3 font-mono text-right text-[#0B3D2E]">100,00</td>
+                    <td className="py-2 px-3 font-mono text-right">{fmt.num(totVol, 4)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-gray-400 px-4 py-2 border-t">
-              NI = Nº Indivíduos · DA = Densidade Absoluta (ind/ha) · DR% = Densidade Relativa · DoA = Dominância Absoluta (m²/ha) · DoR% = Dominância Relativa · FA% = Frequência Absoluta · FR% = Frequência Relativa · VI = Valor de Importância · VI% = VI/3
-            </p>
+            {/* Legend */}
+            <div className="px-4 py-3 border-t bg-gray-50">
+              <p className="text-xs font-semibold text-gray-600 mb-1">Legenda das colunas:</p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                <strong>NI</strong> = Nº de Indivíduos &nbsp;·&nbsp;
+                <strong>DA</strong> = Densidade Absoluta (ind/ha) &nbsp;·&nbsp;
+                <strong>DR%</strong> = Densidade Relativa (%) &nbsp;·&nbsp;
+                <strong>DoA</strong> = Dominância Absoluta (m²/ha) &nbsp;·&nbsp;
+                <strong>DoR%</strong> = Dominância Relativa (%) &nbsp;·&nbsp;
+                <strong>FA%</strong> = Frequência Absoluta (%) &nbsp;·&nbsp;
+                <strong>FR%</strong> = Frequência Relativa (%) &nbsp;·&nbsp;
+                <strong>VI</strong> = Valor de Importância (DR + DoR + FR) &nbsp;·&nbsp;
+                <strong>VI%</strong> = VI / 3
+              </p>
+            </div>
           </TabsContent>
 
           {/* Espécies por Nº de indivíduos */}

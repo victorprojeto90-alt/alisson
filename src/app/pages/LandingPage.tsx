@@ -16,8 +16,13 @@ import {
   ChevronRight,
   Globe,
   BookOpen,
+  Leaf,
+  GraduationCap,
+  Microscope,
+  Landmark,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import ambiLogo from '../../assets/Ambi.png';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -63,12 +68,14 @@ export default function LandingPage() {
   ];
 
   const targetAudience = [
-    { icon: <BookOpen className="w-5 h-5" />, label: 'Engenheiros Florestais' },
-    { icon: <Globe className="w-5 h-5" />, label: 'Consultores Ambientais' },
-    { icon: <Users className="w-5 h-5" />, label: 'Biólogos e Ecólogos' },
-    { icon: <Star className="w-5 h-5" />, label: 'Gestores Ambientais' },
-    { icon: <Shield className="w-5 h-5" />, label: 'Órgãos Públicos' },
-    { icon: <FileText className="w-5 h-5" />, label: 'Universidades' },
+    { icon: <Trees className="w-5 h-5" />, label: 'Engenheiros Florestais' },
+    { icon: <Leaf className="w-5 h-5" />, label: 'Engenheiros Agrônomos' },
+    { icon: <Globe className="w-5 h-5" />, label: 'Engenheiros Ambientais' },
+    { icon: <Microscope className="w-5 h-5" />, label: 'Biólogos' },
+    { icon: <BookOpen className="w-5 h-5" />, label: 'Tecnólogo ou Técnico Florestal' },
+    { icon: <Landmark className="w-5 h-5" />, label: 'Órgãos Públicos' },
+    { icon: <GraduationCap className="w-5 h-5" />, label: 'Estudantes universitários' },
+    { icon: <Users className="w-5 h-5" />, label: 'Qualquer profissional habilitado a realizar inventários florestais' },
   ];
 
   const differentials = [
@@ -126,6 +133,16 @@ export default function LandingPage() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
           <div className="max-w-4xl">
+            {/* Logo branco no topo do hero */}
+            <div className="mb-10">
+              <img
+                src={ambiLogo}
+                alt="AMBISAFE"
+                className="h-14 w-auto"
+                style={{ filter: 'brightness(0) invert(1)' }}
+              />
+            </div>
+
             <div className="inline-flex items-center gap-2 bg-[#16A34A]/20 border border-[#16A34A]/30 rounded-full px-4 py-1.5 mb-8">
               <Zap className="w-4 h-4 text-[#10B981]" />
               <span className="text-[#10B981] text-sm font-medium">Plataforma Nacional de Inventário Florestal com IA</span>
@@ -137,9 +154,18 @@ export default function LandingPage() {
               para Decisões Estratégicas
             </h1>
 
+            {/* Frase de destaque */}
+            <div className="inline-flex items-center gap-3 bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl px-5 py-3 mb-8">
+              <Zap className="w-5 h-5 text-[#10B981] flex-shrink-0" />
+              <p className="text-[#10B981] text-lg sm:text-xl font-bold">
+                Calcule seu Inventário Florestal em até 1 minuto
+              </p>
+            </div>
+
             <p className="text-xl text-white/70 mb-10 max-w-2xl leading-relaxed">
               Transforme dados de campo em relatórios técnicos completos. Cálculos estatísticos,
-              fitossociologia, índices de diversidade e pré-relatório automático com inteligência artificial.
+              fitossociologia, índices de diversidade, estruturas horizontais e verticais,
+              distribuição diamétrica e pré-relatório automático com inteligência artificial.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-16">
@@ -181,10 +207,11 @@ export default function LandingPage() {
       {/* Público-alvo */}
       <section className="py-16 bg-gray-50 border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-gray-500 text-sm font-medium uppercase tracking-widest mb-8">
-            Desenvolvido para profissionais da área florestal e ambiental
+          <p className="text-center text-gray-700 text-base font-medium max-w-2xl mx-auto mb-8 leading-relaxed">
+            Uma plataforma criada para quem trabalha com florestas e precisa transformar dados
+            de campo em relatórios técnicos completos, com agilidade e precisão.
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="flex flex-wrap justify-center gap-3">
             {targetAudience.map((item, i) => (
               <div key={i} className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-5 py-2.5 shadow-sm">
                 <span className="text-[#0B3D2E]">{item.icon}</span>
@@ -249,6 +276,9 @@ export default function LandingPage() {
       <section id="como-funciona" className="py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
+            <div className="flex justify-center mb-6">
+              <img src={ambiLogo} alt="AMBISAFE" className="h-12 w-auto" />
+            </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Como funciona</h2>
             <p className="text-xl text-gray-500">Em 4 passos simples do campo ao relatório</p>
           </div>

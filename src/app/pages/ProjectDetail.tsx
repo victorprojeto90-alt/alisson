@@ -444,7 +444,7 @@ export default function ProjectDetail() {
           {hasResultado && (
             <>
               <ScoreCard score={resultado.score} />
-              <StatsSummary dados={resultado.dados_gerais} />
+              <StatsSummary dados={resultado.dados_gerais} precisaoRequerida={projeto.precisao_requerida} />
               <IndicesDiversidade indices={resultado.indices_diversidade} />
               <FitossociologiaTable especies={resultado.especies} familias={resultado.familias} />
               <EstruturaDiametrica classes={resultado.classes_diametricas} />

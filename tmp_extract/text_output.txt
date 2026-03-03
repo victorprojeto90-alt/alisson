@@ -1,0 +1,29 @@
+﻿Melhorias na Interface de Login
+1) Logo AMBISAFE Software
+
+ 
+
+
+Pode-se adicionar o logo branco na parte de cima, eu tenho ele todo branco, e o colorido adiciona em outra parte mais em baixo quando tiver partes da página em branco, como na parte que explica como funciona.
+
+
+2) Após a Frase Gestão Florestal Inteligente para Decisões Estratégicas, adicionar uma frase de destaque assim “Calcule seu Inventário Florestal em até 1 minuto”
+
+Editar também a frase menor logo após, colocar assim: 
+
+Transforme dados de campo em relatórios técnicos completos. Cálculos estatísticos, fitossociologia, índices de diversidade, estruturas horizontais e verticais, distribuição diamétrica e pré-relatório automático com inteligência artificial.
+
+
+3) Logo após tem essa parte, em vez de: Desenvolvido para profissionais da área florestal e ambiental, colocar: Uma plataforma criada para quem trabalha com florestas e precisa transformar dados de campo em relatórios técnicos completos, com agilidade e precisão.
+
+ 
+Os cards, colocar:
+
+Engenheiros Florestais
+Engenheiros Agrônomos
+Engenheiros Ambientais
+Biólogos
+Tecnólogo ou Técnico Florestal
+Órgãos Públicos
+Estudantes universitários
+Qualquer profissional habilitado a realizar inventários florestais

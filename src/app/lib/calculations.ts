@@ -91,24 +91,32 @@ export interface ResultadoEspecie {
 // ---- Dados Gerais Estatísticos ----
 export interface DadosGerais {
   n_parcelas: number;
+  n_parcelas_possiveis: number;  // N = área_total / área_parcela
   area_amostrada_ha: number;
   n_individuos: number;
   n_especies: number;
   n_familias: number;
   volume_total_m3: number;
   area_basal_total_m2: number;
-  // Estatísticas (xi = vol_ha de cada parcela)
-  media_vol_ha: number;
-  variancia_amostral: number;
-  desvio_padrao: number;
+  // Estatísticas (xi = volume por parcela em m³)
+  media_vol_parcela: number;     // Média em m³/parcela
+  media_vol_ha: number;          // Média em m³/ha (derivada)
+  variancia_amostral: number;    // Variância amostral (adimensional)
+  desvio_padrao: number;         // Desvio padrão (adimensional)
+  fator_correcao: number;        // FC = (N-n)/N
   variancia_media: number;
   erro_padrao: number;
   coeficiente_variacao_pct: number;
   t_student: number;
-  erro_abs: number;       // Erro amostral absoluto (m³/ha)
-  erro_rel_pct: number;   // Erro amostral relativo (%)
+  erro_abs: number;              // Erro amostral absoluto (m³/parcela)
+  erro_rel_pct: number;          // Erro amostral relativo (%)
+  // IC por parcela (m³/parcela)
+  ic_inferior_parcela: number;
+  ic_superior_parcela: number;
+  // IC por hectare (m³/ha)
   ic_inferior_ha: number;
   ic_superior_ha: number;
+  // IC da população (m³)
   ic_inferior_pop: number;
   ic_superior_pop: number;
   volume_estimado_ha: number;
@@ -344,47 +352,74 @@ export function calcularInventario(
     .sort((a, b) => b.n_individuos - a.n_individuos);
 
   // 6. Dados gerais estatísticos
-  const volumes_ha = parcelas.map(p => p.volume_ha);
-  const media = volumes_ha.reduce((s, v) => s + v, 0) / n;
+  // xi = volume por parcela em m³ (conforme metodologia de inventário florestal)
+  const volumes_parcela = parcelas.map(p => p.volume_m3);
+  const media = n > 0 ? volumes_parcela.reduce((s, v) => s + v, 0) / n : 0; // m³/parcela
   const variancia = n > 1
-    ? volumes_ha.reduce((s, v) => s + Math.pow(v - media, 2), 0) / (n - 1)
-    : 0;
+    ? volumes_parcela.reduce((s, v) => s + Math.pow(v - media, 2), 0) / (n - 1)
+    : 0; // adimensional
   const desvio = Math.sqrt(variancia);
-  const variancia_media = variancia / n;
-  const erro_padrao = Math.sqrt(variancia_media);
   const cv = media > 0 ? (desvio / media) * 100 : 0;
   const t = getTStudent(nivel_confianca, n - 1);
-  const erro_abs = t * erro_padrao;
+
+  // Fator de Correção (FC) — população finita quando FC < 0.98
+  const area_parcela_ha = areaParcela_m2 / 10000;
+  const N_caberiam = area_parcela_ha > 0 ? area_total_ha / area_parcela_ha : 1;
+  const FC = N_caberiam > 0 ? (N_caberiam - n) / N_caberiam : 1;
+  const variancia_media = FC >= 0.98
+    ? variancia / n                  // população infinita
+    : (variancia / n) * FC;          // população finita com correção
+  const erro_padrao = Math.sqrt(variancia_media);
+  const erro_abs = t * erro_padrao;  // m³/parcela
   const erro_rel = media > 0 ? (erro_abs / media) * 100 : 0;
-  const vol_estimado_total = media * area_total_ha;
+
+  // IC por parcela (m³/parcela)
+  const ic_inf_parcela = media - erro_abs;
+  const ic_sup_parcela = media + erro_abs;
+
+  // IC por hectare (m³/ha)
+  const media_ha = area_parcela_ha > 0 ? media / area_parcela_ha : 0;
+  const ic_inf_ha = area_parcela_ha > 0 ? ic_inf_parcela / area_parcela_ha : 0;
+  const ic_sup_ha = area_parcela_ha > 0 ? ic_sup_parcela / area_parcela_ha : 0;
+
+  // IC da população (m³)
+  const ic_inf_pop = ic_inf_parcela * N_caberiam;
+  const ic_sup_pop = ic_sup_parcela * N_caberiam;
+  const vol_estimado_total = media * N_caberiam; // m³
 
   const dados_gerais: DadosGerais = {
     n_parcelas: n,
+    n_parcelas_possiveis: Math.round(N_caberiam),
     area_amostrada_ha: areaTotalAmostrada_ha,
     n_individuos: N_total,
     n_especies: especiesMap.size,
     n_familias: familiasMap.size,
     volume_total_m3: arvores_calculadas.reduce((s, a) => s + a.volume_ff_m3, 0),
     area_basal_total_m2: AB_total,
-    media_vol_ha: media,
+    media_vol_parcela: media,
+    media_vol_ha: media_ha,
     variancia_amostral: variancia,
     desvio_padrao: desvio,
+    fator_correcao: FC,
     variancia_media,
     erro_padrao,
     coeficiente_variacao_pct: cv,
     t_student: t,
     erro_abs,
     erro_rel_pct: erro_rel,
-    ic_inferior_ha: media - erro_abs,
-    ic_superior_ha: media + erro_abs,
-    ic_inferior_pop: (media - erro_abs) * area_total_ha,
-    ic_superior_pop: (media + erro_abs) * area_total_ha,
-    volume_estimado_ha: media,
+    ic_inferior_parcela: ic_inf_parcela,
+    ic_superior_parcela: ic_sup_parcela,
+    ic_inferior_ha: ic_inf_ha,
+    ic_superior_ha: ic_sup_ha,
+    ic_inferior_pop: ic_inf_pop,
+    ic_superior_pop: ic_sup_pop,
+    volume_estimado_ha: media_ha,
     volume_estimado_total: vol_estimado_total,
   };
 
   // 7. Estrutura diamétrica
   const classes_def = [
+    { classe: '< 5 cm', min_cm: 0, max_cm: 5 },
     { classe: '5 – 10 cm', min_cm: 5, max_cm: 10 },
     { classe: '10 – 15 cm', min_cm: 10, max_cm: 15 },
     { classe: '15 – 20 cm', min_cm: 15, max_cm: 20 },

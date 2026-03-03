@@ -19,7 +19,7 @@ export default function EstruturaDiametrica({ classes }: Props) {
     .every((c, i) => c.n_individuos >= nonEmpty[i + 1].n_individuos);
 
   const chartData = classes.map(c => ({
-    classe: c.classe.split('–')[0].trim() + '–',
+    classe: c.min_cm === 0 ? '<5' : c.max_cm === Infinity ? `>${c.min_cm}` : `${c.min_cm}–`,
     label: c.classe,
     n: c.n_individuos,
     pct: c.pct,

@@ -7,11 +7,36 @@ interface Props {
 }
 
 const SCORE_ITEMS = [
-  { key: 'regularidade' as const, label: 'Regularidade Estatística', weight: '30%' },
-  { key: 'diversidade' as const, label: 'Diversidade Florística', weight: '20%' },
-  { key: 'sustentabilidade' as const, label: 'Sustentabilidade', weight: '20%' },
-  { key: 'conformidade' as const, label: 'Conformidade Ambiental', weight: '20%' },
-  { key: 'consistencia' as const, label: 'Consistência dos Dados', weight: '10%' },
+  {
+    key: 'regularidade' as const,
+    label: 'Regularidade Estatística',
+    weight: '30%',
+    desc: 'Avalia a precisão amostral do inventário — quanto menor o Erro de Amostragem Relativo, maior a pontuação. Excelente: ≤5%, Bom: ≤10%, Aceitável: ≤15%.',
+  },
+  {
+    key: 'diversidade' as const,
+    label: 'Diversidade Florística',
+    weight: '20%',
+    desc: "Baseado no índice de Shannon-Weaver (H'). Florestas com H' ≥ 3,5 indicam altíssima diversidade de espécies — característica de florestas maduras e bem conservadas.",
+  },
+  {
+    key: 'sustentabilidade' as const,
+    label: 'Sustentabilidade Ecológica',
+    weight: '20%',
+    desc: 'Verifica se a distribuição diamétrica segue o padrão "J-invertido" (mais indivíduos nas menores classes). Esse padrão indica floresta com regeneração natural contínua e capacidade de auto-renovação.',
+  },
+  {
+    key: 'conformidade' as const,
+    label: 'Conformidade Ambiental',
+    weight: '20%',
+    desc: 'Avalia a homogeneidade dos dados pelo Coeficiente de Variação (CV%). Inventários com CV ≤ 20% indicam dados bem distribuídos e metodologia adequada — fundamental para laudos técnicos.',
+  },
+  {
+    key: 'consistencia' as const,
+    label: 'Consistência dos Dados',
+    weight: '10%',
+    desc: 'Percentual de registros válidos na planilha importada — árvores com CAP e altura devidamente preenchidos. Registros inválidos são excluídos dos cálculos e reduzem este indicador.',
+  },
 ];
 
 export default function ScoreCard({ score }: Props) {
@@ -78,18 +103,18 @@ export default function ScoreCard({ score }: Props) {
         </div>
 
         {/* Breakdown */}
-        <div className="space-y-3">
-          <h4 className="font-semibold text-sm text-gray-700">Detalhamento:</h4>
+        <div className="space-y-4">
+          <h4 className="font-semibold text-sm text-gray-700">Detalhamento dos componentes:</h4>
           {SCORE_ITEMS.map(item => {
             const value = score[item.key];
             return (
               <div key={item.key} className="space-y-1.5">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">
+                  <span className="text-gray-700 font-medium">
                     {item.label}
-                    <span className="text-gray-400 ml-1 text-xs">({item.weight})</span>
+                    <span className="text-gray-400 ml-1 text-xs font-normal">({item.weight})</span>
                   </span>
-                  <span className="font-semibold text-gray-900">{value}/100</span>
+                  <span className="font-bold text-gray-900">{value}/100</span>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
@@ -97,6 +122,7 @@ export default function ScoreCard({ score }: Props) {
                     style={{ width: `${value}%` }}
                   />
                 </div>
+                <p className="text-xs text-gray-400 leading-relaxed">{item.desc}</p>
               </div>
             );
           })}
