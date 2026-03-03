@@ -8,9 +8,17 @@ import { Input } from '../components/ui/input';
 import {
   Building2, Users, Trees, Crown, Clock, RefreshCw, Loader2,
   CheckCircle2, AlertTriangle, ShieldCheck, Search, TrendingUp,
-  UserCheck, Briefcase, BarChart3, Mail,
+  UserCheck, Briefcase, BarChart3, Mail, MessageCircleQuestion,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface HelpQuestion {
+  id: string;
+  page: string;
+  question: string;
+  helpful: boolean | null;
+  created_at: string;
+}
 
 interface EmpresaAdmin {
   id: string;
@@ -34,19 +42,30 @@ export default function AdminPage() {
   const [search, setSearch] = useState('');
   const [filterPlan, setFilterPlan] = useState<'all' | 'trial' | 'profissional'>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [helpQuestions, setHelpQuestions] = useState<HelpQuestion[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('empresas')
-      .select('*, profiles(id, name, role, tipo_usuario), projetos(id, status)')
-      .order('created_at', { ascending: false });
+    const [empresasRes, helpRes] = await Promise.all([
+      supabase
+        .from('empresas')
+        .select('*, profiles(id, name, role, tipo_usuario), projetos(id, status)')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('help_questions')
+        .select('id, page, question, helpful, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ]);
 
-    if (error) {
+    if (empresasRes.error) {
       toast.error('Erro ao carregar dados. Execute o SQL de políticas admin no Supabase.');
-      console.error(error);
+      console.error(empresasRes.error);
     } else {
-      setEmpresas(data ?? []);
+      setEmpresas(empresasRes.data ?? []);
+    }
+    if (!helpRes.error) {
+      setHelpQuestions(helpRes.data ?? []);
     }
     setLoading(false);
   }, []);
@@ -225,6 +244,99 @@ export default function AdminPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Analytics de Ajuda */}
+      {helpQuestions.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Perguntas por tela */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <MessageCircleQuestion className="w-4 h-4 text-[#16A34A]" />
+                Perguntas por Tela
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 pb-4">
+              {(() => {
+                const counts: Record<string, number> = {};
+                helpQuestions.forEach(q => {
+                  counts[q.page] = (counts[q.page] ?? 0) + 1;
+                });
+                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                const max = sorted[0]?.[1] ?? 1;
+                return (
+                  <div className="px-4 space-y-2">
+                    {sorted.map(([page, count]) => (
+                      <div key={page}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-gray-600 capitalize">{page}</span>
+                          <span className="text-gray-400 font-medium">{count}</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5">
+                          <div
+                            className="bg-[#16A34A] h-1.5 rounded-full"
+                            style={{ width: `${(count / max) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Stats de satisfação */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700">Satisfação</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const withFeedback = helpQuestions.filter(q => q.helpful !== null);
+                const positive = withFeedback.filter(q => q.helpful === true).length;
+                const total = helpQuestions.length;
+                const pct = withFeedback.length > 0 ? Math.round((positive / withFeedback.length) * 100) : 0;
+                return (
+                  <div className="space-y-3 text-center">
+                    <p className="text-4xl font-bold text-[#0B3D2E]">{total}</p>
+                    <p className="text-xs text-gray-400">perguntas totais</p>
+                    <div className="border-t pt-3">
+                      <p className="text-2xl font-bold text-[#16A34A]">{pct}%</p>
+                      <p className="text-xs text-gray-400">avaliadas positivamente</p>
+                      <p className="text-xs text-gray-300 mt-1">({withFeedback.length} avaliações)</p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Últimas perguntas */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-700">Últimas Perguntas</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 pb-4">
+              <div className="divide-y divide-gray-50">
+                {helpQuestions.slice(0, 5).map(q => (
+                  <div key={q.id} className="px-4 py-2.5">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded capitalize">
+                        {q.page}
+                      </span>
+                      <span className="text-xs text-gray-300">
+                        {new Date(q.created_at).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-700 line-clamp-2">{q.question}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Clientes Table */}
       <Card className="border-0 shadow-sm">

@@ -3,6 +3,7 @@ import { Outlet } from 'react-router';
 import { Menu, X } from 'lucide-react';
 import Sidebar from './Sidebar';
 import { Button } from '../ui/button';
+import HelpWidget from '../help/HelpWidget';
 
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -58,6 +59,9 @@ export default function AppLayout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Help Widget — visible on all app pages */}
+      <HelpWidget />
     </div>
   );
 }

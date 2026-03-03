@@ -181,6 +181,60 @@ Se não souber com certeza, retorne certeza "baixa" e uma sugestão.`;
 });
 
 // =========================================================
+// POST /ai/ajuda — Help chat with Gemini (RAG from help articles)
+// Body: { question, page, articles: [{title, content}] }
+// Returns: { answer }
+// =========================================================
+app.post("/make-server-eed79e88/ai/ajuda", async (c) => {
+  const user = await getUser(c);
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) return c.json({ error: "GEMINI_API_KEY não configurada" }, 500);
+
+  const { question, page, articles } = await c.req.json() as {
+    question: string;
+    page: string;
+    articles: { title: string; content: string }[];
+  };
+
+  const context = articles.length > 0
+    ? articles.map((a: { title: string; content: string }) => `## ${a.title}\n${a.content}`).join('\n\n')
+    : 'Sem artigos específicos disponíveis para esta seção.';
+
+  const prompt = `Você é o assistente de suporte da plataforma AMBISAFE Geotecnologias, um SaaS brasileiro para inventário florestal e gestão ambiental. Responda perguntas dos usuários de forma clara, objetiva e em português brasileiro. Use linguagem amigável mas profissional.
+
+Base de conhecimento (use para embasar sua resposta):
+${context}
+
+Página atual do usuário: ${page}
+
+Pergunta: ${question}
+
+Responda de forma direta e útil em até 3 parágrafos. Se a pergunta for completamente fora do contexto da plataforma, oriente o usuário a entrar em contato com suporte@ambisafe.com.br.`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 1024 },
+      }),
+    }
+  );
+
+  if (!response.ok) return c.json({ error: 'Erro ao chamar Gemini API' }, 500);
+
+  const geminiData = await response.json();
+  const answer = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!answer) return c.json({ error: 'Resposta vazia do Gemini' }, 500);
+
+  return c.json({ answer });
+});
+
+// =========================================================
 // ADMIN ENDPOINTS — requires admin@ambisafe.com.br email
 // Uses service role key (bypasses RLS automatically)
 // =========================================================

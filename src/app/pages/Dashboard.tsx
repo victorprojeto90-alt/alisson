@@ -18,6 +18,7 @@ import {
   Loader2,
   RefreshCw,
 } from 'lucide-react';
+import OnboardingCard from '../components/help/OnboardingCard';
 
 interface Projeto {
   id: string;
@@ -233,6 +234,9 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
           Novo Inventário
         </Button>
       </div>
+
+      {/* Onboarding checklist for new users */}
+      {!loading && <OnboardingCard projetos={projetos} />}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
