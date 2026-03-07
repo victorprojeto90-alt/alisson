@@ -85,7 +85,10 @@ export default function ProjectDetail() {
     ]);
 
     if (proj) setProjeto(proj);
-    if (arvs) setArvores(arvs);
+    if (arvs) {
+      setArvores(arvs);
+      console.log('Primeiros 5 arvores:', arvs?.slice(0, 5).map(a => ({ parcela: a.parcela_numero, num: a.numero_arvore, nome: a.nome_comum })));
+    }
     if (parc) setParcelas(parc.map(p => ({ numero: p.numero, area_m2: p.area_m2, lat: p.lat, lng: p.lng })));
 
     // Load previous result
