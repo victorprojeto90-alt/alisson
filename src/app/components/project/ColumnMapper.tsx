@@ -49,14 +49,16 @@ const COLUMN_DEFS: ColumnDef[] = [
     key: 'altura_total_m',
     label: 'Altura Total (m)',
     required: true,
-    aliases: ['ht', 'altura', 'altura total', 'alt', 'h', 'height', 'ht (m)', 'altura_m', 'ht_m'],
+    aliases: ['ht', 'altura', 'altura total', 'alt', 'h', 'height', 'ht (m)', 'altura_m', 'ht_m', 'alt. total', 'alt total', 'alt. tot', 'ht total'],
     hint: 'Altura total da árvore em metros',
   },
   {
     key: 'numero_arvore',
     label: 'Nº Árvore',
     required: false,
-    aliases: ['número', 'numero', 'nº arvore', 'nº árvore', 'n arvore', 'id', 'arv', 'no arvore'],
+    aliases: ['número', 'numero', 'nº arvore', 'nº árvore', 'n arvore', 'id', 'arv', 'no arvore',
+      'núm. árvore', 'num. arvore', 'núm arvore', 'num arvore', 'núm. arvore', 'num. árvore',
+      'nº. árvore', 'nº. arvore'],
     hint: 'Número identificador da árvore na parcela',
   },
   {
@@ -77,7 +79,8 @@ const COLUMN_DEFS: ColumnDef[] = [
     key: 'numero_fuste',
     label: 'Nº Fuste',
     required: false,
-    aliases: ['fuste', 'fustes', 'nº fuste', 'n fuste', 'stem', 'multi'],
+    aliases: ['fuste', 'fustes', 'nº fuste', 'n fuste', 'stem', 'multi',
+      'núm. fuste', 'num. fuste', 'núm fuste', 'num fuste', 'nº. fuste'],
     hint: 'Número do fuste (para árvores com múltiplos fustes)',
   },
   {
@@ -91,13 +94,18 @@ const COLUMN_DEFS: ColumnDef[] = [
 
 function autoDetect(headers: string[]): ColumnMapping {
   const mapping: Partial<ColumnMapping> = {};
-  const normalizeHeader = (h: string) => h.toLowerCase().trim().replace(/[_\-.]/g, ' ');
+  // Normaliza pontos/hifens/underscores → espaço, colapsa múltiplos espaços
+  const normalize = (s: string) =>
+    s.toLowerCase().trim().replace(/[_\-.]/g, ' ').replace(/\s+/g, ' ');
 
   for (const colDef of COLUMN_DEFS) {
+    // Normaliza os aliases para que "núm. árvore" e "núm árvore" sejam equivalentes
+    const normAliases = colDef.aliases.map(normalize);
+
     // Try exact / alias match
     const matched = headers.find(h => {
-      const n = normalizeHeader(h);
-      return colDef.aliases.some(alias => n === alias || n.includes(alias));
+      const n = normalize(h);
+      return normAliases.some(alias => n === alias || n.includes(alias));
     });
     if (matched) {
       mapping[colDef.key] = matched;
@@ -106,14 +114,14 @@ function autoDetect(headers: string[]): ColumnMapping {
 
     // Try partial match
     const partial = headers.find(h => {
-      const n = normalizeHeader(h);
-      return colDef.aliases.some(alias => n.startsWith(alias) || alias.startsWith(n));
+      const n = normalize(h);
+      return normAliases.some(alias => n.startsWith(alias) || alias.startsWith(n));
     });
     if (partial) mapping[colDef.key] = partial;
   }
 
   // Special case: if column contains "dap" treat as cap * π
-  const dapCol = headers.find(h => normalizeHeader(h).includes('dap'));
+  const dapCol = headers.find(h => normalize(h).includes('dap'));
   if (dapCol && !mapping.cap_cm) mapping.cap_cm = dapCol;
 
   return {
