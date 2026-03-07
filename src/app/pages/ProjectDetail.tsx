@@ -80,7 +80,7 @@ export default function ProjectDetail() {
     setLoading(true);
     const [{ data: proj }, { data: arvs }, { data: parc }] = await Promise.all([
       supabase.from('projetos').select('*').eq('id', id!).single(),
-      supabase.from('arvores').select('*').eq('projeto_id', id!).order('parcela_numero').order('numero_arvore'),
+      supabase.from('arvores').select('*').eq('projeto_id', id!).order('parcela_numero').order('numero_arvore').range(0, 49999),
       supabase.from('parcelas').select('*').eq('projeto_id', id!).order('numero'),
     ]);
 
