@@ -220,7 +220,7 @@ export function calcularInventario(
 ): ResultadoInventario {
   const { area_total_ha, fator_forma, nivel_confianca, tamanho_parcela_m2 } = config;
 
-  // 1. Calcular cada árvore
+  // 1. Calcular cada árvore (um registro por fuste)
   const arvores_calculadas: ArvoreCalculada[] = [];
   const arvores_invalidas: Arvore[] = [];
 
@@ -229,6 +229,37 @@ export function calcularInventario(
     if (calc) arvores_calculadas.push(calc);
     else arvores_invalidas.push(arv);
   }
+
+  // 1b. Agrupar fustes por indivíduo (parcela + numero_arvore).
+  // Árvores sem numero_arvore são tratadas como indivíduos únicos (cada fuste = 1 indivíduo).
+  const individuosMap = new Map<string, {
+    parcela_numero: number;
+    nome_comum: string;
+    nome_cientifico: string | null;
+    familia: string | null;
+    volume_ff_m3: number;
+    area_basal_m2: number;
+  }>();
+
+  for (const arv of arvores_calculadas) {
+    const key = arv.numero_arvore != null
+      ? `${arv.parcela_numero}:${arv.numero_arvore}`
+      : arv.id; // sem número → cada fuste é seu próprio indivíduo
+    if (!individuosMap.has(key)) {
+      individuosMap.set(key, {
+        parcela_numero: arv.parcela_numero,
+        nome_comum: arv.nome_comum,
+        nome_cientifico: arv.nome_cientifico,
+        familia: arv.familia,
+        volume_ff_m3: 0,
+        area_basal_m2: 0,
+      });
+    }
+    const ind = individuosMap.get(key)!;
+    ind.volume_ff_m3 += arv.volume_ff_m3;
+    ind.area_basal_m2 += arv.area_basal_m2;
+  }
+  const individuos = Array.from(individuosMap.values());
 
   // 2. Determinar parcelas únicas
   const numeroParcelas = [...new Set(arvores.map(a => a.parcela_numero))].sort((a, b) => a - b);
@@ -241,24 +272,24 @@ export function calcularInventario(
     if (!parcelasMap.has(n)) parcelasMap.set(n, { numero: n, area_m2: areaParcela_m2 });
   }
 
-  // 3. Calcular por parcela
+  // 3. Calcular por parcela — usar indivíduos agrupados para contagem e volumes
   const parcelas: ResultadoParcela[] = numeroParcelas.map(numParcela => {
-    const arvsP = arvores_calculadas.filter(a => a.parcela_numero === numParcela);
+    const indsP = individuos.filter(i => i.parcela_numero === numParcela);
     const parcelaInfo = parcelasMap.get(numParcela)!;
     const area_ha = parcelaInfo.area_m2 / 10000;
 
-    const ab = arvsP.reduce((s, a) => s + a.area_basal_m2, 0);
-    const vol = arvsP.reduce((s, a) => s + a.volume_ff_m3, 0);
+    const ab = indsP.reduce((s, i) => s + i.area_basal_m2, 0);
+    const vol = indsP.reduce((s, i) => s + i.volume_ff_m3, 0);
 
     return {
       numero: numParcela,
       area_m2: parcelaInfo.area_m2,
-      n_individuos: arvsP.length,
+      n_individuos: indsP.length,
       area_basal_m2: ab,
       volume_m3: vol,
       volume_ha: area_ha > 0 ? vol / area_ha : 0,
       area_basal_ha: area_ha > 0 ? ab / area_ha : 0,
-      densidade_ha: area_ha > 0 ? arvsP.length / area_ha : 0,
+      densidade_ha: area_ha > 0 ? indsP.length / area_ha : 0,
     };
   });
 
@@ -267,40 +298,46 @@ export function calcularInventario(
     return s + (parcelasMap.get(np)?.area_m2 ?? areaParcela_m2) / 10000;
   }, 0);
 
-  // 4. Fitossociologia por espécie
+  // 4. Fitossociologia por espécie — baseada em indivíduos (não em fustes)
   const especiesMap = new Map<string, {
     nome_comum: string;
     nome_cientifico: string;
     familia: string;
-    arvores: ArvoreCalculada[];
+    n_inds: number;
+    ab_total: number;
+    vol_total: number;
     parcelas: Set<number>;
   }>();
 
-  for (const arv of arvores_calculadas) {
-    const key = arv.nome_comum?.toLowerCase().trim() || 'desconhecida';
+  for (const ind of individuos) {
+    const key = ind.nome_comum?.toLowerCase().trim() || 'desconhecida';
     if (!especiesMap.has(key)) {
       especiesMap.set(key, {
-        nome_comum: arv.nome_comum || 'Desconhecida',
-        nome_cientifico: arv.nome_cientifico || 'Não identificada',
-        familia: arv.familia || 'Não identificada',
-        arvores: [],
+        nome_comum: ind.nome_comum || 'Desconhecida',
+        nome_cientifico: ind.nome_cientifico || 'Não identificada',
+        familia: ind.familia || 'Não identificada',
+        n_inds: 0,
+        ab_total: 0,
+        vol_total: 0,
         parcelas: new Set(),
       });
     }
     const esp = especiesMap.get(key)!;
-    esp.arvores.push(arv);
-    esp.parcelas.add(arv.parcela_numero);
+    esp.n_inds += 1;
+    esp.ab_total += ind.area_basal_m2;
+    esp.vol_total += ind.volume_ff_m3;
+    esp.parcelas.add(ind.parcela_numero);
   }
 
-  const N_total = arvores_calculadas.length;
-  const AB_total = arvores_calculadas.reduce((s, a) => s + a.area_basal_m2, 0);
+  const N_total = individuos.length; // total de indivíduos (não de fustes)
+  const AB_total = individuos.reduce((s, i) => s + i.area_basal_m2, 0);
   const soma_FA: number[] = [];
 
   const especiesArr = Array.from(especiesMap.values());
   const especiesRaw = especiesArr.map(e => {
-    const ni = e.arvores.length;
-    const ab_i = e.arvores.reduce((s, a) => s + a.area_basal_m2, 0);
-    const vol_i = e.arvores.reduce((s, a) => s + a.volume_ff_m3, 0);
+    const ni = e.n_inds;
+    const ab_i = e.ab_total;
+    const vol_i = e.vol_total;
     const np_i = e.parcelas.size;
     const fa = (np_i / n) * 100;
     soma_FA.push(fa);
@@ -394,7 +431,7 @@ export function calcularInventario(
     n_individuos: N_total,
     n_especies: especiesMap.size,
     n_familias: familiasMap.size,
-    volume_total_m3: arvores_calculadas.reduce((s, a) => s + a.volume_ff_m3, 0),
+    volume_total_m3: individuos.reduce((s, i) => s + i.volume_ff_m3, 0),
     area_basal_total_m2: AB_total,
     media_vol_parcela: media,
     media_vol_ha: media_ha,
@@ -441,7 +478,7 @@ export function calcularInventario(
   }).filter(c => c.n_individuos > 0);
 
   // 8. Estrutura vertical
-  const alturas = arvores_calculadas.map(a => a.altura_total_m).filter(h => h > 0);
+  const alturas = arvores_calculadas.map(a => a.altura_total_m).filter((h): h is number => h != null && h > 0);
   const h_max = alturas.length > 0 ? Math.max(...alturas) : 0;
   const h1 = h_max / 3;
   const h2 = (h_max * 2) / 3;
@@ -453,7 +490,7 @@ export function calcularInventario(
   ];
 
   const estrutura_vertical: Estratificacao[] = estratos.map(e => {
-    const arvsE = arvores_calculadas.filter(a => a.altura_total_m > e.min && a.altura_total_m <= e.max);
+    const arvsE = arvores_calculadas.filter(a => a.altura_total_m != null && a.altura_total_m > e.min && a.altura_total_m <= e.max);
     return {
       estrato: e.estrato,
       descricao: e.desc,
@@ -469,14 +506,14 @@ export function calcularInventario(
   const S = especiesMap.size;
   const shannon_h = N_total > 0
     ? -Array.from(especiesMap.values()).reduce((sum, e) => {
-        const p = e.arvores.length / N_total;
+        const p = e.n_inds / N_total;
         return sum + (p > 0 ? p * Math.log(p) : 0);
       }, 0)
     : 0;
 
   const simpson_c = N_total > 0
     ? 1 - Array.from(especiesMap.values()).reduce((sum, e) => {
-        const p = e.arvores.length / N_total;
+        const p = e.n_inds / N_total;
         return sum + p * p;
       }, 0)
     : 0;
