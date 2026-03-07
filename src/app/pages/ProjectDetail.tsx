@@ -123,9 +123,11 @@ export default function ProjectDetail() {
         return {
           projeto_id: id!,
           parcela_numero: parseInt(String(row[mapping.parcela] ?? idx + 1)) || (idx + 1),
-          numero_arvore: mapping.numero_arvore && row[mapping.numero_arvore] != null
-            ? parseInt(String(row[mapping.numero_arvore]))
-            : null,
+          numero_arvore: (() => {
+            if (!mapping.numero_arvore || row[mapping.numero_arvore] == null) return null;
+            const v = parseInt(String(row[mapping.numero_arvore]));
+            return isNaN(v) ? null : v;
+          })(),
           nome_comum: mapping.nome_comum ? String(row[mapping.nome_comum] ?? 'Desconhecida') : 'Desconhecida',
           nome_cientifico: mapping.nome_cientifico && row[mapping.nome_cientifico]
             ? String(row[mapping.nome_cientifico])
@@ -169,7 +171,15 @@ export default function ProjectDetail() {
       setShowMapper(false);
       setRawRows([]);
       setRawHeaders([]);
-      toast.success(`${arvorasToInsert.length} árvores salvas com sucesso!`);
+      const nInds = new Set(
+        arvorasToInsert.map((a, i) => a.numero_arvore != null ? `${a.parcela_numero}:${a.numero_arvore}` : `__${i}`)
+      ).size;
+      const nFustes = arvorasToInsert.length;
+      toast.success(
+        nInds === nFustes
+          ? `${nInds} indivíduos salvos com sucesso!`
+          : `${nInds} indivíduos (${nFustes} fustes) salvos com sucesso!`
+      );
     } finally {
       setUploading(false);
     }
@@ -222,6 +232,12 @@ export default function ProjectDetail() {
   const hasData = arvores.length > 0;
   const hasResultado = resultado != null;
 
+  // Conta indivíduos únicos (mesma lógica do calculations.ts):
+  // agrupa por parcela+numero_arvore; registros sem numero_arvore contam individualmente.
+  const nIndividuos = new Set(
+    arvores.map(a => a.numero_arvore != null ? `${a.parcela_numero}:${a.numero_arvore}` : a.id)
+  ).size;
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -247,7 +263,7 @@ export default function ProjectDetail() {
           <div className="flex flex-wrap gap-3 mt-1 text-sm text-gray-400">
             {projeto.municipio && <span>{projeto.municipio}{projeto.estado ? `/${projeto.estado}` : ''}</span>}
             <span>{projeto.area_total_ha.toLocaleString('pt-BR')} ha</span>
-            {hasData && <span>{arvores.length.toLocaleString('pt-BR')} árvores</span>}
+            {hasData && <span>{nIndividuos.toLocaleString('pt-BR')} indivíduos</span>}
           </div>
         </div>
 
@@ -364,7 +380,7 @@ export default function ProjectDetail() {
                       Dados Carregados
                     </CardTitle>
                     <CardDescription>
-                      {arvores.length.toLocaleString('pt-BR')} árvores em{' '}
+                      {nIndividuos.toLocaleString('pt-BR')} indivíduos em{' '}
                       {[...new Set(arvores.map(a => a.parcela_numero))].length} parcelas
                     </CardDescription>
                   </div>
@@ -377,7 +393,7 @@ export default function ProjectDetail() {
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                   {[
-                    { label: 'Árvores', value: arvores.length },
+                    { label: 'Indivíduos', value: nIndividuos },
                     { label: 'Parcelas', value: [...new Set(arvores.map(a => a.parcela_numero))].length },
                     { label: 'Espécies', value: [...new Set(arvores.map(a => a.nome_comum?.toLowerCase()))].length },
                     { label: 'Sem CAP/HT', value: arvores.filter(a => !a.cap_cm || !a.altura_total_m).length },
