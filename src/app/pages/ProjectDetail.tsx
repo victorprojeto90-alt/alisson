@@ -171,6 +171,7 @@ export default function ProjectDetail() {
         .order('numero_arvore');
 
       if (newArvores.data) setArvores(newArvores.data);
+      await loadProject();
       setShowMapper(false);
       setRawRows([]);
       setRawHeaders([]);
