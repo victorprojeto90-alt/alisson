@@ -80,7 +80,19 @@ export default function ProjectDetail() {
     setLoading(true);
     const [{ data: proj }, { data: arvs }, { data: parc }] = await Promise.all([
       supabase.from('projetos').select('*').eq('id', id!).single(),
-      supabase.from('arvores').select('*').eq('projeto_id', id!).order('parcela_numero').order('numero_arvore').range(0, 49999),
+      (async () => {
+        let all: any[] = [];
+        let from = 0;
+        const batch = 1000;
+        while (true) {
+          const { data } = await supabase.from('arvores').select('*').eq('projeto_id', id!).order('parcela_numero').order('numero_arvore').range(from, from + batch - 1);
+          if (!data || data.length === 0) break;
+          all = all.concat(data);
+          if (data.length < batch) break;
+          from += batch;
+        }
+        return { data: all };
+      })(),
       supabase.from('parcelas').select('*').eq('projeto_id', id!).order('numero'),
     ]);
 
