@@ -8,6 +8,7 @@ import {
   Plus,
   Crown,
   ChevronRight,
+  Leaf,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
@@ -17,6 +18,7 @@ const navItems = [
   { to: '/app/dashboard', label: 'Painel de Controle', icon: LayoutDashboard },
   { to: '/app/projetos', label: 'Projetos', icon: Trees },
   { to: '/app/relatorios', label: 'Relatórios', icon: FileText },
+  { to: '/app/especies', label: 'Banco de Espécies', icon: Leaf },
   { to: '/app/configuracoes', label: 'Configurações', icon: Settings },
 ];
 

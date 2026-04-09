@@ -32,37 +32,9 @@ const TIPOS_INVENTARIO = [
     desc: 'Parcelas alocadas aleatoriamente na área de estudo',
   },
   {
-    value: 'estratificado',
-    label: 'Amostragem Casual Estratificada',
-    desc: 'Área dividida em estratos homogêneos com parcelas alocadas aleatoriamente em cada estrato',
-  },
-  {
     value: 'censo',
-    label: 'Inventário 100% (Censo)',
+    label: 'Inventário 100% — Censo Florestal',
     desc: 'Todos os indivíduos da área são mensurados individualmente',
-  },
-];
-
-const MOTIVOS = [
-  {
-    value: 'licenciamento',
-    label: 'Licenciamento Ambiental',
-    desc: 'Para instrução de processos junto a órgãos ambientais',
-  },
-  {
-    value: 'manejo',
-    label: 'Manejo Florestal Sustentável',
-    desc: 'Para elaboração de Plano de Manejo (PMFS)',
-  },
-  {
-    value: 'supressao',
-    label: 'Supressão Vegetal',
-    desc: 'Para supressão autorizada de vegetação nativa',
-  },
-  {
-    value: 'academico',
-    label: 'Levantamento Acadêmico',
-    desc: 'Para pesquisa científica ou trabalhos universitários',
   },
 ];
 
@@ -122,7 +94,6 @@ export default function ProjectNew() {
     }
     if (step === 1) {
       if (!form.tipo_inventario) { toast.error('Selecione o tipo de inventário'); return false; }
-      if (!form.motivo_inventario) { toast.error('Selecione o motivo do inventário'); return false; }
     }
     return true;
   };
@@ -355,32 +326,6 @@ export default function ProjectNew() {
                 </RadioGroup>
               </div>
 
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold">Motivo do Inventário *</Label>
-                <RadioGroup
-                  value={form.motivo_inventario}
-                  onValueChange={v => set('motivo_inventario', v)}
-                  className="space-y-2"
-                >
-                  {MOTIVOS.map(motivo => (
-                    <div
-                      key={motivo.value}
-                      className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${
-                        form.motivo_inventario === motivo.value
-                          ? 'border-[#16A34A] bg-green-50'
-                          : 'border-gray-100 hover:border-gray-200'
-                      }`}
-                      onClick={() => set('motivo_inventario', motivo.value)}
-                    >
-                      <RadioGroupItem value={motivo.value} id={`m_${motivo.value}`} className="mt-0.5" />
-                      <Label htmlFor={`m_${motivo.value}`} className="cursor-pointer">
-                        <span className="font-semibold text-gray-900">{motivo.label}</span>
-                        <p className="text-xs text-gray-500 mt-0.5 font-normal">{motivo.desc}</p>
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              </div>
             </div>
           )}
 
@@ -459,7 +404,6 @@ export default function ProjectNew() {
                   <div><span className="text-gray-500">Nome:</span> <span className="font-medium">{form.nome || '—'}</span></div>
                   <div><span className="text-gray-500">Área:</span> <span className="font-medium">{form.area_total_ha ? `${form.area_total_ha} ha` : '—'}</span></div>
                   <div><span className="text-gray-500">Tipo:</span> <span className="font-medium">{TIPOS_INVENTARIO.find(t => t.value === form.tipo_inventario)?.label || '—'}</span></div>
-                  <div><span className="text-gray-500">Motivo:</span> <span className="font-medium">{MOTIVOS.find(m => m.value === form.motivo_inventario)?.label || '—'}</span></div>
                   {form.municipio && <div><span className="text-gray-500">Local:</span> <span className="font-medium">{form.municipio}{form.estado ? `/${form.estado}` : ''}</span></div>}
                   {form.bioma && <div><span className="text-gray-500">Bioma:</span> <span className="font-medium">{BIOMAS.find(b => b.value === form.bioma)?.label}</span></div>}
                 </div>

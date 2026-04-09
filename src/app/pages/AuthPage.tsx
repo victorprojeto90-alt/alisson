@@ -350,10 +350,10 @@ export default function AuthPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-gray-700">
-                        {tipoUsuario === 'empresa' ? 'CNPJ' : 'CPF'}
+                        CPF ou CNPJ <span className="text-gray-400 font-normal">(opcional)</span>
                       </label>
                       <Input
-                        placeholder={tipoUsuario === 'empresa' ? '00.000.000/0000-00' : '000.000.000-00'}
+                        placeholder={tipoUsuario === 'empresa' ? 'CNPJ (opcional)' : 'CPF (opcional)'}
                         value={cpfCnpj}
                         onChange={e => setCpfCnpj(formatCpfCnpj(e.target.value))}
                         maxLength={tipoUsuario === 'empresa' ? 18 : 14}

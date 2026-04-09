@@ -8,8 +8,9 @@ import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
 import {
   Plus, Trees, Search, Loader2, ChevronRight,
-  Clock, BarChart3, CheckCircle2, Filter, MapPin, Ruler,
+  Clock, BarChart3, CheckCircle2, Filter, MapPin, Ruler, Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Projeto {
   id: string;
@@ -49,13 +50,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   },
 };
 
-const MOTIVO_LABEL: Record<string, string> = {
-  licenciamento: 'Licenciamento',
-  manejo: 'Manejo Florestal',
-  supressao: 'Supressão Vegetal',
-  academico: 'Acadêmico',
-};
-
 const BIOMA_LABEL: Record<string, string> = {
   amazonia: 'Amazônia',
   cerrado: 'Cerrado',
@@ -73,18 +67,44 @@ export default function Projetos() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'rascunho' | 'processado' | 'finalizado'>('all');
 
-  useEffect(() => {
+  // Delete modal state
+  const [deleteTarget, setDeleteTarget] = useState<Projeto | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const fetchProjetos = async () => {
     if (!empresa?.id) { setLoading(false); return; }
-    supabase
+    const { data } = await supabase
       .from('projetos')
       .select('id, nome, municipio, estado, area_total_ha, tipo_inventario, motivo_inventario, bioma, status, created_at')
       .eq('empresa_id', empresa.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        setProjetos(data ?? []);
-        setLoading(false);
-      });
+      .order('created_at', { ascending: false });
+    setProjetos(data ?? []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchProjetos();
   }, [empresa?.id]);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      // Delete related data first
+      await supabase.from('arvores').delete().eq('projeto_id', deleteTarget.id);
+      await supabase.from('parcelas').delete().eq('projeto_id', deleteTarget.id);
+      const { error } = await supabase.from('projetos').delete().eq('id', deleteTarget.id);
+      if (error) {
+        toast.error('Erro ao excluir projeto: ' + error.message);
+      } else {
+        toast.success(`Projeto "${deleteTarget.nome}" excluído com sucesso.`);
+        setProjetos(prev => prev.filter(p => p.id !== deleteTarget.id));
+        setDeleteTarget(null);
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const filtered = projetos.filter(p => {
     const matchSearch = !search ||
@@ -109,7 +129,7 @@ export default function Projetos() {
         </div>
         <Button
           onClick={() => navigate('/app/projetos/novo')}
-          className="bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white gap-2 self-start sm:self-auto"
+          className="bg-[#00420d] hover:bg-[#00420d]/90 text-white gap-2 self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           Novo Inventário
@@ -149,7 +169,7 @@ export default function Projetos() {
               onClick={() => setStatusFilter(opt.value)}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                 statusFilter === opt.value
-                  ? 'bg-[#0B3D2E] text-white shadow-sm'
+                  ? 'bg-[#00420d] text-white shadow-sm'
                   : 'text-gray-600 hover:bg-white'
               }`}
             >
@@ -162,7 +182,7 @@ export default function Projetos() {
       {/* Project list */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-[#0B3D2E]" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#00420d]" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-2xl">
@@ -178,7 +198,7 @@ export default function Projetos() {
           {projetos.length === 0 && (
             <Button
               onClick={() => navigate('/app/projetos/novo')}
-              className="bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white gap-2"
+              className="bg-[#00420d] hover:bg-[#00420d]/90 text-white gap-2"
             >
               <Plus className="w-4 h-4" />
               Criar Primeiro Inventário
@@ -192,16 +212,21 @@ export default function Projetos() {
             return (
               <Card
                 key={projeto.id}
-                className="border-0 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                onClick={() => navigate(`/app/projetos/${projeto.id}`)}
+                className="border-0 shadow-sm hover:shadow-md transition-all group"
               >
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-start gap-4">
-                    <div className="w-11 h-11 bg-[#0B3D2E]/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#0B3D2E]/20 transition-colors">
-                      <Trees className="w-5 h-5 text-[#0B3D2E]" />
+                    <div
+                      className="w-11 h-11 bg-[#00420d]/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#00420d]/20 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/app/projetos/${projeto.id}`)}
+                    >
+                      <Trees className="w-5 h-5 text-[#00420d]" />
                     </div>
 
-                    <div className="flex-1 min-w-0">
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => navigate(`/app/projetos/${projeto.id}`)}
+                    >
                       <div className="flex items-center gap-2 flex-wrap mb-1.5">
                         <h3 className="font-semibold text-gray-900 truncate">{projeto.nome}</h3>
                         <Badge variant="outline" className={`flex-shrink-0 text-xs gap-1 ${statusCfg.color}`}>
@@ -228,23 +253,69 @@ export default function Projetos() {
                             {BIOMA_LABEL[projeto.bioma] ?? projeto.bioma}
                           </span>
                         )}
-                        {projeto.motivo_inventario && (
-                          <span className="bg-gray-100 px-2 py-0.5 rounded-full">
-                            {MOTIVO_LABEL[projeto.motivo_inventario] ?? projeto.motivo_inventario}
-                          </span>
-                        )}
                         <span className="text-gray-400">
                           {new Date(projeto.created_at).toLocaleDateString('pt-BR')}
                         </span>
                       </div>
                     </div>
 
-                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#16A34A] transition-colors flex-shrink-0 mt-1" />
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={e => { e.stopPropagation(); setDeleteTarget(projeto); }}
+                        className="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        title="Excluir projeto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <ChevronRight
+                        className="w-5 h-5 text-gray-300 group-hover:text-[#00420d] transition-colors cursor-pointer"
+                        onClick={() => navigate(`/app/projetos/${projeto.id}`)}
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !deleting && setDeleteTarget(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 z-10">
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">Excluir Projeto</h3>
+            <p className="text-gray-500 text-sm text-center mb-6">
+              Tem certeza que deseja excluir o projeto{' '}
+              <strong className="text-gray-900">"{deleteTarget.nome}"</strong>?{' '}
+              Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white gap-2"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Excluindo...</>
+                ) : (
+                  <><Trash2 className="w-4 h-4" /> Excluir</>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

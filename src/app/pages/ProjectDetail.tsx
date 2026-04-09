@@ -473,16 +473,79 @@ export default function ProjectDetail() {
 
         {/* TAB: RESULTADOS */}
         <TabsContent value="resultados" className="space-y-6">
-          {hasResultado && (
-            <>
-              <ScoreCard score={resultado.score} />
-              <StatsSummary dados={resultado.dados_gerais} precisaoRequerida={projeto.precisao_requerida} />
-              <IndicesDiversidade indices={resultado.indices_diversidade} />
-              <FitossociologiaTable especies={resultado.especies} familias={resultado.familias} />
-              <EstruturaDiametrica classes={resultado.classes_diametricas} />
-              <EstruturaVertical estratos={resultado.estrutura_vertical} />
-            </>
-          )}
+          {hasResultado && (() => {
+            // Build per-species strata data for EstruturaVertical
+            const h_max = Math.max(...resultado.arvores_calculadas
+              .map(a => a.altura_total_m ?? 0).filter(h => h > 0), 0);
+            const h1 = h_max / 3;
+            const h2 = (h_max * 2) / 3;
+            const getEstrato = (h: number | null) => {
+              if (h == null || h <= 0) return null;
+              if (h <= h1) return 'Inferior';
+              if (h <= h2) return 'Médio';
+              return 'Superior';
+            };
+
+            // Group individuos by especie+estrato
+            type EspEst = { nome_comum: string; nome_cientifico: string; estrato: string; count: number };
+            const espEstMap = new Map<string, EspEst>();
+            const estratoCounts: Record<string, number> = { Inferior: 0, Médio: 0, Superior: 0 };
+            for (const arv of resultado.arvores_calculadas) {
+              const est = getEstrato(arv.altura_total_m);
+              if (!est) continue;
+              estratoCounts[est] = (estratoCounts[est] ?? 0) + 1;
+              const key = `${arv.nome_comum}||${est}`;
+              if (!espEstMap.has(key)) {
+                espEstMap.set(key, {
+                  nome_comum: arv.nome_comum,
+                  nome_cientifico: arv.nome_cientifico ?? '',
+                  estrato: est,
+                  count: 0,
+                });
+              }
+              espEstMap.get(key)!.count += 1;
+            }
+            const especiesEstratos = Array.from(espEstMap.values())
+              .sort((a, b) => b.count - a.count)
+              .slice(0, 50)
+              .map(e => ({
+                nome_comum: e.nome_comum,
+                nome_cientifico: e.nome_cientifico,
+                estrato: e.estrato,
+                n_individuos: e.count,
+                pct_estrato: estratoCounts[e.estrato] > 0
+                  ? (e.count / estratoCounts[e.estrato]) * 100
+                  : 0,
+              }));
+
+            // individuos for Sturges
+            const individuosParaDiametrica = resultado.arvores_calculadas.map(a => ({
+              dap_cm: a.dap_cm,
+              area_basal_m2: a.area_basal_m2,
+            }));
+
+            return (
+              <>
+                <ScoreCard
+                  score={resultado.score}
+                  precisaoRequerida={projeto.precisao_requerida}
+                  erroRelPct={resultado.dados_gerais.erro_rel_pct}
+                />
+                <StatsSummary
+                  dados={resultado.dados_gerais}
+                  precisaoRequerida={projeto.precisao_requerida}
+                  areaTotalHa={projeto.area_total_ha}
+                />
+                <IndicesDiversidade indices={resultado.indices_diversidade} />
+                <FitossociologiaTable especies={resultado.especies} familias={resultado.familias} />
+                <EstruturaDiametrica individuos={individuosParaDiametrica} />
+                <EstruturaVertical
+                  estratos={resultado.estrutura_vertical}
+                  especiesEstratos={especiesEstratos}
+                />
+              </>
+            );
+          })()}
         </TabsContent>
 
         {/* TAB: RELATÓRIO */}

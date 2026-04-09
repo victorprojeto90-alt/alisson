@@ -4,6 +4,8 @@ import type { ScoreAmbisafe } from '../../lib/calculations';
 
 interface Props {
   score: ScoreAmbisafe;
+  precisaoRequerida?: number;
+  erroRelPct?: number;
 }
 
 const SCORE_ITEMS = [
@@ -11,7 +13,7 @@ const SCORE_ITEMS = [
     key: 'regularidade' as const,
     label: 'Regularidade Estatística',
     weight: '30%',
-    desc: 'Avalia a precisão amostral do inventário — quanto menor o Erro de Amostragem Relativo, maior a pontuação. Excelente: ≤5%, Bom: ≤10%, Aceitável: ≤15%.',
+    desc: 'Avalia se o erro de amostragem obtido está dentro do limite de precisão requerido. Verde: excelente (≤ metade do limite). Amarelo: dentro do limite. Vermelho: fora do limite.',
   },
   {
     key: 'diversidade' as const,
@@ -39,7 +41,7 @@ const SCORE_ITEMS = [
   },
 ];
 
-export default function ScoreCard({ score }: Props) {
+export default function ScoreCard({ score, precisaoRequerida, erroRelPct }: Props) {
   const isExcelente = score.total >= 80;
   const isBom = score.total >= 50;
 
@@ -50,8 +52,34 @@ export default function ScoreCard({ score }: Props) {
   const circumference = 2 * Math.PI * 52;
   const offset = circumference * (1 - score.total / 100);
 
-  const getBarColor = (v: number) =>
-    v >= 80 ? 'bg-[#16A34A]' : v >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+  // Regularidade bar color — based on precisaoRequerida and erroRelPct
+  const getRegularidadeColor = () => {
+    if (precisaoRequerida !== undefined && erroRelPct !== undefined) {
+      const limite = precisaoRequerida;
+      if (erroRelPct <= limite / 2) return 'bg-green-500';      // Excelente
+      if (erroRelPct <= limite) return 'bg-yellow-500';          // Muito Bom (dentro do limite)
+      return 'bg-red-500';                                        // Ruim (fora do limite)
+    }
+    // fallback to generic scoring
+    return score.regularidade >= 80 ? 'bg-green-500' : score.regularidade >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+  };
+
+  const getRegularidadeLabel = () => {
+    if (precisaoRequerida !== undefined && erroRelPct !== undefined) {
+      const limite = precisaoRequerida;
+      if (erroRelPct <= limite / 2) return { label: 'Excelente', color: 'text-green-600' };
+      if (erroRelPct <= limite) return { label: 'Muito Bom', color: 'text-yellow-600' };
+      return { label: 'Ruim', color: 'text-red-600' };
+    }
+    return null;
+  };
+
+  const getBarColor = (key: typeof SCORE_ITEMS[number]['key'], v: number) => {
+    if (key === 'regularidade') return getRegularidadeColor();
+    return v >= 80 ? 'bg-green-500' : v >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+  };
+
+  const regularidadeLabel = getRegularidadeLabel();
 
   return (
     <Card className="border-0 shadow-sm">
@@ -113,16 +141,26 @@ export default function ScoreCard({ score }: Props) {
                   <span className="text-gray-700 font-medium">
                     {item.label}
                     <span className="text-gray-400 ml-1 text-xs font-normal">({item.weight})</span>
+                    {item.key === 'regularidade' && regularidadeLabel && (
+                      <span className={`ml-2 text-xs font-semibold ${regularidadeLabel.color}`}>
+                        — {regularidadeLabel.label}
+                      </span>
+                    )}
                   </span>
                   <span className="font-bold text-gray-900">{value}/100</span>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-700 ${getBarColor(value)}`}
+                    className={`h-full rounded-full transition-all duration-700 ${getBarColor(item.key, value)}`}
                     style={{ width: `${value}%` }}
                   />
                 </div>
                 <p className="text-xs text-gray-400 leading-relaxed">{item.desc}</p>
+                {item.key === 'regularidade' && precisaoRequerida !== undefined && erroRelPct !== undefined && (
+                  <p className="text-xs text-gray-500">
+                    Erro obtido: <strong>{erroRelPct.toFixed(2)}%</strong> · Limite: <strong>{precisaoRequerida}%</strong> · Metade do limite: <strong>{(precisaoRequerida / 2).toFixed(1)}%</strong>
+                  </p>
+                )}
               </div>
             );
           })}

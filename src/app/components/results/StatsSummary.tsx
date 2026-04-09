@@ -6,6 +6,7 @@ import { Info, CheckCircle2, AlertTriangle } from 'lucide-react';
 interface Props {
   dados: DadosGerais;
   precisaoRequerida?: number;
+  areaTotalHa?: number;
 }
 
 function Row({ label, value, hint, highlight, highlightGreen }: {
@@ -45,7 +46,7 @@ function IcRow({ label, li, media, ls }: { label: string; li: number; media: num
   );
 }
 
-export default function StatsSummary({ dados, precisaoRequerida }: Props) {
+export default function StatsSummary({ dados, precisaoRequerida, areaTotalHa }: Props) {
   const d = dados;
   const limiteErro = precisaoRequerida ?? 10;
   const erroOk = d.erro_rel_pct <= limiteErro;
@@ -78,6 +79,9 @@ export default function StatsSummary({ dados, precisaoRequerida }: Props) {
               </tr>
             </thead>
             <tbody>
+              {areaTotalHa !== undefined && (
+                <Row label="Área Total do Empreendimento (ha)" value={fmt.ha(areaTotalHa, 4)} hint="Área total informada no cadastro do projeto" highlightGreen />
+              )}
               <Row label="Número de Parcelas (n)" value={String(d.n_parcelas)} />
               <Row
                 label="Parcelas Possíveis na Área (N)"
