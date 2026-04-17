@@ -4,7 +4,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { ArrowLeft, Eye, EyeOff, UserCheck, Briefcase, Mail, KeyRound } from 'lucide-react';
-import logoFull from '../../assets/ambisafe-logo-full.png';
+import logoFull from '../../assets/ambisafe-logo-full2.png';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
@@ -157,11 +157,13 @@ export default function AuthPage() {
           Voltar para o início
         </button>
 
+        {/* Logo fora do card, sobre o fundo verde */}
+        <div className="flex justify-center mb-6">
+          <img src={logoFull} alt="AMBISAFE" style={{ height: '56px', width: 'auto', objectFit: 'contain' }} />
+        </div>
+
         <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
           <CardHeader className="space-y-4 pb-4">
-            <div className="flex items-center justify-center gap-2">
-              <img src={logoFull} alt="AMBISAFE" style={{ height: '52px', width: 'auto', objectFit: 'contain' }} />
-            </div>
             <div className="text-center">
               <CardTitle className="text-xl">
                 {isRecovery ? 'Criar nova senha'

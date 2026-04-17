@@ -10,7 +10,7 @@ import {
   ChevronRight,
   Leaf,
 } from 'lucide-react';
-import logoFull from '../../../assets/ambisafe-logo-full.png';
+import logoFull from '../../../assets/ambisafe-logo-full2.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { cn } from '../ui/utils';

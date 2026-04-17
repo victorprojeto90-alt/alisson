@@ -12,6 +12,8 @@ import Relatorios from './pages/Relatorios';
 import Projetos from './pages/Projetos';
 import Especies from './pages/Especies';
 import AdminPage from './pages/AdminPage';
+import TermosDeUso from './pages/TermosDeUso';
+import Privacidade from './pages/Privacidade';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -40,6 +42,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/termos-de-uso" element={<TermosDeUso />} />
+      <Route path="/privacidade" element={<Privacidade />} />
       <Route path="/auth" element={
         <PublicOnlyRoute>
           <AuthPage />

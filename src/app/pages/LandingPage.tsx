@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router';
-import logoFull from '../../assets/ambisafe-logo-full.png';
+import { useNavigate, Link } from 'react-router';
+import logoFull from '../../assets/ambisafe-logo-full2.png';
 import alissonFoto from '../../assets/alisson-monteiro.jpg';
 
 // ─── Brand tokens ──────────────────────────────────────────────────────────
@@ -908,8 +908,8 @@ export default function LandingPage() {
               style={{ filter: 'brightness(0) invert(1)' }} />
 
             <div className="flex items-center gap-6 text-sm text-white/40">
-              <a href="#" className="hover:text-white transition-colors">Termos de uso</a>
-              <a href="#" className="hover:text-white transition-colors">Privacidade</a>
+              <Link to="/termos-de-uso" className="hover:text-white transition-colors">Termos de uso</Link>
+              <Link to="/privacidade" className="hover:text-white transition-colors">Privacidade</Link>
               <a
                 href="https://wa.me/5583991144456"
                 target="_blank"
