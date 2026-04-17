@@ -233,6 +233,7 @@ export default function LandingPage() {
   }, []);
 
   const goAuth = useCallback(() => navigate('/auth?mode=register'), [navigate]);
+  const goLogin = useCallback(() => navigate('/auth'), [navigate]);
 
   const navLinks = [
     { href: '#como-funciona', label: 'Como funciona' },
@@ -265,7 +266,7 @@ export default function LandingPage() {
                 className="hover:text-white transition-colors">{l.label}</a>
             ))}
             <button
-              onClick={goAuth}
+              onClick={goLogin}
               className="hover:text-white transition-colors"
             >
               Entrar
@@ -307,7 +308,7 @@ export default function LandingPage() {
                 {l.label}
               </a>
             ))}
-            <button onClick={goAuth}
+            <button onClick={goLogin}
               className="text-white/80 hover:text-white font-medium py-1 text-left">
               Entrar
             </button>
