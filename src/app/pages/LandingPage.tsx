@@ -255,8 +255,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
           <a href="/" className="flex-shrink-0">
-            <img src={logoFull} alt="AMBISAFE" className="h-9 w-auto object-contain"
-              style={{ filter: 'brightness(0) invert(1)' }} />
+            <img src={logoFull} alt="AMBISAFE" className="h-9 w-auto object-contain" />
           </a>
 
           {/* Desktop nav */}
@@ -904,8 +903,7 @@ export default function LandingPage() {
       <footer className="py-10 border-t border-white/10" style={{ backgroundColor: C.dark }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <img src={logoFull} alt="AMBISAFE" className="h-8 w-auto"
-              style={{ filter: 'brightness(0) invert(1)' }} />
+            <img src={logoFull} alt="AMBISAFE" className="h-8 w-auto" />
 
             <div className="flex items-center gap-6 text-sm text-white/40">
               <Link to="/termos-de-uso" className="hover:text-white transition-colors">Termos de uso</Link>
