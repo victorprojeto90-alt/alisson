@@ -1,611 +1,909 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router';
-import {
-  Trees,
-  BarChart3,
-  FileText,
-  Sparkles,
-  CheckCircle2,
-  ArrowRight,
-  Upload,
-  Calculator,
-  Download,
-  Users,
-  Shield,
-  Zap,
-  ChevronRight,
-  Globe,
-  BookOpen,
-  Leaf,
-  GraduationCap,
-  Microscope,
-  Landmark,
-  Clock,
-  TrendingUp,
-  Target,
-  Layers,
-  Brain,
-  Database,
-  Plus,
-  Minus,
-} from 'lucide-react';
-import { Button } from '../components/ui/button';
-import ambiLogo from '../../assets/Ambi.png';
+import logoFull from '../../assets/ambisafe-logo-full.png';
+import logoIcon from '../../assets/ambisafe-logo-icon.png';
 import alissonFoto from '../../assets/alisson-monteiro.jpg';
 
-const PRIMARY = '#00420d';
-const ACCENT = '#acd115';
+// ─── Brand tokens ──────────────────────────────────────────────────────────
+const C = {
+  dark: '#0A3D1F',
+  lime: '#A8C800',
+  white: '#FFFFFF',
+  gray: '#F5F5F5',
+  text: '#1a1a1a',
+  muted: '#6b7280',
+};
 
-const FAQ_ITEMS = [
+// ─── Scroll-reveal hook ────────────────────────────────────────────────────
+function useReveal(threshold = 0.15) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+
+  return { ref, visible };
+}
+
+// ─── SVG Dashboard Mockup ─────────────────────────────────────────────────
+function DashboardMockup() {
+  return (
+    <svg
+      viewBox="0 0 600 380"
+      className="w-full max-w-xl mx-auto drop-shadow-2xl"
+      aria-hidden="true"
+      style={{ borderRadius: 16 }}
+    >
+      {/* Window chrome */}
+      <rect width="600" height="380" rx="12" fill="#1a2e1a" />
+      <rect width="600" height="36" rx="0" fill="#0d210d" />
+      <rect y="0" width="600" height="36" rx="12" fill="#0d210d" />
+      <circle cx="20" cy="18" r="5" fill="#ff5f57" />
+      <circle cx="36" cy="18" r="5" fill="#febc2e" />
+      <circle cx="52" cy="18" r="5" fill="#28c840" />
+      <text x="76" y="23" fill="#ffffff40" fontSize="11" fontFamily="monospace">AMBISAFE — Inventário Florestal</text>
+
+      {/* Sidebar */}
+      <rect x="0" y="36" width="120" height="344" fill="#0A3D1F" />
+      {['Painel', 'Inventários', 'Espécies', 'Relatórios'].map((label, i) => (
+        <g key={label}>
+          <rect x="8" y={56 + i * 38} width="104" height="28" rx="6"
+            fill={i === 0 ? '#A8C800' : '#ffffff10'} />
+          <text x="20" y={75 + i * 38} fill={i === 0 ? '#0A3D1F' : '#ffffff90'}
+            fontSize="11" fontWeight={i === 0 ? 700 : 400} fontFamily="system-ui">
+            {label}
+          </text>
+        </g>
+      ))}
+
+      {/* Main area */}
+      <rect x="120" y="36" width="480" height="344" fill="#f8faf8" />
+
+      {/* Header bar */}
+      <rect x="120" y="36" width="480" height="40" fill="#ffffff" />
+      <text x="136" y="61" fill="#0A3D1F" fontSize="13" fontWeight="700" fontFamily="system-ui">
+        Painel de Controle
+      </text>
+      <rect x="490" y="48" width="96" height="18" rx="9" fill="#A8C800" />
+      <text x="510" y="60" fill="#0A3D1F" fontSize="9" fontWeight="700" fontFamily="system-ui">
+        Novo inventário
+      </text>
+
+      {/* Stat cards */}
+      {[
+        { label: 'Indivíduos', value: '1.248', color: '#A8C800' },
+        { label: 'Espécies', value: '34', color: '#60a5fa' },
+        { label: 'Score', value: '87/100', color: '#34d399' },
+      ].map((card, i) => (
+        <g key={card.label}>
+          <rect x={136 + i * 126} y="86" width="112" height="56" rx="8" fill="#ffffff"
+            style={{ filter: 'drop-shadow(0 1px 4px #0001)' }} />
+          <text x={148 + i * 126} y="108" fill={C.muted} fontSize="9" fontFamily="system-ui">
+            {card.label}
+          </text>
+          <text x={148 + i * 126} y="127" fill="#1a2e1a" fontSize="16" fontWeight="700" fontFamily="system-ui">
+            {card.value}
+          </text>
+          <rect x={136 + i * 126} y="86" width="4" height="56" rx="2" fill={card.color} />
+        </g>
+      ))}
+
+      {/* Bar chart */}
+      <rect x="136" y="158" width="220" height="130" rx="8" fill="#ffffff" />
+      <text x="150" y="176" fill="#1a2e1a" fontSize="10" fontWeight="600" fontFamily="system-ui">
+        Estrutura Diamétrica
+      </text>
+      {[0.9, 0.7, 0.5, 0.35, 0.2, 0.12].map((h, i) => (
+        <rect key={i}
+          x={154 + i * 30} y={260 - h * 70} width="18" height={h * 70}
+          rx="3" fill={i === 0 ? '#A8C800' : '#0A3D1F'} fillOpacity={0.7 + i * 0.05}
+        />
+      ))}
+      <text x="150" y="283" fill={C.muted} fontSize="7" fontFamily="system-ui">5  10  15  20  25  30 cm</text>
+
+      {/* Table */}
+      <rect x="368" y="158" width="218" height="130" rx="8" fill="#ffffff" />
+      <text x="382" y="176" fill="#1a2e1a" fontSize="10" fontWeight="600" fontFamily="system-ui">
+        Fitossociologia
+      </text>
+      <rect x="368" y="180" width="218" height="16" fill="#0A3D1F" />
+      {['Espécie', 'DA', 'IVI'].map((h, i) => (
+        <text key={h} x={378 + i * 72} y="192" fill="#fff" fontSize="8"
+          fontWeight="600" fontFamily="system-ui">{h}</text>
+      ))}
+      {[
+        ['Aroeira', '48.2', '32.1%'],
+        ['Angico', '31.4', '24.7%'],
+        ['Catingueira', '22.8', '18.3%'],
+        ['Jurema P.', '18.6', '14.2%'],
+      ].map((row, i) => (
+        <g key={row[0]}>
+          <rect x="368" y={196 + i * 19} width="218" height="19"
+            fill={i % 2 === 0 ? '#f8faf8' : '#ffffff'} />
+          {row.map((cell, j) => (
+            <text key={j} x={378 + j * 72} y={209 + i * 19}
+              fill="#374151" fontSize="8" fontFamily="system-ui">{cell}</text>
+          ))}
+        </g>
+      ))}
+
+      {/* Score ring */}
+      <circle cx="170" cy="330" r="28" fill="none" stroke="#e5e7eb" strokeWidth="7" />
+      <circle cx="170" cy="330" r="28" fill="none" stroke="#A8C800" strokeWidth="7"
+        strokeDasharray="175.9" strokeDashoffset="23" strokeLinecap="round"
+        transform="rotate(-90 170 330)" />
+      <text x="170" y="326" fill="#1a2e1a" fontSize="12" fontWeight="700"
+        textAnchor="middle" fontFamily="system-ui">87</text>
+      <text x="170" y="338" fill={C.muted} fontSize="7" textAnchor="middle"
+        fontFamily="system-ui">Score</text>
+      <text x="210" y="322" fill="#1a2e1a" fontSize="10" fontWeight="600"
+        fontFamily="system-ui">AMBISAFE Score</text>
+      <text x="210" y="336" fill={C.muted} fontSize="9" fontFamily="system-ui">Excelente qualidade técnica</text>
+
+      {/* Progress bars */}
+      {[
+        { label: 'Regularidade', v: 90 },
+        { label: 'Diversidade', v: 80 },
+        { label: 'Sustentabilidade', v: 85 },
+      ].map((item, i) => (
+        <g key={item.label}>
+          <text x="370" y={320 + i * 16} fill={C.muted} fontSize="8" fontFamily="system-ui">
+            {item.label}
+          </text>
+          <rect x="460" y={310 + i * 16} width="110" height="7" rx="3" fill="#e5e7eb" />
+          <rect x="460" y={310 + i * 16} width={item.v * 1.1} height="7" rx="3" fill="#A8C800" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+// ─── FAQ data ──────────────────────────────────────────────────────────────
+const FAQ = [
   {
     q: 'Como funciona a identificação automática de espécies?',
-    a: 'O AMBISAFE possui um banco de dados integrado ao Inventário Florestal Nacional. Ao selecionar o Estado (ex: Paraíba) e digitar o nome popular, nossa IA sugere o nome científico atualizado, o Bioma e a família botânica, corrigindo automaticamente erros de digitação e sinonímias.',
+    a: 'O AMBISAFE possui banco de dados integrado ao IFN. Ao digitar o nome popular, o sistema sugere nome científico, família e bioma, corrigindo erros de digitação e sinonímias automaticamente.',
   },
   {
-    q: 'Os cálculos estatísticos seguem as normas dos órgãos ambientais?',
-    a: 'Sim. O sistema realiza os cálculos de fitossociologia (Densidade, Dominância, Frequência, IVI) e diversidade (Shannon, Simpson, Pielou) seguindo a literatura clássica da engenharia florestal. Os relatórios são gerados em formatos aceitos por órgãos municipais, estaduais e federais.',
+    q: 'Os cálculos seguem as normas dos órgãos ambientais?',
+    a: 'Sim. Fitossociologia (Densidade, Dominância, Frequência, IVI) e diversidade (Shannon, Simpson, Pielou) seguem a literatura clássica da engenharia florestal — aceitos por órgãos municipais, estaduais e federais.',
   },
   {
-    q: 'Posso importar meus dados de uma planilha Excel que já tenho?',
-    a: 'Com certeza. Você não precisa digitar árvore por árvore no site. Basta fazer o upload do seu arquivo .csv ou .xlsx e nossa IA fará o mapeamento das colunas (DAP, Altura, Espécie) automaticamente para processar o inventário.',
+    q: 'Posso importar dados de uma planilha Excel?',
+    a: 'Com certeza. Faça upload do seu .csv ou .xlsx e a IA mapeia as colunas (DAP, Altura, Espécie) automaticamente, sem digitar árvore por árvore.',
   },
   {
-    q: 'O sistema funciona para quais tipos de inventário?',
-    a: 'A plataforma atende a: Amostragem Casual Simples — parcelas alocadas aleatoriamente na área de estudo; e Inventário 100% — Censo Florestal — onde todos os indivíduos da área são mensurados individualmente.',
+    q: 'Quais tipos de inventário são suportados?',
+    a: 'Amostragem Casual Simples (parcelas aleatórias) e Inventário 100% — Censo Florestal (todos os indivíduos mensurados individualmente).',
   },
   {
-    q: 'Meus dados estarão seguros e privados?',
-    a: 'Privacidade é nossa prioridade. Os dados dos seus projetos são criptografados e pertencem exclusivamente a você. Não compartilhamos informações de áreas privadas ou coordenadas geográficas com terceiros ou órgãos fiscalizadores.',
+    q: 'Meus dados ficam seguros e privados?',
+    a: 'Sim. Os dados são criptografados e pertencem exclusivamente a você. Não compartilhamos coordenadas ou informações de áreas privadas com terceiros.',
   },
   {
-    q: 'O AMBISAFE gera o relatório técnico final em PDF/Word?',
-    a: 'Sim. Além da planilha de cálculos, o sistema utiliza IA para redigir a estrutura do relatório (Metodologia e Resultados explicados), economizando horas de escrita.',
+    q: 'O sistema gera relatório em PDF/Word?',
+    a: 'Sim. Além da planilha de cálculos, a IA redige Metodologia e Resultados, economizando horas de escrita. Exporte em PDF, Word (.docx) editável e Excel.',
   },
   {
-    q: 'Preciso instalar algum software no meu computador?',
-    a: 'Não. O AMBISAFE é uma plataforma 100% na nuvem (SaaS). Você pode acessar do escritório pelo computador ou do campo via tablet/celular, bastando ter uma conexão com a internet para sincronizar os dados.',
-  },
-  {
-    q: 'Como é feito o cálculo de suficiência amostral?',
-    a: 'O AMBISAFE calcula automaticamente o erro de amostragem e o intervalo de confiança. Se a sua amostragem for insuficiente para atingir o erro máximo permitido pelo órgão ambiental (geralmente 10% ou 20%), o sistema emitirá um alerta sugerindo a inclusão de novas parcelas.',
+    q: 'Como é calculada a suficiência amostral?',
+    a: 'O AMBISAFE calcula automaticamente o erro de amostragem e intervalo de confiança. Se insuficiente para o limite do órgão (10% ou 20%), emite alerta sugerindo novas parcelas.',
   },
 ];
 
+// ─── Reveal wrapper ────────────────────────────────────────────────────────
+function Reveal({ children, delay = 0, className = '' }: {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  const { ref, visible } = useReveal();
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(28px)',
+        transition: `opacity 0.6s ease ${delay}ms, transform 0.6s ease ${delay}ms`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── Main component ────────────────────────────────────────────────────────
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  const features = [
-    {
-      icon: <Brain className="w-6 h-6" />,
-      title: 'Identificação Automática por IA',
-      description: 'Identificação automática de nome científico e família por bioma via IA, a partir de banco de dados dos inventários florestais nacionais integrado ao sistema.',
-    },
-    {
-      icon: <Upload className="w-6 h-6" />,
-      title: 'Upload Inteligente',
-      description: 'Importe planilhas CSV ou XLSX. O sistema detecta e mapeia automaticamente as colunas (DAP, CAP, HT, Espécie, Parcela).',
-    },
-    {
-      icon: <Calculator className="w-6 h-6" />,
-      title: 'Cálculos Automáticos',
-      description: 'Fitossociologia completa, índices de diversidade (Shannon, Simpson, Pielou), estrutura diamétrica, volumes e estatística amostral.',
-    },
-    {
-      icon: <Sparkles className="w-6 h-6" />,
-      title: 'Relatório com IA',
-      description: 'Inteligência artificial gera o pré-relatório técnico completo, com metodologia, resultados, discussão e conclusão.',
-    },
-    {
-      icon: <Download className="w-6 h-6" />,
-      title: 'Exportação Profissional',
-      description: 'Exporte em PDF, Word (.docx) editável, Excel com todas as tabelas e gráficos em PNG. Pronto para protocolar.',
-    },
-    {
-      icon: <BarChart3 className="w-6 h-6" />,
-      title: 'Dashboard Executivo',
-      description: 'Visualize volumes, densidades, índices de biodiversidade e o Score AMBISAFE (0–100) com gráficos interativos.',
-    },
-    {
-      icon: <Shield className="w-6 h-6" />,
-      title: 'Segurança Multi-Tenant',
-      description: 'Isolamento total de dados por empresa com Row Level Security (RLS). Seus dados são exclusivamente seus.',
-    },
-    {
-      icon: <Database className="w-6 h-6" />,
-      title: 'Banco de Espécies por Bioma',
-      description: 'Banco de dados de espécies com dados do bioma selecionado, a partir dos inventários florestais nacionais disponíveis no Sistema Florestal Brasileiro.',
-    },
-  ];
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
-  const benefits = [
-    { icon: <Clock className="w-6 h-6" />, title: 'Reduza drasticamente o tempo de processamento de dados' },
-    { icon: <CheckCircle2 className="w-6 h-6" />, title: 'Elimine erros de cálculos manuais' },
-    { icon: <Zap className="w-6 h-6" />, title: 'Economize horas de trabalho' },
-    { icon: <FileText className="w-6 h-6" />, title: 'Padronize seus relatórios' },
-    { icon: <TrendingUp className="w-6 h-6" />, title: 'Aumente sua produtividade' },
-    { icon: <Target className="w-6 h-6" />, title: 'Escale sua consultoria ambiental' },
-    { icon: <Layers className="w-6 h-6" />, title: 'Execute mais projetos em menos tempo' },
-    { icon: <Brain className="w-6 h-6" />, title: 'Interprete dados com apoio da IA' },
-    { icon: <BarChart3 className="w-6 h-6" />, title: 'Transforme dados brutos em informações estratégicas' },
-  ];
+  const goAuth = useCallback(() => navigate('/auth'), [navigate]);
 
-  const steps = [
-    { num: '01', title: 'Crie o projeto', desc: 'Informe área, bioma e tipo de inventário.' },
-    { num: '02', title: 'Importe os dados', desc: 'Faça upload da planilha de campo. O sistema mapeia e valida os dados automaticamente.' },
-    { num: '03', title: 'Processe o inventário', desc: 'Clique em "Processar". Todos os cálculos são realizados instantaneamente.' },
-    { num: '04', title: 'Exporte o relatório', desc: 'Gere o pré-relatório técnico com IA e exporte em PDF, Word ou Excel.' },
-  ];
-
-  const targetAudience = [
-    { icon: <Trees className="w-5 h-5" />, label: 'Engenheiros Florestais' },
-    { icon: <Leaf className="w-5 h-5" />, label: 'Engenheiros Agrônomos' },
-    { icon: <Globe className="w-5 h-5" />, label: 'Engenheiros Ambientais' },
-    { icon: <Microscope className="w-5 h-5" />, label: 'Biólogos' },
-    { icon: <BookOpen className="w-5 h-5" />, label: 'Tecnólogo ou Técnico Florestal' },
-    { icon: <Landmark className="w-5 h-5" />, label: 'Órgãos Públicos' },
-    { icon: <GraduationCap className="w-5 h-5" />, label: 'Estudantes universitários' },
-    { icon: <Users className="w-5 h-5" />, label: 'Qualquer profissional habilitado a realizar inventários florestais' },
+  const navLinks = [
+    { href: '#como-funciona', label: 'Como funciona' },
+    { href: '#planos', label: 'Planos' },
+    { href: '#sobre-o-criador', label: 'Sobre' },
+    { href: '#faq', label: 'FAQ' },
   ];
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-sm border-b border-white/10" style={{ backgroundColor: `${PRIMARY}f2` }}>
+    <div className="min-h-screen bg-white antialiased" style={{ color: C.text }}>
+
+      {/* ── HEADER ──────────────────────────────────────────────────────── */}
+      <header
+        className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
+        style={{
+          backgroundColor: scrolled ? C.dark : 'transparent',
+          boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,0.3)' : 'none',
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: ACCENT }}>
-              <Trees className="w-5 h-5" style={{ color: PRIMARY }} />
-            </div>
-            <div>
-              <span className="text-white font-bold text-lg tracking-tight">AMBISAFE</span>
-              <span className="text-white/50 text-xs ml-1 hidden sm:inline">Geotecnologias</span>
-            </div>
-          </div>
-          <nav className="hidden md:flex items-center gap-6 text-sm text-white/70">
-            <a href="#como-funciona" className="hover:text-white transition-colors">Como funciona</a>
-            <a href="#funcionalidades" className="hover:text-white transition-colors">Funcionalidades</a>
-            <a href="#sobre-o-criador" className="hover:text-white transition-colors">Sobre o Criador</a>
-            <a href="#planos" className="hover:text-white transition-colors">Planos</a>
-            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
-          </nav>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              className="text-white hover:bg-white/10 text-sm"
-              onClick={() => navigate('/auth')}
+          {/* Logo */}
+          <a href="/" className="flex-shrink-0">
+            <img src={logoFull} alt="AMBISAFE" className="h-9 w-auto object-contain"
+              style={{ filter: 'brightness(0) invert(1)' }} />
+          </a>
+
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-white/80">
+            {navLinks.map(l => (
+              <a key={l.href} href={l.href}
+                className="hover:text-white transition-colors">{l.label}</a>
+            ))}
+            <button
+              onClick={goAuth}
+              className="hover:text-white transition-colors"
             >
               Entrar
-            </Button>
-            <Button
-              className="text-sm font-semibold"
-              style={{ backgroundColor: ACCENT, color: PRIMARY }}
-              onClick={() => navigate('/auth')}
+            </button>
+            <button
+              onClick={goAuth}
+              className="px-5 py-2 rounded-full text-sm font-bold transition-all hover:opacity-90 active:scale-95"
+              style={{ backgroundColor: C.lime, color: C.dark }}
             >
-              Teste Grátis
-            </Button>
+              Começar grátis
+            </button>
+          </nav>
+
+          {/* Hamburger */}
+          <button
+            className="md:hidden flex flex-col gap-1.5 p-2"
+            onClick={() => setMobileOpen(o => !o)}
+            aria-label="Menu"
+          >
+            <span className={`block w-6 h-0.5 bg-white transition-all duration-300 origin-center ${mobileOpen ? 'rotate-45 translate-y-2' : ''}`} />
+            <span className={`block w-6 h-0.5 bg-white transition-opacity duration-300 ${mobileOpen ? 'opacity-0' : ''}`} />
+            <span className={`block w-6 h-0.5 bg-white transition-all duration-300 origin-center ${mobileOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+          </button>
+        </div>
+
+        {/* Mobile nav drawer */}
+        <div
+          className="md:hidden overflow-hidden transition-all duration-300"
+          style={{
+            maxHeight: mobileOpen ? '320px' : '0',
+            backgroundColor: C.dark,
+          }}
+        >
+          <div className="px-6 py-4 flex flex-col gap-4">
+            {navLinks.map(l => (
+              <a key={l.href} href={l.href}
+                className="text-white/80 hover:text-white font-medium py-1"
+                onClick={() => setMobileOpen(false)}>
+                {l.label}
+              </a>
+            ))}
+            <button onClick={goAuth}
+              className="text-white/80 hover:text-white font-medium py-1 text-left">
+              Entrar
+            </button>
+            <button
+              onClick={goAuth}
+              className="w-full py-3 rounded-full font-bold text-sm mt-1 transition-all hover:opacity-90"
+              style={{ backgroundColor: C.lime, color: C.dark }}
+            >
+              Começar grátis
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="relative min-h-screen flex items-center overflow-hidden pt-16" style={{ backgroundColor: PRIMARY }}>
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-1/4 -right-1/4 w-[800px] h-[800px] rounded-full blur-3xl" style={{ backgroundColor: `${ACCENT}15` }} />
-          <div className="absolute -bottom-1/4 -left-1/4 w-[600px] h-[600px] rounded-full blur-3xl" style={{ backgroundColor: `${ACCENT}10` }} />
+      {/* ── HERO ────────────────────────────────────────────────────────── */}
+      <section
+        className="relative min-h-screen flex items-center overflow-hidden"
+        style={{ backgroundColor: C.dark }}
+      >
+        {/* Background texture */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full blur-3xl opacity-20"
+            style={{ backgroundColor: C.lime }} />
+          <div className="absolute -bottom-32 -left-32 w-[400px] h-[400px] rounded-full blur-3xl opacity-10"
+            style={{ backgroundColor: C.lime }} />
+          {/* Grid pattern */}
+          <svg className="absolute inset-0 w-full h-full opacity-5" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          </svg>
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
-          <div className="max-w-4xl">
-            <div className="mb-10">
-              <img
-                src={ambiLogo}
-                alt="AMBISAFE"
-                className="h-14 w-auto"
-                style={{ filter: 'brightness(0) invert(1)' }}
-              />
-            </div>
-
-            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-8 border" style={{ backgroundColor: `${ACCENT}20`, borderColor: `${ACCENT}30` }}>
-              <Zap className="w-4 h-4" style={{ color: ACCENT }} />
-              <span className="text-sm font-medium" style={{ color: ACCENT }}>Plataforma Nacional de Inventário Florestal com IA</span>
-            </div>
-
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
-              Seu inventário florestal calculado em até{' '}
-              <span style={{ color: ACCENT }}>1 minuto</span>{' '}
-              com o AMBISAFE.{' '}
-              <span className="text-white/80">Rápido, simples e com Inteligência Artificial.</span>
-            </h1>
-
-            <p className="text-xl text-white/70 mb-10 max-w-2xl leading-relaxed">
-              Transforme dados de campo em relatórios técnicos completos. Cálculos estatísticos,
-              fitossociologia, índices de diversidade, estruturas horizontais e verticais,
-              distribuição diamétrica e pré-relatório automático com inteligência artificial.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 mb-16">
-              <Button
-                size="lg"
-                className="text-base px-8 py-4 h-auto gap-2 font-semibold"
-                style={{ backgroundColor: ACCENT, color: PRIMARY }}
-                onClick={() => navigate('/auth')}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-20 w-full">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left: copy */}
+            <div>
+              {/* Badge */}
+              <div
+                className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-8 text-xs font-semibold tracking-wide uppercase border"
+                style={{ backgroundColor: `${C.lime}20`, borderColor: `${C.lime}40`, color: C.lime }}
               >
-                Começar Teste Grátis
-                <ArrowRight className="w-5 h-5" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white/20 text-white hover:bg-white/10 hover:text-white text-base px-8 py-4 h-auto"
-                onClick={() => window.open('https://wa.me/5583991144456', '_blank')}
-              >
-                Fale Conosco
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-              {[
-                { value: '100%', label: 'Cálculos automatizados' },
-                { value: '12+', label: 'Tabelas geradas' },
-                { value: '1 min', label: 'Tempo de processamento' },
-                { value: 'IA', label: 'Relatório automático' },
-              ].map((stat, i) => (
-                <div key={i} className="text-center">
-                  <p className="text-3xl font-bold" style={{ color: ACCENT }}>{stat.value}</p>
-                  <p className="text-white/50 text-sm mt-1">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Público-alvo */}
-      <section className="py-16 bg-gray-50 border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-gray-700 text-base font-medium max-w-2xl mx-auto mb-8 leading-relaxed">
-            Uma plataforma criada para quem trabalha com florestas e precisa transformar dados
-            de campo em relatórios técnicos completos, com agilidade e precisão.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            {targetAudience.map((item, i) => (
-              <div key={i} className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-5 py-2.5 shadow-sm">
-                <span style={{ color: PRIMARY }}>{item.icon}</span>
-                <span className="text-gray-700 text-sm font-medium">{item.label}</span>
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.lime }} />
+                Plataforma Nacional de Inventário Florestal
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Benefícios */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Por que usar o AMBISAFE?</h2>
-            <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-              Transforme dados de campo em relatórios técnicos completos com agilidade e precisão — tudo em uma única plataforma.
-            </p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {benefits.map((b, i) => (
-              <div key={i} className="flex items-start gap-4 p-5 rounded-2xl border border-gray-100 hover:shadow-md transition-all">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white" style={{ backgroundColor: PRIMARY }}>
-                  {b.icon}
-                </div>
-                <p className="text-gray-800 font-medium leading-snug mt-1">{b.title}</p>
+              <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-bold text-white leading-tight mb-6">
+                Seu inventário florestal calculado em{' '}
+                <span style={{ color: C.lime }}>minutos</span>
+              </h1>
+
+              <p className="text-white/70 text-lg leading-relaxed mb-10 max-w-lg">
+                Automatize cálculos estatísticos, gere relatórios profissionais e gerencie suas parcelas com precisão e inteligência artificial.
+              </p>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-6 mb-10">
+                {[
+                  { value: '100%', label: 'Cálculos automáticos' },
+                  { value: '12+', label: 'Tabelas técnicas' },
+                  { value: '< 1 min', label: 'Processamento' },
+                ].map(s => (
+                  <div key={s.label}>
+                    <p className="text-2xl font-bold" style={{ color: C.lime }}>{s.value}</p>
+                    <p className="text-white/50 text-xs mt-0.5 leading-snug">{s.label}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={goAuth}
+                  className="px-8 py-3.5 rounded-full font-bold text-sm transition-all hover:opacity-90 hover:scale-105 active:scale-95 shadow-lg"
+                  style={{ backgroundColor: C.lime, color: C.dark,
+                    boxShadow: `0 4px 24px ${C.lime}50` }}
+                >
+                  Começar grátis
+                </button>
+                <button
+                  onClick={() => window.open('https://wa.me/5583991144456', '_blank')}
+                  className="px-8 py-3.5 rounded-full font-bold text-sm border-2 text-white hover:bg-white/10 transition-all"
+                  style={{ borderColor: 'rgba(255,255,255,0.3)' }}
+                >
+                  Fale conosco
+                </button>
+              </div>
+            </div>
+
+            {/* Right: dashboard mockup */}
+            <div className="hidden lg:block">
+              <DashboardMockup />
+            </div>
+          </div>
+
+          {/* Mobile mockup */}
+          <div className="lg:hidden mt-12">
+            <DashboardMockup />
           </div>
         </div>
       </section>
 
-      {/* Problema vs Solução */}
-      <section className="py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">O problema do mercado</h2>
-            <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-              O processamento de dados de inventário florestal ainda consome horas em planilhas e cálculos manuais — e isso custa tempo e produtividade.
-            </p>
-            <p className="text-lg text-gray-400 max-w-2xl mx-auto mt-3">
-              Esqueça planilhas complexas. O AMBISAFE automatiza a análise dos dados e transforma informações de campo em resultados técnicos com rapidez e precisão.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            <div className="bg-red-50 border border-red-100 rounded-2xl p-8">
-              <h3 className="text-xl font-bold text-red-700 mb-6">❌ Jeito tradicional</h3>
-              <ul className="space-y-3">
-                {[
-                  'Cálculos manuais em planilhas Excel com risco de erro',
-                  'Horas para calcular fitossociologia e estatística',
-                  'Relatórios criados do zero a cada projeto',
-                  'Sem padronização entre diferentes consultores',
-                  'Difícil de revisar e auditar os cálculos',
-                  'Exportação trabalhosa e sem formatação técnica',
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-red-800 text-sm">
-                    <span className="mt-0.5 text-red-400 flex-shrink-0">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-2xl p-8 border" style={{ backgroundColor: `${PRIMARY}08`, borderColor: `${PRIMARY}20` }}>
-              <h3 className="text-xl font-bold mb-6" style={{ color: PRIMARY }}>✅ Com AMBISAFE</h3>
-              <ul className="space-y-3">
-                {[
-                  'Upload da planilha → cálculos automáticos em segundos',
-                  'Fitossociologia, diversidade e estatística completos',
-                  'Pré-relatório técnico gerado por IA em português',
-                  'Padronização e qualidade garantidos pelo Score AMBISAFE',
-                  'Todos os cálculos rastreáveis e verificáveis',
-                  'Exportação em PDF, Word e Excel prontos para uso',
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-green-800 text-sm">
-                    <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: ACCENT }} />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Como funciona */}
+      {/* ── COMO FUNCIONA ───────────────────────────────────────────────── */}
       <section id="como-funciona" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <div className="flex justify-center mb-6">
-              <img src={ambiLogo} alt="AMBISAFE" className="h-12 w-auto" />
-            </div>
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Como funciona</h2>
-            <p className="text-xl text-gray-500">Em 4 passos simples do campo ao relatório</p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {steps.map((step, i) => (
-              <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: PRIMARY }}>
-                  <span className="font-bold text-lg" style={{ color: ACCENT }}>{step.num}</span>
-                </div>
-                <h3 className="font-bold text-gray-900 mb-2">{step.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{step.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Funcionalidades */}
-      <section id="funcionalidades" className="py-24" style={{ backgroundColor: PRIMARY }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">Funcionalidades completas</h2>
-            <p className="text-xl text-white/60 max-w-2xl mx-auto">
-              Tudo que um inventário florestal profissional precisa, em uma única plataforma
+          <Reveal className="text-center mb-16">
+            <p className="text-sm font-bold uppercase tracking-widest mb-3"
+              style={{ color: C.lime }}>
+              Simples e rápido
             </p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {features.map((feature, i) => (
-              <div key={i} className="group p-5 rounded-2xl border border-white/10 hover:border-white/30 bg-white/5 hover:bg-white/10 transition-all duration-300">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-colors" style={{ backgroundColor: `${ACCENT}20`, color: ACCENT }}>
-                  {feature.icon}
+            <h2 className="text-4xl font-bold mb-4" style={{ color: C.dark }}>
+              Como funciona
+            </h2>
+            <p className="text-lg max-w-xl mx-auto" style={{ color: C.muted }}>
+              Do campo ao relatório técnico em 4 passos simples
+            </p>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                num: '01',
+                title: 'Crie o projeto',
+                desc: 'Informe área, bioma e tipo de inventário. O sistema configura os parâmetros automaticamente.',
+                icon: (
+                  <svg viewBox="0 0 40 40" className="w-10 h-10" fill="none">
+                    <rect x="6" y="6" width="28" height="28" rx="6" stroke="currentColor" strokeWidth="2" />
+                    <path d="M14 20h12M20 14v12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                  </svg>
+                ),
+              },
+              {
+                num: '02',
+                title: 'Importe os dados',
+                desc: 'Faça upload da sua planilha .csv ou .xlsx. A IA mapeia e valida as colunas automaticamente.',
+                icon: (
+                  <svg viewBox="0 0 40 40" className="w-10 h-10" fill="none">
+                    <rect x="6" y="8" width="28" height="24" rx="4" stroke="currentColor" strokeWidth="2" />
+                    <path d="M20 25V15M15 20l5-5 5 5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ),
+              },
+              {
+                num: '03',
+                title: 'Calcule automaticamente',
+                desc: 'Fitossociologia, índices de diversidade, estrutura diamétrica e estatística amostral em segundos.',
+                icon: (
+                  <svg viewBox="0 0 40 40" className="w-10 h-10" fill="none">
+                    <rect x="6" y="6" width="28" height="28" rx="6" stroke="currentColor" strokeWidth="2" />
+                    <path d="M12 26l6-8 5 6 4-5 5 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ),
+              },
+              {
+                num: '04',
+                title: 'Gere relatórios',
+                desc: 'PDFs profissionais com IA, Word editável e Excel completo — prontos para protocolar.',
+                icon: (
+                  <svg viewBox="0 0 40 40" className="w-10 h-10" fill="none">
+                    <rect x="8" y="4" width="24" height="32" rx="4" stroke="currentColor" strokeWidth="2" />
+                    <path d="M14 14h12M14 20h12M14 26h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M24 28l4 4 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ),
+              },
+            ].map((step, i) => (
+              <Reveal key={step.num} delay={i * 100}>
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-1 transition-all duration-300 h-full">
+                  <div
+                    className="w-14 h-14 rounded-xl flex items-center justify-center mb-4"
+                    style={{ backgroundColor: `${C.dark}10`, color: C.dark }}
+                  >
+                    {step.icon}
+                  </div>
+                  <div
+                    className="text-xs font-black tracking-widest mb-2"
+                    style={{ color: C.lime }}
+                  >
+                    {step.num}
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-2 text-base">{step.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: C.muted }}>{step.desc}</p>
                 </div>
-                <h3 className="font-bold text-white mb-2 text-sm">{feature.title}</h3>
-                <p className="text-white/50 text-xs leading-relaxed">{feature.description}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Sobre o Criador */}
-      <section id="sobre-o-criador" className="py-24 bg-gray-50">
+      {/* ── PROBLEMA vs SOLUÇÃO ─────────────────────────────────────────── */}
+      <section className="py-24" style={{ backgroundColor: C.gray }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-900">Quem está por trás do AMBISAFE</h2>
-          </div>
-          <div className="rounded-3xl overflow-hidden shadow-xl" style={{ backgroundColor: PRIMARY }}>
-            <div className="grid md:grid-cols-3 gap-0">
-              {/* Foto */}
-              <div className="md:col-span-1 flex items-center justify-center p-8 md:p-12">
-                <div className="relative">
-                  <div className="w-52 h-52 md:w-64 md:h-64 rounded-full overflow-hidden shadow-2xl border-4" style={{ borderColor: ACCENT }}>
-                    <img
-                      src={alissonFoto}
-                      alt="Alisson Monteiro"
-                      className="w-full h-full object-cover object-top"
-                    />
-                  </div>
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-semibold shadow-lg" style={{ backgroundColor: ACCENT, color: PRIMARY }}>
-                    Engenheiro Florestal · Fundador do AMBISAFE
-                  </div>
-                </div>
-              </div>
+          <Reveal className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-4" style={{ color: C.dark }}>
+              O problema do mercado
+            </h2>
+            <p className="text-lg max-w-2xl mx-auto" style={{ color: C.muted }}>
+              O processamento de dados de inventário florestal ainda consome horas em planilhas manuais. O AMBISAFE resolve isso em minutos.
+            </p>
+          </Reveal>
 
-              {/* Texto */}
-              <div className="md:col-span-2 p-8 md:p-12 flex flex-col justify-center">
-                <h3 className="text-3xl font-bold mb-1" style={{ color: ACCENT }}>Alisson Monteiro</h3>
-                <p className="text-white/60 text-sm mb-6">Engenheiro Florestal — UFCG</p>
-
-                <div className="space-y-4 text-white/80 text-sm leading-relaxed overflow-y-auto max-h-96 pr-2">
-                  <p>
-                    <strong className="text-white">Sou Alisson Monteiro</strong>, Engenheiro Florestal formado pela Universidade Federal de Campina Grande (UFCG), movido pela paixão por inovação, tecnologia e soluções práticas para o setor florestal.
-                  </p>
-                  <p>
-                    Minha trajetória profissional começou antes mesmo da conclusão da graduação. Cerca de um ano e meio antes de me formar, já estava inserido no mercado de trabalho, atuando diretamente na área e adquirindo experiência prática. Essa vivência antecipada me permitiu desenvolver uma visão mais realista das demandas do setor e entender, na prática, os desafios enfrentados pelos profissionais que atuam na área.
-                  </p>
-                  <p>
-                    Concluí minha graduação em 2023 e, desde então, sigo atuando de forma ativa no mercado, sempre buscando aprimorar processos e trazer mais eficiência para as atividades da engenharia florestal.
-                  </p>
-                  <p>
-                    Inclusive, meu Trabalho de Conclusão de Curso (TCC) foi desenvolvido na área de inventário florestal, onde optei por explorar o método de ponto quadrante — uma metodologia ainda pouco utilizada no mercado e com limitada abordagem acadêmica. Escolhi esse tema justamente por seu caráter inovador, já que, por ser pouco aplicado, pode ser considerado uma abordagem ainda recente, onde os estudos demonstraram que esse método pode apresentar eficiência equivalente aos inventários convencionais por parcelas.
-                  </p>
-                  <p>
-                    Foi a partir dessa inquietação e do olhar crítico sobre o mercado que surgiu o sistema AMBISAFE. Ao longo da minha atuação profissional, percebi uma grande lacuna no uso de tecnologia aplicada ao processamento de inventários florestais. Muitos profissionais ainda enfrentam dificuldades com cálculos complexos, processos manuais e alto consumo de tempo.
-                  </p>
-                  <p>
-                    O sistema AMBISAFE nasce com o propósito de transformar essa realidade. Ele foi desenvolvido para facilitar, automatizar e otimizar o cálculo de inventários florestais, permitindo que análises que antes poderiam levar dias sejam realizadas em minutos. Mais do que uma ferramenta, o AMBISAFE é o reflexo do meu compromisso com a modernização do setor florestal, trazendo tecnologia, praticidade e eficiência para o dia a dia dos profissionais.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Planos */}
-      <section id="planos" className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Plano único, acesso completo</h2>
-            <p className="text-xl text-gray-500">14 dias grátis · sem cartão de crédito</p>
-          </div>
-          <div className="max-w-md mx-auto">
-            <div className="rounded-3xl p-8 shadow-2xl relative overflow-hidden" style={{ backgroundColor: PRIMARY }}>
-              <div className="absolute top-0 right-0 w-64 h-64 rounded-full -translate-y-1/2 translate-x-1/2" style={{ backgroundColor: `${ACCENT}20` }} />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 border" style={{ backgroundColor: `${ACCENT}20`, borderColor: `${ACCENT}30` }}>
-                    <span className="text-xs font-medium" style={{ color: ACCENT }}>Profissional</span>
-                  </div>
-                  <span className="text-white text-xs font-bold px-3 py-1 rounded-full" style={{ backgroundColor: ACCENT, color: PRIMARY }}>ACESSO TOTAL</span>
-                </div>
-                <div className="flex items-baseline gap-2 my-6">
-                  <span className="text-white/50 text-lg">R$</span>
-                  <span className="text-white font-bold text-6xl">300</span>
-                  <span className="text-white/50">/mês</span>
-                </div>
-                <ul className="space-y-3 mb-8">
+          <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            <Reveal delay={0}>
+              <div className="bg-red-50 border border-red-100 rounded-2xl p-8 h-full">
+                <h3 className="text-lg font-bold text-red-700 mb-5">❌ Jeito tradicional</h3>
+                <ul className="space-y-3">
                   {[
-                    'Projetos ilimitados',
-                    'Upload CSV e XLSX',
-                    'Todos os cálculos florestais',
-                    '12+ tabelas automáticas',
-                    'Pré-relatório com IA',
-                    'Exportação PDF, Word e Excel',
-                    'Score AMBISAFE',
-                    'Banco de espécies integrado',
-                    'Suporte técnico',
-                    'Conta compartilhada com equipe',
-                  ].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-white/80 text-sm">
-                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: ACCENT }} />
+                    'Horas em planilhas Excel com risco de erro humano',
+                    'Cálculos de fitossociologia e estatística manuais',
+                    'Relatórios criados do zero para cada projeto',
+                    'Sem padronização entre consultores',
+                    'Difícil de revisar e auditar',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-3 text-red-800 text-sm">
+                      <span className="text-red-400 mt-0.5 flex-shrink-0">•</span>
                       {item}
                     </li>
                   ))}
                 </ul>
-                <Button
-                  className="w-full py-4 h-auto text-base gap-2 font-semibold"
-                  style={{ backgroundColor: ACCENT, color: PRIMARY }}
-                  onClick={() => navigate('/auth')}
-                >
-                  Começar Teste Grátis
-                  <ArrowRight className="w-5 h-5" />
-                </Button>
-                <p className="text-white/40 text-xs text-center mt-4">
-                  Sem cartão de crédito · Cancele quando quiser
-                </p>
-                <p className="text-white/50 text-xs text-center mt-2">
-                  Aceita cadastro com CPF ou CNPJ — ideal para engenheiros autônomos e empresas.
-                </p>
               </div>
-            </div>
-          </div>
+            </Reveal>
 
-          <p className="text-center text-gray-400 text-sm mt-10">
-            Precisa de condições especiais para grandes volumes?{' '}
-            <a
-              href="https://wa.me/5583991144456"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium hover:underline"
-              style={{ color: PRIMARY }}
-            >
-              Fale conosco pelo WhatsApp
-            </a>
-          </p>
+            <Reveal delay={120}>
+              <div className="rounded-2xl p-8 h-full border"
+                style={{ backgroundColor: `${C.dark}08`, borderColor: `${C.dark}20` }}>
+                <h3 className="text-lg font-bold mb-5" style={{ color: C.dark }}>✅ Com AMBISAFE</h3>
+                <ul className="space-y-3">
+                  {[
+                    'Upload da planilha → resultados em segundos',
+                    'Fitossociologia e estatística 100% automáticos',
+                    'Pré-relatório técnico gerado por IA em português',
+                    'Padronização garantida pelo Score AMBISAFE',
+                    'Exportação em PDF, Word e Excel prontos para uso',
+                  ].map(item => (
+                    <li key={item} className="flex items-start gap-3 text-green-800 text-sm">
+                      <svg className="w-4 h-4 mt-0.5 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="7" fill={C.lime} />
+                        <path d="M5 8l2 2 4-4" stroke={C.dark} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+          </div>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section id="faq" className="py-24 bg-gray-50">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Perguntas Frequentes</h2>
-          </div>
-          <div className="space-y-2">
-            {FAQ_ITEMS.map((item, i) => (
-              <div key={i} className="rounded-2xl overflow-hidden border border-gray-200">
-                <button
-                  className="w-full flex items-center justify-between px-6 py-4 text-left font-semibold text-sm text-white transition-colors"
-                  style={{ backgroundColor: openFaq === i ? PRIMARY : '#f8f9fa', color: openFaq === i ? '#fff' : '#1a1a1a' }}
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                >
-                  <span>{item.q}</span>
-                  {openFaq === i
-                    ? <Minus className="w-4 h-4 flex-shrink-0 ml-3" />
-                    : <Plus className="w-4 h-4 flex-shrink-0 ml-3" />
-                  }
-                </button>
-                {openFaq === i && (
-                  <div className="px-6 py-4 bg-white text-gray-600 text-sm leading-relaxed border-t border-gray-100">
-                    {item.a}
+      {/* ── BENEFÍCIOS ──────────────────────────────────────────────────── */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-4" style={{ color: C.dark }}>
+              Por que engenheiros florestais escolhem o AMBISAFE
+            </h2>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                  </svg>
+                ),
+                title: 'Cálculos conforme normas',
+                desc: 'Metodologia alinhada com a literatura clássica da engenharia florestal e exigências dos órgãos ambientais.',
+              },
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M6.343 17.657A8 8 0 1117.657 6.343 8 8 0 016.343 17.657z" />
+                  </svg>
+                ),
+                title: 'Múltiplas espécies e biomas',
+                desc: 'Suporte a todos os biomas brasileiros com banco de espécies integrado ao Inventário Florestal Nacional.',
+              },
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M7 21h10M12 21V3M4 7l8-4 8 4" />
+                  </svg>
+                ),
+                title: 'Relatórios em PDF automatizados',
+                desc: 'IA redige metodologia e resultados. Exporte em PDF, Word editável e Excel com 12+ tabelas técnicas.',
+              },
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="5" y="2" width="14" height="20" rx="2" />
+                    <path d="M12 18h.01" />
+                  </svg>
+                ),
+                title: 'Acesso de qualquer dispositivo',
+                desc: 'Plataforma 100% na nuvem. Use no escritório ou no campo via tablet/celular — sem instalação.',
+              },
+            ].map((item, i) => (
+              <Reveal key={item.title} delay={i * 80}>
+                <div className="group p-6 rounded-2xl border border-gray-100 hover:border-transparent hover:shadow-xl transition-all duration-300 h-full"
+                  style={{ ['--hover-border' as string]: C.lime }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-colors duration-300"
+                    style={{ backgroundColor: `${C.dark}10`, color: C.dark }}>
+                    {item.icon}
                   </div>
-                )}
-              </div>
+                  <h3 className="font-bold text-gray-900 mb-2">{item.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: C.muted }}>{item.desc}</p>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Final */}
-      <section className="py-24 bg-white border-t">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
-            Pronto para <span style={{ color: PRIMARY }}>automatizar</span> seus inventários florestais?
-          </h2>
-          <p className="text-xl text-gray-500 mb-10">
-            Junte-se a engenheiros florestais e consultores ambientais que já utilizam AMBISAFE para gerar relatórios técnicos com precisão e agilidade.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="text-base px-8 py-4 h-auto gap-2 font-semibold"
-              style={{ backgroundColor: PRIMARY, color: '#fff' }}
-              onClick={() => navigate('/auth')}
-            >
-              Começar Teste Grátis
-              <ArrowRight className="w-5 h-5" />
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-base px-8 py-4 h-auto gap-2"
-              style={{ borderColor: PRIMARY, color: PRIMARY }}
-              onClick={() => window.open('https://wa.me/5583991144456', '_blank')}
-            >
-              Fale Conosco no WhatsApp
-            </Button>
+      {/* ── FUNCIONALIDADES ─────────────────────────────────────────────── */}
+      <section
+        id="funcionalidades"
+        className="py-24"
+        style={{ backgroundColor: C.dark }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-white mb-4">Tudo em uma plataforma</h2>
+            <p className="text-lg text-white/60 max-w-xl mx-auto">
+              Funcionalidades completas para inventários florestais profissionais
+            </p>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              'Identificação automática de nome científico e família via IA',
+              'Upload de planilhas CSV/XLSX com mapeamento automático de colunas',
+              'Fitossociologia completa: DA, DR, DoA, DoR, FA, FR, IVI',
+              'Índices de diversidade: Shannon, Simpson, Pielou',
+              'Estrutura diamétrica com Fórmula de Sturges automática',
+              'Estrutura vertical com tabela por estrato e por espécie',
+              'Suficiência amostral e intervalo de confiança automáticos',
+              'Score AMBISAFE — 5 dimensões de qualidade técnica',
+              'Banco de espécies integrado ao IFN por estado/bioma',
+              'Pré-relatório técnico com IA (metodologia + resultados)',
+              'Exportação em PDF, Word (.docx) editável e Excel',
+              'Dados isolados por empresa com RLS — total privacidade',
+            ].map((feat, i) => (
+              <Reveal key={feat} delay={(i % 6) * 60}>
+                <div className="flex items-start gap-3 bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                  <div
+                    className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5"
+                    style={{ backgroundColor: C.lime }}
+                  >
+                    <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                      <path d="M2.5 6l2.5 2.5 5-5" stroke={C.dark} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <p className="text-white/80 text-sm leading-snug">{feat}</p>
+                </div>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 border-t border-white/10" style={{ backgroundColor: PRIMARY }}>
+      {/* ── PLANOS ──────────────────────────────────────────────────────── */}
+      <section id="planos" className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-4" style={{ color: C.dark }}>
+              Plano único, acesso total
+            </h2>
+            <p className="text-lg" style={{ color: C.muted }}>
+              14 dias grátis · sem cartão de crédito
+            </p>
+          </Reveal>
+
+          <Reveal>
+            <div className="max-w-md mx-auto rounded-3xl overflow-hidden shadow-2xl"
+              style={{ backgroundColor: C.dark }}>
+              <div className="relative p-8">
+                <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-20 -translate-y-1/4 translate-x-1/4"
+                  style={{ backgroundColor: C.lime }} />
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-6">
+                    <span
+                      className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+                      style={{ backgroundColor: `${C.lime}20`, color: C.lime }}
+                    >
+                      Profissional
+                    </span>
+                    <span
+                      className="text-xs font-bold px-3 py-1 rounded-full"
+                      style={{ backgroundColor: C.lime, color: C.dark }}
+                    >
+                      ACESSO TOTAL
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline gap-2 mb-8">
+                    <span className="text-white/50 text-xl">R$</span>
+                    <span className="text-white font-black text-6xl">300</span>
+                    <span className="text-white/50">/mês</span>
+                  </div>
+
+                  <ul className="space-y-3 mb-8">
+                    {[
+                      'Projetos e cálculos ilimitados',
+                      'Conta compartilhada com equipe',
+                      'Todos os cálculos florestais',
+                      'Pré-relatório com IA incluído',
+                      'Exportação PDF, Word e Excel',
+                      'Score AMBISAFE exclusivo',
+                      'Banco de espécies integrado',
+                      'Suporte técnico por WhatsApp',
+                    ].map(item => (
+                      <li key={item} className="flex items-center gap-3 text-white/80 text-sm">
+                        <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+                          <circle cx="8" cy="8" r="7" fill={C.lime} />
+                          <path d="M5 8l2 2 4-4" stroke={C.dark} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    onClick={goAuth}
+                    className="w-full py-4 rounded-full font-bold text-sm transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
+                    style={{ backgroundColor: C.lime, color: C.dark }}
+                  >
+                    Começar 14 dias grátis
+                  </button>
+                  <p className="text-white/30 text-xs text-center mt-3">
+                    Sem cartão · Aceita CPF ou CNPJ · Cancele quando quiser
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── SOBRE O CRIADOR ─────────────────────────────────────────────── */}
+      <section id="sobre-o-criador" className="py-24" style={{ backgroundColor: C.gray }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal className="text-center mb-12">
+            <h2 className="text-4xl font-bold" style={{ color: C.dark }}>
+              Quem está por trás do AMBISAFE
+            </h2>
+          </Reveal>
+
+          <Reveal>
+            <div className="rounded-3xl overflow-hidden shadow-xl" style={{ backgroundColor: C.dark }}>
+              <div className="grid md:grid-cols-3">
+                {/* Photo */}
+                <div className="flex items-center justify-center p-8 md:p-12">
+                  <div className="relative">
+                    <div className="w-48 h-48 md:w-56 md:h-56 rounded-full overflow-hidden border-4 shadow-2xl"
+                      style={{ borderColor: C.lime }}>
+                      <img src={alissonFoto} alt="Alisson Monteiro"
+                        className="w-full h-full object-cover object-top" />
+                    </div>
+                    <div
+                      className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold shadow-lg"
+                      style={{ backgroundColor: C.lime, color: C.dark }}
+                    >
+                      Eng. Florestal · Fundador
+                    </div>
+                  </div>
+                </div>
+
+                {/* Text */}
+                <div className="md:col-span-2 p-8 md:p-12 flex flex-col justify-center">
+                  <h3 className="text-2xl font-bold mb-1" style={{ color: C.lime }}>
+                    Alisson Monteiro
+                  </h3>
+                  <p className="text-white/50 text-sm mb-6">Engenheiro Florestal — UFCG</p>
+                  <div className="space-y-3 text-white/75 text-sm leading-relaxed overflow-y-auto max-h-80 pr-1">
+                    <p>
+                      <strong className="text-white">Sou Alisson Monteiro</strong>, Engenheiro Florestal formado pela Universidade Federal de Campina Grande (UFCG), movido pela paixão por inovação, tecnologia e soluções práticas para o setor florestal.
+                    </p>
+                    <p>
+                      Minha trajetória começou antes mesmo de me formar — cerca de um ano e meio antes já atuava no mercado, desenvolvendo visão prática das demandas reais do setor. Conclui a graduação em 2023 e o meu TCC explorou o método de ponto quadrante no inventário florestal, uma metodologia inovadora que pode apresentar eficiência equivalente aos inventários convencionais por parcelas.
+                    </p>
+                    <p>
+                      Foi desse olhar crítico sobre o mercado que surgiu o AMBISAFE. Percebi uma grande lacuna no uso de tecnologia aplicada ao processamento de inventários: muitos profissionais ainda enfrentam cálculos complexos, processos manuais e alto consumo de tempo.
+                    </p>
+                    <p>
+                      O AMBISAFE nasce para transformar essa realidade — automatizando análises que antes levavam dias para serem concluídas em minutos, com precisão e padronização técnica.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── FAQ ─────────────────────────────────────────────────────────── */}
+      <section id="faq" className="py-24 bg-white">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal className="text-center mb-12">
+            <h2 className="text-4xl font-bold" style={{ color: C.dark }}>
+              Perguntas frequentes
+            </h2>
+          </Reveal>
+
+          <div className="space-y-2">
+            {FAQ.map((item, i) => (
+              <Reveal key={i} delay={i * 40}>
+                <div className="rounded-2xl overflow-hidden border border-gray-200">
+                  <button
+                    className="w-full flex items-center justify-between px-6 py-4 text-left font-semibold text-sm transition-colors"
+                    style={{
+                      backgroundColor: openFaq === i ? C.dark : '#f8f9fa',
+                      color: openFaq === i ? '#fff' : C.dark,
+                    }}
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  >
+                    <span>{item.q}</span>
+                    <span
+                      className="flex-shrink-0 ml-3 w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-300"
+                      style={{
+                        backgroundColor: openFaq === i ? `${C.lime}30` : `${C.dark}10`,
+                        color: openFaq === i ? C.lime : C.dark,
+                        transform: openFaq === i ? 'rotate(45deg)' : 'rotate(0deg)',
+                      }}
+                    >
+                      <svg viewBox="0 0 16 16" className="w-3.5 h-3.5" fill="none">
+                        <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                  </button>
+                  <div
+                    className="overflow-hidden transition-all duration-300"
+                    style={{ maxHeight: openFaq === i ? '200px' : '0' }}
+                  >
+                    <p className="px-6 py-4 text-sm leading-relaxed border-t border-gray-100"
+                      style={{ color: C.muted }}>
+                      {item.a}
+                    </p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA FINAL ───────────────────────────────────────────────────── */}
+      <section className="py-24" style={{ backgroundColor: C.dark }}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <Reveal>
+            <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6">
+              Pronto para{' '}
+              <span style={{ color: C.lime }}>automatizar</span>{' '}
+              seu inventário?
+            </h2>
+            <p className="text-xl text-white/60 mb-10 max-w-2xl mx-auto">
+              Junte-se a engenheiros florestais e consultores que já usam o AMBISAFE para gerar relatórios técnicos com precisão em minutos.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={goAuth}
+                className="px-10 py-4 rounded-full font-bold text-base transition-all hover:opacity-90 hover:scale-105 active:scale-95 shadow-xl"
+                style={{
+                  backgroundColor: C.lime,
+                  color: C.dark,
+                  boxShadow: `0 8px 32px ${C.lime}40`,
+                }}
+              >
+                Criar conta grátis
+              </button>
+              <button
+                onClick={() => window.open('https://wa.me/5583991144456', '_blank')}
+                className="px-10 py-4 rounded-full font-bold text-base border-2 text-white hover:bg-white/10 transition-all"
+                style={{ borderColor: 'rgba(255,255,255,0.25)' }}
+              >
+                Falar no WhatsApp
+              </button>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── FOOTER ──────────────────────────────────────────────────────── */}
+      <footer className="py-10 border-t border-white/10" style={{ backgroundColor: C.dark }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: ACCENT }}>
-                <Trees className="w-5 h-5" style={{ color: PRIMARY }} />
-              </div>
-              <span className="text-white font-bold">AMBISAFE</span>
-              <span className="text-white/40 text-sm">Geotecnologias</span>
-            </div>
+            <img src={logoFull} alt="AMBISAFE" className="h-8 w-auto"
+              style={{ filter: 'brightness(0) invert(1)' }} />
+
             <div className="flex items-center gap-6 text-sm text-white/40">
-              <a href="#" className="hover:text-white transition-colors">Termos de Uso</a>
+              <a href="#" className="hover:text-white transition-colors">Termos de uso</a>
               <a href="#" className="hover:text-white transition-colors">Privacidade</a>
               <a
                 href="https://wa.me/5583991144456"
@@ -613,10 +911,13 @@ export default function LandingPage() {
                 rel="noopener noreferrer"
                 className="hover:text-white transition-colors"
               >
-                Suporte
+                Contato
               </a>
             </div>
-            <p className="text-white/30 text-sm">© {new Date().getFullYear()} AMBISAFE Geotecnologias</p>
+
+            <p className="text-white/30 text-sm text-center">
+              © {new Date().getFullYear()} AMBISAFE — Software de cálculo de inventário florestal
+            </p>
           </div>
         </div>
       </footer>
