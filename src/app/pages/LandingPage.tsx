@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import logoFull from '../../assets/ambisafe-logo-full.png';
-import logoIcon from '../../assets/ambisafe-logo-icon.png';
 import alissonFoto from '../../assets/alisson-monteiro.jpg';
 
 // ─── Brand tokens ──────────────────────────────────────────────────────────
@@ -233,7 +232,7 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const goAuth = useCallback(() => navigate('/auth'), [navigate]);
+  const goAuth = useCallback(() => navigate('/auth?mode=register'), [navigate]);
 
   const navLinks = [
     { href: '#como-funciona', label: 'Como funciona' },
@@ -770,7 +769,13 @@ export default function LandingPage() {
                     <div className="w-48 h-48 md:w-56 md:h-56 rounded-full overflow-hidden border-4 shadow-2xl"
                       style={{ borderColor: C.lime }}>
                       <img src={alissonFoto} alt="Alisson Monteiro"
-                        className="w-full h-full object-cover object-top" />
+                        style={{
+                          width: '100%', height: '100%',
+                          objectFit: 'cover',
+                          objectPosition: 'center 15%',
+                          transform: 'scale(1.3)',
+                          transformOrigin: 'center 20%',
+                        }} />
                     </div>
                     <div
                       className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold shadow-lg"
