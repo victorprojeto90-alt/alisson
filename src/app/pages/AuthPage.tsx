@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Trees, ArrowLeft, Eye, EyeOff, UserCheck, Briefcase, Mail, KeyRound } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, UserCheck, Briefcase, Mail, KeyRound } from 'lucide-react';
+import logoFull from '../../assets/ambisafe-logo-full.png';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
@@ -158,13 +159,7 @@ export default function AuthPage() {
         <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
           <CardHeader className="space-y-4 pb-4">
             <div className="flex items-center justify-center gap-2">
-              <div className="w-12 h-12 bg-[#0B3D2E] rounded-xl flex items-center justify-center">
-                <Trees className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-[#0B3D2E]">AMBISAFE</h1>
-                <p className="text-xs text-gray-400">Geotecnologias</p>
-              </div>
+              <img src={logoFull} alt="AMBISAFE" style={{ height: '52px', width: 'auto', objectFit: 'contain' }} />
             </div>
             <div className="text-center">
               <CardTitle className="text-xl">

@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Leaf,
 } from 'lucide-react';
+import logoFull from '../../../assets/ambisafe-logo-full.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { cn } from '../ui/utils';
@@ -47,13 +48,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
-            <Trees className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">AMBISAFE</h1>
-            <p className="text-xs text-sidebar-foreground/60">Geotecnologias</p>
-          </div>
+          <img src={logoFull} alt="AMBISAFE" style={{ height: '36px', width: 'auto', objectFit: 'contain' }} />
         </div>
         {empresa && (
           <div className="bg-sidebar-accent/50 rounded-lg px-3 py-2">
