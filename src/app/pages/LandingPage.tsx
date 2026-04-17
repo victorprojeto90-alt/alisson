@@ -696,32 +696,33 @@ export default function LandingPage() {
                       className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
                       style={{ backgroundColor: `${C.lime}20`, color: C.lime }}
                     >
-                      Profissional
+                      AMBISAFE Pro
                     </span>
                     <span
                       className="text-xs font-bold px-3 py-1 rounded-full"
                       style={{ backgroundColor: C.lime, color: C.dark }}
                     >
-                      ACESSO TOTAL
+                      Plano Único — Acesso Completo
                     </span>
                   </div>
 
                   <div className="flex items-baseline gap-2 mb-8">
                     <span className="text-white/50 text-xl">R$</span>
-                    <span className="text-white font-black text-6xl">300</span>
+                    <span className="text-white font-black text-6xl">299</span>
+                    <span className="text-white font-black text-3xl">,90</span>
                     <span className="text-white/50">/mês</span>
                   </div>
 
                   <ul className="space-y-3 mb-8">
                     {[
-                      'Projetos e cálculos ilimitados',
-                      'Conta compartilhada com equipe',
-                      'Todos os cálculos florestais',
-                      'Pré-relatório com IA incluído',
-                      'Exportação PDF, Word e Excel',
-                      'Score AMBISAFE exclusivo',
-                      'Banco de espécies integrado',
-                      'Suporte técnico por WhatsApp',
+                      'Projetos ilimitados',
+                      'Cálculos ilimitados',
+                      'Amostragem Casual Simples e Censo Florestal',
+                      'Estrutura horizontal, vertical e diamétrica',
+                      'Pré-relatório com IA',
+                      'Exportação PDF e Word',
+                      'Banco de espécies por bioma',
+                      'Suporte por WhatsApp',
                     ].map(item => (
                       <li key={item} className="flex items-center gap-3 text-white/80 text-sm">
                         <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" fill="none">
@@ -738,10 +739,10 @@ export default function LandingPage() {
                     className="w-full py-4 rounded-full font-bold text-sm transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
                     style={{ backgroundColor: C.lime, color: C.dark }}
                   >
-                    Começar 14 dias grátis
+                    Começar Teste Grátis — 14 dias
                   </button>
                   <p className="text-white/30 text-xs text-center mt-3">
-                    Sem cartão · Aceita CPF ou CNPJ · Cancele quando quiser
+                    Sem cartão de crédito. Cancele quando quiser.
                   </p>
                 </div>
               </div>

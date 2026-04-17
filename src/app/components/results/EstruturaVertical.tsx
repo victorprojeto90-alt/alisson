@@ -108,48 +108,68 @@ export default function EstruturaVertical({ estratos, especiesEstratos = [] }: P
           </div>
         </div>
 
-        {/* Per-species strata table */}
-        {especiesEstratos.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-sm text-gray-700 mb-3">
-              Distribuição Vertical por Espécie
-            </h4>
-            <div className="overflow-x-auto rounded-xl border border-gray-200">
-              <table className="w-full text-xs">
-                <thead className="bg-[#00420d]/80 text-white">
-                  <tr>
-                    <th className="py-2.5 px-4 text-left font-semibold">Espécie</th>
-                    <th className="py-2.5 px-4 text-left font-semibold hidden sm:table-cell">Nome Científico</th>
-                    <th className="py-2.5 px-4 text-left font-semibold">Estrato</th>
-                    <th className="py-2.5 px-4 text-right font-semibold">NI</th>
-                    <th className="py-2.5 px-4 text-right font-semibold">% no Estrato</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {especiesEstratos.map((row, i) => (
-                    <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="py-2 px-4 font-medium">{row.nome_comum}</td>
-                      <td className="py-2 px-4 italic text-gray-400 hidden sm:table-cell">{row.nome_cientifico}</td>
-                      <td className="py-2 px-4">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          row.estrato === 'Superior'
-                            ? 'bg-green-100 text-green-700'
-                            : row.estrato === 'Médio'
-                              ? 'bg-blue-50 text-blue-700'
-                              : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {row.estrato}
-                        </span>
-                      </td>
-                      <td className="py-2 px-4 text-right font-mono">{row.n_individuos}</td>
-                      <td className="py-2 px-4 text-right font-mono">{fmt.pct(row.pct_estrato)}</td>
+        {/* Per-species strata pivot table */}
+        {especiesEstratos.length > 0 && (() => {
+          // Pivot: group by nome_comum
+          const pivotMap = new Map<string, { inferior: number; medio: number; superior: number }>();
+          for (const row of especiesEstratos) {
+            if (!pivotMap.has(row.nome_comum)) pivotMap.set(row.nome_comum, { inferior: 0, medio: 0, superior: 0 });
+            const entry = pivotMap.get(row.nome_comum)!;
+            if (row.estrato === 'Inferior') entry.inferior += row.n_individuos;
+            else if (row.estrato === 'Médio') entry.medio += row.n_individuos;
+            else if (row.estrato === 'Superior') entry.superior += row.n_individuos;
+          }
+          const rows = Array.from(pivotMap.entries())
+            .map(([nome, counts]) => ({ nome, ...counts, total: counts.inferior + counts.medio + counts.superior }))
+            .sort((a, b) => b.total - a.total);
+          const totInf = rows.reduce((s, r) => s + r.inferior, 0);
+          const totMed = rows.reduce((s, r) => s + r.medio, 0);
+          const totSup = rows.reduce((s, r) => s + r.superior, 0);
+          const totAll = totInf + totMed + totSup;
+          const pct = (n: number) => totAll > 0 ? `${((n / totAll) * 100).toFixed(2)}%` : '0%';
+
+          return (
+            <div>
+              <h4 className="font-semibold text-sm text-gray-700 mb-3">
+                Análise da estrutura vertical por espécie
+              </h4>
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="w-full text-xs">
+                  <thead className="bg-[#00420d]/80 text-white">
+                    <tr>
+                      <th className="py-2.5 px-4 text-left font-semibold">Espécies</th>
+                      <th className="py-2.5 px-4 text-center font-semibold">Parâmetro</th>
+                      <th className="py-2.5 px-4 text-right font-semibold">Inferior</th>
+                      <th className="py-2.5 px-4 text-right font-semibold">Médio</th>
+                      <th className="py-2.5 px-4 text-right font-semibold">Superior</th>
+                      <th className="py-2.5 px-4 text-right font-semibold">Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => (
+                      <tr key={row.nome} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="py-2 px-4 font-medium">{row.nome}</td>
+                        <td className="py-2 px-4 text-center text-gray-500">Ht</td>
+                        <td className="py-2 px-4 text-right font-mono">{row.inferior || '—'}</td>
+                        <td className="py-2 px-4 text-right font-mono">{row.medio || '—'}</td>
+                        <td className="py-2 px-4 text-right font-mono">{row.superior || '—'}</td>
+                        <td className="py-2 px-4 text-right font-mono font-semibold">{row.total}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-[#00420d]/5 font-semibold border-t border-[#00420d]/20">
+                      <td className="py-2.5 px-4">TOTAL</td>
+                      <td className="py-2.5 px-4 text-center text-gray-500">Ht</td>
+                      <td className="py-2.5 px-4 text-right font-mono">{totInf} <span className="font-normal text-gray-500">({pct(totInf)})</span></td>
+                      <td className="py-2.5 px-4 text-right font-mono">{totMed} <span className="font-normal text-gray-500">({pct(totMed)})</span></td>
+                      <td className="py-2.5 px-4 text-right font-mono">{totSup} <span className="font-normal text-gray-500">({pct(totSup)})</span></td>
+                      <td className="py-2.5 px-4 text-right font-mono">{totAll}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </CardContent>
     </Card>
   );

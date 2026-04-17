@@ -79,16 +79,18 @@ export default function StatsSummary({ dados, precisaoRequerida, areaTotalHa }: 
               </tr>
             </thead>
             <tbody>
-              {areaTotalHa !== undefined && (
-                <Row label="Área Total do Empreendimento (ha)" value={fmt.ha(areaTotalHa, 4)} hint="Área total informada no cadastro do projeto" highlightGreen />
-              )}
               <Row label="Número de Parcelas (n)" value={String(d.n_parcelas)} />
               <Row
                 label="Parcelas Possíveis na Área (N)"
                 value={String(d.n_parcelas_possiveis)}
                 hint="Número total de parcelas que caberiam na área total"
               />
-              <Row label="Área Amostrada (ha)" value={fmt.num(d.area_amostrada_ha, 4)} hint="Área total coberta pelas parcelas" />
+              <Row
+                label="Área Amostrada (ha)"
+                value={areaTotalHa !== undefined ? fmt.ha(areaTotalHa, 4) : fmt.num(d.area_amostrada_ha, 4)}
+                hint="Área total do empreendimento informada no cadastro do projeto"
+                highlightGreen={areaTotalHa !== undefined}
+              />
               <Row label="Número de Indivíduos" value={d.n_individuos.toLocaleString('pt-BR')} />
               <Row label="Número de Espécies" value={String(d.n_especies)} />
               <Row label="Número de Famílias" value={String(d.n_familias)} />

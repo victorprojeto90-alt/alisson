@@ -67,9 +67,21 @@ export default function ScoreCard({ score, precisaoRequerida, erroRelPct }: Prop
   const getRegularidadeLabel = () => {
     if (precisaoRequerida !== undefined && erroRelPct !== undefined) {
       const limite = precisaoRequerida;
-      if (erroRelPct <= limite / 2) return { label: 'Excelente', color: 'text-green-600' };
-      if (erroRelPct <= limite) return { label: 'Muito Bom', color: 'text-yellow-600' };
-      return { label: 'Ruim', color: 'text-red-600' };
+      if (erroRelPct <= limite / 2) return {
+        label: 'Excelente',
+        color: 'text-green-600',
+        msg: 'Inventário com excelente precisão estatística.',
+      };
+      if (erroRelPct <= limite) return {
+        label: 'Muito Bom',
+        color: 'text-yellow-600',
+        msg: 'Inventário dentro do limite aceitável de precisão.',
+      };
+      return {
+        label: 'Ruim',
+        color: 'text-red-600',
+        msg: 'Erro acima do limite. Recomenda-se amostrar mais parcelas.',
+      };
     }
     return null;
   };
@@ -156,6 +168,11 @@ export default function ScoreCard({ score, precisaoRequerida, erroRelPct }: Prop
                   />
                 </div>
                 <p className="text-xs text-gray-400 leading-relaxed">{item.desc}</p>
+                {item.key === 'regularidade' && regularidadeLabel && (
+                  <p className={`text-xs font-medium ${regularidadeLabel.color}`}>
+                    {regularidadeLabel.msg}
+                  </p>
+                )}
                 {item.key === 'regularidade' && precisaoRequerida !== undefined && erroRelPct !== undefined && (
                   <p className="text-xs text-gray-500">
                     Erro obtido: <strong>{erroRelPct.toFixed(2)}%</strong> · Limite: <strong>{precisaoRequerida}%</strong> · Metade do limite: <strong>{(precisaoRequerida / 2).toFixed(1)}%</strong>

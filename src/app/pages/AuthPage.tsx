@@ -348,7 +348,10 @@ export default function AuthPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-gray-700">
-                        CPF ou CNPJ <span className="text-gray-400 font-normal">(opcional)</span>
+                        {tipoUsuario === 'empresa'
+                          ? <span>CNPJ <span className="text-gray-400 font-normal text-xs">(opcional — deixe em branco se for autônomo com CPF)</span></span>
+                          : <span>CPF <span className="text-gray-400 font-normal">(opcional)</span></span>
+                        }
                       </label>
                       <Input
                         placeholder={tipoUsuario === 'empresa' ? 'CNPJ (opcional)' : 'CPF (opcional)'}

@@ -9,6 +9,7 @@ import {
   Crown,
   ChevronRight,
   Leaf,
+  HelpCircle,
 } from 'lucide-react';
 import logoFull from '../../../assets/ambisafe-logo-full2.png';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/app/projetos', label: 'Projetos', icon: Trees },
   { to: '/app/relatorios', label: 'Relatórios', icon: FileText },
   { to: '/app/especies', label: 'Banco de Espécies', icon: Leaf },
+  { to: '/app/faq', label: 'FAQ', icon: HelpCircle },
   { to: '/app/configuracoes', label: 'Configurações', icon: Settings },
 ];
 

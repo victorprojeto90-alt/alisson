@@ -47,7 +47,6 @@ interface FormData {
   bioma: string;
   area_total_ha: string;
   tipo_inventario: string;
-  motivo_inventario: string;
   precisao_requerida: string;
   nivel_confianca: string;
   tamanho_parcela_m2: string;
@@ -75,7 +74,6 @@ export default function ProjectNew() {
     bioma: '',
     area_total_ha: '',
     tipo_inventario: 'casual_simples',
-    motivo_inventario: 'licenciamento',
     precisao_requerida: '10',
     nivel_confianca: '90',
     tamanho_parcela_m2: '400',
@@ -120,7 +118,6 @@ export default function ProjectNew() {
         bioma: form.bioma || null,
         area_total_ha: Number(form.area_total_ha),
         tipo_inventario: form.tipo_inventario,
-        motivo_inventario: form.motivo_inventario,
         precisao_requerida: Number(form.precisao_requerida),
         nivel_confianca: Number(form.nivel_confianca),
         tamanho_parcela_m2: Number(form.tamanho_parcela_m2),

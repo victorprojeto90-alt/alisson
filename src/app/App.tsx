@@ -11,6 +11,7 @@ import Configuracoes from './pages/Configuracoes';
 import Relatorios from './pages/Relatorios';
 import Projetos from './pages/Projetos';
 import Especies from './pages/Especies';
+import FAQ from './pages/FAQ';
 import AdminPage from './pages/AdminPage';
 import TermosDeUso from './pages/TermosDeUso';
 import Privacidade from './pages/Privacidade';
@@ -61,6 +62,7 @@ function AppRoutes() {
         <Route path="projetos/:id" element={<ProjectDetail />} />
         <Route path="relatorios" element={<Relatorios />} />
         <Route path="especies" element={<Especies />} />
+        <Route path="faq" element={<FAQ />} />
         <Route path="configuracoes" element={<Configuracoes />} />
         <Route path="admin" element={<AdminPage />} />
       </Route>
