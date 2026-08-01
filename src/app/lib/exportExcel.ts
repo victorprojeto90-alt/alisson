@@ -53,7 +53,7 @@ export function exportarExcel(
       'NI', 'DA (ind/ha)', 'DR (%)',
       'DoA (m²/ha)', 'DoR (%)',
       'FA (%)', 'FR (%)',
-      'VI', 'VI (%)',
+      'VI (0-300)', 'VI% (0-100)',
       'Volume (m³)', 'Vol/ha (m³/ha)',
     ],
     ...resultado.especies.map((e, i) => [

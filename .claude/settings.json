@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(exit 0)",
+      "Bash(npx eslint *)",
+      "Bash(rm -f /tmp/Projetos_orig.tsx)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
+    ]
+  }
+}

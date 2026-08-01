@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import type { ScoreAmbisafe } from '../../lib/calculations';
 
@@ -13,7 +13,7 @@ const SCORE_ITEMS = [
     key: 'regularidade' as const,
     label: 'Regularidade Estatística',
     weight: '30%',
-    desc: 'Avalia se o erro de amostragem obtido está dentro do limite de precisão requerido. Verde: excelente (≤ metade do limite). Amarelo: dentro do limite. Vermelho: fora do limite.',
+    desc: 'Avalia se o erro de amostragem obtido está dentro do limite de precisão requerido. Verde (Excelente): ≤ metade do limite. Verde (Muito Bom): dentro do limite. Vermelho (Ruim): fora do limite.',
   },
   {
     key: 'diversidade' as const,
@@ -41,57 +41,52 @@ const SCORE_ITEMS = [
   },
 ];
 
-export default function ScoreCard({ score, precisaoRequerida, erroRelPct }: Props) {
-  const isExcelente = score.total >= 80;
-  const isBom = score.total >= 50;
+interface Classificacao {
+  label: 'Excelente' | 'Muito Bom' | 'Ruim';
+  corTexto: string;
+  corBarra: string;
+  msg: string | null;
+}
 
-  const mainColor = isExcelente ? '#16A34A' : isBom ? '#d97706' : '#dc2626';
-  const bgClass = isExcelente ? 'bg-green-50 border-green-200' : isBom ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200';
-  const Icon = isExcelente ? CheckCircle2 : isBom ? AlertTriangle : XCircle;
+export default function ScoreCard({ score, precisaoRequerida, erroRelPct }: Props) {
+  const total = score.total;
+  const isExcelente = total >= 80;
+  const isBom = total >= 50; // "Muito Bom" — nunca amarelo, sempre verde (tom mais claro que Excelente)
+
+  const mainColor = isExcelente ? '#16A34A' : isBom ? '#22C55E' : '#dc2626';
+  const bgClass = isExcelente || isBom ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+  const Icon = isExcelente || isBom ? CheckCircle2 : XCircle;
 
   const circumference = 2 * Math.PI * 52;
-  const offset = circumference * (1 - score.total / 100);
+  const offset = circumference * (1 - total / 100);
 
-  // Regularidade bar color — based on precisaoRequerida and erroRelPct
-  const getRegularidadeColor = () => {
-    if (precisaoRequerida !== undefined && erroRelPct !== undefined) {
-      const limite = precisaoRequerida;
-      if (erroRelPct <= limite / 2) return 'bg-green-500';      // Excelente
-      if (erroRelPct <= limite) return 'bg-yellow-500';          // Muito Bom (dentro do limite)
-      return 'bg-red-500';                                        // Ruim (fora do limite)
+  const temLimiteRegularidade = precisaoRequerida !== undefined && erroRelPct !== undefined;
+
+  // Classifica cada sub-item em Excelente / Muito Bom / Ruim — nunca existe um estado
+  // "amarelo"/intermediário de alerta. Regularidade Estatística é o único sub-item com
+  // um "limite" bruto e configurável pelo usuário (precisaoRequerida comparado ao
+  // erroRelPct obtido) — para ele, aplicamos a regra de metade do limite / limite cheio.
+  // Os demais sub-itens (Diversidade, Sustentabilidade, Conformidade, Consistência) não
+  // têm um limite configurável equivalente: chegam prontos como um score 0-100 "quanto
+  // maior, melhor" (ex.: Shannon H' não tem teto definido pelo usuário; CV% e % de
+  // registros válidos não são campos configuráveis no projeto). Para esses, reaproveitamos
+  // os mesmos cortes 80/50 que já definiam a cor antes desta mudança, só substituindo o
+  // amarelo por um verde "Muito Bom".
+  const classificarSubItem = (key: typeof SCORE_ITEMS[number]['key'], value: number): Classificacao => {
+    if (key === 'regularidade' && temLimiteRegularidade) {
+      const limite = precisaoRequerida!;
+      if (erroRelPct! <= limite / 2) {
+        return { label: 'Excelente', corTexto: 'text-green-700', corBarra: 'bg-green-500', msg: 'Inventário com excelente precisão estatística.' };
+      }
+      if (erroRelPct! <= limite) {
+        return { label: 'Muito Bom', corTexto: 'text-green-600', corBarra: 'bg-green-500', msg: 'Inventário dentro do limite aceitável de precisão.' };
+      }
+      return { label: 'Ruim', corTexto: 'text-red-600', corBarra: 'bg-red-500', msg: 'Erro acima do limite. Recomenda-se amostrar mais parcelas.' };
     }
-    // fallback to generic scoring
-    return score.regularidade >= 80 ? 'bg-green-500' : score.regularidade >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+    if (value >= 80) return { label: 'Excelente', corTexto: 'text-green-700', corBarra: 'bg-green-500', msg: null };
+    if (value >= 50) return { label: 'Muito Bom', corTexto: 'text-green-600', corBarra: 'bg-green-500', msg: null };
+    return { label: 'Ruim', corTexto: 'text-red-600', corBarra: 'bg-red-500', msg: null };
   };
-
-  const getRegularidadeLabel = () => {
-    if (precisaoRequerida !== undefined && erroRelPct !== undefined) {
-      const limite = precisaoRequerida;
-      if (erroRelPct <= limite / 2) return {
-        label: 'Excelente',
-        color: 'text-green-600',
-        msg: 'Inventário com excelente precisão estatística.',
-      };
-      if (erroRelPct <= limite) return {
-        label: 'Muito Bom',
-        color: 'text-yellow-600',
-        msg: 'Inventário dentro do limite aceitável de precisão.',
-      };
-      return {
-        label: 'Ruim',
-        color: 'text-red-600',
-        msg: 'Erro acima do limite. Recomenda-se amostrar mais parcelas.',
-      };
-    }
-    return null;
-  };
-
-  const getBarColor = (key: typeof SCORE_ITEMS[number]['key'], v: number) => {
-    if (key === 'regularidade') return getRegularidadeColor();
-    return v >= 80 ? 'bg-green-500' : v >= 50 ? 'bg-yellow-500' : 'bg-red-500';
-  };
-
-  const regularidadeLabel = getRegularidadeLabel();
 
   return (
     <Card className="border-0 shadow-sm">
@@ -147,35 +142,34 @@ export default function ScoreCard({ score, precisaoRequerida, erroRelPct }: Prop
           <h4 className="font-semibold text-sm text-gray-700">Detalhamento dos componentes:</h4>
           {SCORE_ITEMS.map(item => {
             const value = score[item.key];
+            const classificacao = classificarSubItem(item.key, value);
             return (
               <div key={item.key} className="space-y-1.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-700 font-medium">
                     {item.label}
                     <span className="text-gray-400 ml-1 text-xs font-normal">({item.weight})</span>
-                    {item.key === 'regularidade' && regularidadeLabel && (
-                      <span className={`ml-2 text-xs font-semibold ${regularidadeLabel.color}`}>
-                        — {regularidadeLabel.label}
-                      </span>
-                    )}
+                    <span className={`ml-2 text-xs font-semibold ${classificacao.corTexto}`}>
+                      — {classificacao.label}
+                    </span>
                   </span>
                   <span className="font-bold text-gray-900">{value}/100</span>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-700 ${getBarColor(item.key, value)}`}
+                    className={`h-full rounded-full transition-all duration-700 ${classificacao.corBarra}`}
                     style={{ width: `${value}%` }}
                   />
                 </div>
                 <p className="text-xs text-gray-400 leading-relaxed">{item.desc}</p>
-                {item.key === 'regularidade' && regularidadeLabel && (
-                  <p className={`text-xs font-medium ${regularidadeLabel.color}`}>
-                    {regularidadeLabel.msg}
+                {classificacao.msg && (
+                  <p className={`text-xs font-medium ${classificacao.corTexto}`}>
+                    {classificacao.msg}
                   </p>
                 )}
-                {item.key === 'regularidade' && precisaoRequerida !== undefined && erroRelPct !== undefined && (
+                {item.key === 'regularidade' && temLimiteRegularidade && (
                   <p className="text-xs text-gray-500">
-                    Erro obtido: <strong>{erroRelPct.toFixed(2)}%</strong> · Limite: <strong>{precisaoRequerida}%</strong> · Metade do limite: <strong>{(precisaoRequerida / 2).toFixed(1)}%</strong>
+                    Erro obtido: <strong>{erroRelPct!.toFixed(2)}%</strong> · Limite: <strong>{precisaoRequerida}%</strong> · Metade do limite: <strong>{(precisaoRequerida! / 2).toFixed(1)}%</strong>
                   </p>
                 )}
               </div>

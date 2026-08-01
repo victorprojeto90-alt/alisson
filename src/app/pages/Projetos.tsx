@@ -6,15 +6,18 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
+import EditarProjetoModal, { type ProjetoEditavel } from '../components/project/EditarProjetoModal';
 import {
   Plus, Trees, Search, Loader2, ChevronRight,
-  Clock, BarChart3, CheckCircle2, Filter, MapPin, Ruler, Trash2,
+  Clock, BarChart3, CheckCircle2, Filter, MapPin, Ruler, Trash2, Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Projeto {
   id: string;
   nome: string;
+  data_inventario: string | null;
+  descricao: string | null;
   municipio: string | null;
   estado: string | null;
   area_total_ha: number | null;
@@ -71,11 +74,14 @@ export default function Projetos() {
   const [deleteTarget, setDeleteTarget] = useState<Projeto | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Edit modal state
+  const [editTarget, setEditTarget] = useState<Projeto | null>(null);
+
   const fetchProjetos = async () => {
     if (!empresa?.id) { setLoading(false); return; }
     const { data } = await supabase
       .from('projetos')
-      .select('id, nome, municipio, estado, area_total_ha, tipo_inventario, motivo_inventario, bioma, status, created_at')
+      .select('id, nome, data_inventario, descricao, municipio, estado, area_total_ha, tipo_inventario, motivo_inventario, bioma, status, created_at')
       .eq('empresa_id', empresa.id)
       .order('created_at', { ascending: false });
     setProjetos(data ?? []);
@@ -261,6 +267,13 @@ export default function Projetos() {
 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
+                        onClick={e => { e.stopPropagation(); setEditTarget(projeto); }}
+                        className="p-2 rounded-lg text-gray-300 hover:text-[#00420d] hover:bg-green-50 transition-colors"
+                        title="Editar projeto"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={e => { e.stopPropagation(); setDeleteTarget(projeto); }}
                         className="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
                         title="Excluir projeto"
@@ -278,6 +291,18 @@ export default function Projetos() {
             );
           })}
         </div>
+      )}
+
+      {/* Edit modal */}
+      {editTarget && (
+        <EditarProjetoModal
+          projeto={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={(atualizado: ProjetoEditavel) => {
+            setProjetos(prev => prev.map(p => p.id === atualizado.id ? { ...p, ...atualizado } : p));
+            setEditTarget(null);
+          }}
+        />
       )}
 
       {/* Delete confirmation modal */}

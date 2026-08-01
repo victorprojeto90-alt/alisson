@@ -274,7 +274,7 @@ export default function ProjectNew() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="area">Área Total (ha) *</Label>
+                <Label htmlFor="area">Área total inventariada (ha) *</Label>
                 <Input
                   id="area"
                   type="number"

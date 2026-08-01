@@ -197,6 +197,53 @@ const FAQ = [
   },
 ];
 
+// ─── Planos e preços ───────────────────────────────────────────────────────
+// TODO(Alisson): os percentuais de desconto do trimestral (10%) e do anual (20%)
+// abaixo são PLACEHOLDERS — confirmar os valores reais de desconto antes de publicar.
+const PRECO_MENSAL = 299.90;
+const DESCONTO_TRIMESTRAL = 0.10; // placeholder — confirmar valor real
+const DESCONTO_ANUAL = 0.20;      // placeholder — confirmar valor real
+
+function formatPreco(valor: number) {
+  const [inteiro, centavos] = valor.toFixed(2).split('.');
+  return { inteiro, centavos };
+}
+
+const totalTrimestral = PRECO_MENSAL * 3 * (1 - DESCONTO_TRIMESTRAL);
+const totalAnual = PRECO_MENSAL * 12 * (1 - DESCONTO_ANUAL);
+
+const PLANOS = [
+  {
+    id: 'mensal',
+    badge: 'Mensal',
+    preco: formatPreco(PRECO_MENSAL),
+    totalLabel: null as string | null,
+  },
+  {
+    id: 'trimestral',
+    badge: 'Trimestral · Economize 10%',
+    preco: formatPreco(totalTrimestral / 3),
+    totalLabel: `Total de R$ ${formatPreco(totalTrimestral).inteiro},${formatPreco(totalTrimestral).centavos} a cada 3 meses`,
+  },
+  {
+    id: 'anual',
+    badge: 'Anual · Economize 20%',
+    preco: formatPreco(totalAnual / 12),
+    totalLabel: `Total de R$ ${formatPreco(totalAnual).inteiro},${formatPreco(totalAnual).centavos} por ano`,
+  },
+];
+
+const PLANO_FEATURES = [
+  'Projetos ilimitados',
+  'Cálculos ilimitados',
+  'Amostragem Casual Simples e Censo Florestal',
+  'Estrutura horizontal, vertical e diamétrica',
+  'Pré-relatório com IA',
+  'Exportação PDF e Word',
+  'Banco de espécies por bioma',
+  'Suporte por WhatsApp',
+];
+
 // ─── Reveal wrapper ────────────────────────────────────────────────────────
 function Reveal({ children, delay = 0, className = '' }: {
   children: React.ReactNode;
@@ -678,7 +725,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4" style={{ color: C.dark }}>
-              Plano único, acesso total
+              Escolha o plano ideal para você
             </h2>
             <p className="text-lg" style={{ color: C.muted }}>
               14 dias grátis · sem cartão de crédito
@@ -686,67 +733,69 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal>
-            <div className="max-w-md mx-auto rounded-3xl overflow-hidden shadow-2xl"
-              style={{ backgroundColor: C.dark }}>
-              <div className="relative p-8">
-                <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-20 -translate-y-1/4 translate-x-1/4"
-                  style={{ backgroundColor: C.lime }} />
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-6">
-                    <span
-                      className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
-                      style={{ backgroundColor: `${C.lime}20`, color: C.lime }}
-                    >
-                      AMBISAFE Pro
-                    </span>
-                    <span
-                      className="text-xs font-bold px-3 py-1 rounded-full"
-                      style={{ backgroundColor: C.lime, color: C.dark }}
-                    >
-                      Plano Único — Acesso Completo
-                    </span>
+            <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch">
+              {PLANOS.map(plano => (
+                <div key={plano.id} className="rounded-3xl overflow-hidden shadow-2xl flex flex-col"
+                  style={{ backgroundColor: C.dark }}>
+                  <div className="relative p-8 flex flex-col flex-1">
+                    <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-20 -translate-y-1/4 translate-x-1/4"
+                      style={{ backgroundColor: C.lime }} />
+                    <div className="relative flex flex-col flex-1">
+                      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+                        <span
+                          className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+                          style={{ backgroundColor: `${C.lime}20`, color: C.lime }}
+                        >
+                          AMBISAFE Pro
+                        </span>
+                        <span
+                          className="text-xs font-bold px-3 py-1 rounded-full"
+                          style={{ backgroundColor: C.lime, color: C.dark }}
+                        >
+                          {plano.badge}
+                        </span>
+                      </div>
+
+                      <div className="mb-2">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-white/50 text-lg">R$</span>
+                          <span className="text-white font-black text-5xl">{plano.preco.inteiro}</span>
+                          <span className="text-white font-black text-2xl">,{plano.preco.centavos}</span>
+                          <span className="text-white/50">/mês</span>
+                        </div>
+                        {plano.totalLabel && (
+                          <p className="text-white/40 text-xs mt-1.5">{plano.totalLabel}</p>
+                        )}
+                      </div>
+
+                      <ul className="space-y-3 mb-8 mt-6 flex-1">
+                        {PLANO_FEATURES.map(item => (
+                          <li key={item} className="flex items-center gap-3 text-white/80 text-sm">
+                            <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+                              <circle cx="8" cy="8" r="7" fill={C.lime} />
+                              <path d="M5 8l2 2 4-4" stroke={C.dark} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+
+                      <div>
+                        <button
+                          onClick={goAuth}
+                          className="w-full py-4 rounded-full font-bold text-sm transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
+                          style={{ backgroundColor: C.lime, color: C.dark }}
+                        >
+                          Começar Teste Grátis — 14 dias
+                        </button>
+                        <p className="text-white/30 text-xs text-center mt-3">
+                          Sem cartão de crédito. Cancele quando quiser.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="flex items-baseline gap-2 mb-8">
-                    <span className="text-white/50 text-xl">R$</span>
-                    <span className="text-white font-black text-6xl">299</span>
-                    <span className="text-white font-black text-3xl">,90</span>
-                    <span className="text-white/50">/mês</span>
-                  </div>
-
-                  <ul className="space-y-3 mb-8">
-                    {[
-                      'Projetos ilimitados',
-                      'Cálculos ilimitados',
-                      'Amostragem Casual Simples e Censo Florestal',
-                      'Estrutura horizontal, vertical e diamétrica',
-                      'Pré-relatório com IA',
-                      'Exportação PDF e Word',
-                      'Banco de espécies por bioma',
-                      'Suporte por WhatsApp',
-                    ].map(item => (
-                      <li key={item} className="flex items-center gap-3 text-white/80 text-sm">
-                        <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" fill="none">
-                          <circle cx="8" cy="8" r="7" fill={C.lime} />
-                          <path d="M5 8l2 2 4-4" stroke={C.dark} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <button
-                    onClick={goAuth}
-                    className="w-full py-4 rounded-full font-bold text-sm transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
-                    style={{ backgroundColor: C.lime, color: C.dark }}
-                  >
-                    Começar Teste Grátis — 14 dias
-                  </button>
-                  <p className="text-white/30 text-xs text-center mt-3">
-                    Sem cartão de crédito. Cancele quando quiser.
-                  </p>
                 </div>
-              </div>
+              ))}
             </div>
           </Reveal>
         </div>
@@ -793,18 +842,27 @@ export default function LandingPage() {
                     Alisson Monteiro
                   </h3>
                   <p className="text-white/50 text-sm mb-6">Engenheiro Florestal — UFCG</p>
-                  <div className="space-y-3 text-white/75 text-sm leading-relaxed overflow-y-auto max-h-80 pr-1">
+                  <div className="space-y-3 text-white/75 text-sm leading-relaxed overflow-y-auto max-h-[32rem] pr-1">
                     <p>
                       <strong className="text-white">Sou Alisson Monteiro</strong>, Engenheiro Florestal formado pela Universidade Federal de Campina Grande (UFCG), movido pela paixão por inovação, tecnologia e soluções práticas para o setor florestal.
                     </p>
                     <p>
-                      Minha trajetória começou antes mesmo de me formar — cerca de um ano e meio antes já atuava no mercado, desenvolvendo visão prática das demandas reais do setor. Conclui a graduação em 2023 e o meu TCC explorou o método de ponto quadrante no inventário florestal, uma metodologia inovadora que pode apresentar eficiência equivalente aos inventários convencionais por parcelas.
+                      Minha trajetória profissional começou antes mesmo da conclusão da graduação. Cerca de um ano e meio antes de me formar, já estava inserido no mercado de trabalho, atuando diretamente na área e adquirindo experiência prática. Essa vivência antecipada me permitiu desenvolver uma visão mais realista das demandas do setor e entender, na prática, os desafios enfrentados pelos profissionais que atuam na área.
                     </p>
                     <p>
-                      Foi desse olhar crítico sobre o mercado que surgiu o AMBISAFE. Percebi uma grande lacuna no uso de tecnologia aplicada ao processamento de inventários: muitos profissionais ainda enfrentam cálculos complexos, processos manuais e alto consumo de tempo.
+                      Concluí minha graduação em 2023 e, desde então, sigo atuando de forma ativa no mercado, sempre buscando aprimorar processos e trazer mais eficiência para as atividades da engenharia florestal.
                     </p>
                     <p>
-                      O AMBISAFE nasce para transformar essa realidade — automatizando análises que antes levavam dias para serem concluídas em minutos, com precisão e padronização técnica.
+                      Inclusive, meu Trabalho de Conclusão de Curso (TCC) foi desenvolvido na área de inventário florestal, onde optei por explorar o método de ponto quadrante, uma metodologia ainda pouco utilizada no mercado e com limitada abordagem acadêmica. Escolhi esse tema justamente por seu caráter inovador, já que, por ser pouco aplicado, pode ser considerado uma abordagem ainda recente, onde os estudos demonstraram que esse método pode apresentar eficiência equivalente aos inventários convencionais por parcelas, o que reforça meu interesse por inovação e pela busca de novas abordagens técnicas.
+                    </p>
+                    <p>
+                      Foi a partir dessa inquietação e do olhar crítico sobre o mercado que surgiu o sistema AMBISAFE. Ao longo da minha atuação profissional, percebi uma grande lacuna no uso de tecnologia aplicada ao processamento de inventários florestais. Muitos profissionais ainda enfrentam dificuldades com cálculos complexos, processos manuais e alto consumo de tempo.
+                    </p>
+                    <p>
+                      O sistema AMBISAFE nasce com o propósito de transformar essa realidade. Ele foi desenvolvido para facilitar, automatizar e otimizar o cálculo de inventários florestais, permitindo que análises que antes poderiam levar dias sejam realizadas em minutos. Isso representa um ganho significativo de produtividade, especialmente para empresas que lidam com grande volume de serviços mensais.
+                    </p>
+                    <p>
+                      Mais do que uma ferramenta, o AMBISAFE é o reflexo do meu compromisso com a modernização do setor florestal, trazendo tecnologia, praticidade e eficiência para o dia a dia dos profissionais.
                     </p>
                   </div>
                 </div>

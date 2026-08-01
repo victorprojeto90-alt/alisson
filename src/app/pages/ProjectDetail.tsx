@@ -2,7 +2,7 @@
 import { useParams, useNavigate } from 'react-router';
 import { supabase } from '../lib/supabase';
 import { useCalculations } from '../hooks/useCalculations';
-import type { Arvore, Parcela } from '../lib/calculations';
+import { agruparIndividuos, type Arvore, type Parcela } from '../lib/calculations';
 import type { ColumnMapping } from '../components/project/ColumnMapper';
 import type { RawRow } from '../components/project/DataUpload';
 import { Button } from '../components/ui/button';
@@ -11,11 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Badge } from '../components/ui/badge';
 import DataUpload from '../components/project/DataUpload';
 import ColumnMapper from '../components/project/ColumnMapper';
+import EditarProjetoModal, { type ProjetoEditavel } from '../components/project/EditarProjetoModal';
 import StatsSummary from '../components/results/StatsSummary';
 import FitossociologiaTable from '../components/results/FitossociologiaTable';
 import IndicesDiversidade from '../components/results/IndicesDiversidade';
 import EstruturaDiametrica from '../components/results/EstruturaDiametrica';
 import EstruturaVertical from '../components/results/EstruturaVertical';
+import VolumePorParcela from '../components/results/VolumePorParcela';
+import IndividuosPorParcela from '../components/results/IndividuosPorParcela';
 import ReportPreview from '../components/results/ReportPreview';
 import ExportPanel from '../components/results/ExportPanel';
 import ScoreCard from '../components/results/ScoreCard';
@@ -33,12 +36,15 @@ import {
   ChevronDown,
   ChevronUp,
   Save,
+  Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Projeto {
   id: string;
   nome: string;
+  data_inventario: string | null;
+  descricao: string | null;
   municipio: string | null;
   estado: string | null;
   bioma: string | null;
@@ -71,6 +77,7 @@ export default function ProjectDetail() {
   const [isDapMode, setIsDapMode] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showMapper, setShowMapper] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   useEffect(() => {
     if (id) loadProject();
@@ -248,6 +255,10 @@ export default function ProjectDetail() {
   const hasData = arvores.length > 0;
   const hasResultado = resultado != null;
 
+  // Agrupa fustes por indivíduo (mesma lógica do motor de cálculo) — reaproveitado tanto
+  // pela aba de Resultados (Estrutura Vertical/Diamétrica) quanto pela aba de Indivíduos.
+  const individuosAgrupados = resultado ? agruparIndividuos(resultado.arvores_calculadas) : [];
+
   // Conta indivíduos únicos (mesma lógica do calculations.ts):
   // agrupa por parcela+numero_arvore; registros sem numero_arvore contam individualmente.
   const nIndividuos = new Set(
@@ -275,6 +286,13 @@ export default function ProjectDetail() {
               {projeto.status === 'finalizado' ? 'Finalizado' :
                projeto.status === 'processado' ? 'Processado' : 'Rascunho'}
             </Badge>
+            <button
+              onClick={() => setShowEdit(true)}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-[#00420d] hover:bg-green-50 transition-colors flex-shrink-0"
+              title="Editar inventário"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
           </div>
           <div className="flex flex-wrap gap-3 mt-1 text-sm text-gray-400">
             {projeto.municipio && <span>{projeto.municipio}{projeto.estado ? `/${projeto.estado}` : ''}</span>}
@@ -308,7 +326,7 @@ export default function ProjectDetail() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-4 mb-6 bg-gray-100 p-1 rounded-xl h-auto">
+        <TabsList className="grid grid-cols-5 mb-6 bg-gray-100 p-1 rounded-xl h-auto">
           <TabsTrigger value="dados" className="rounded-lg gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm py-2">
             <Upload className="w-4 h-4" />
             <span className="hidden sm:inline">Dados</span>
@@ -317,6 +335,10 @@ export default function ProjectDetail() {
           <TabsTrigger value="resultados" className="rounded-lg gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm py-2" disabled={!hasResultado}>
             <BarChart3 className="w-4 h-4" />
             <span className="hidden sm:inline">Resultados</span>
+          </TabsTrigger>
+          <TabsTrigger value="individuos" className="rounded-lg gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm py-2" disabled={!hasResultado}>
+            <Trees className="w-4 h-4" />
+            <span className="hidden sm:inline">Indivíduos</span>
           </TabsTrigger>
           <TabsTrigger value="relatorio" className="rounded-lg gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm py-2" disabled={!hasResultado}>
             <FileText className="w-4 h-4" />
@@ -474,11 +496,16 @@ export default function ProjectDetail() {
         {/* TAB: RESULTADOS */}
         <TabsContent value="resultados" className="space-y-6">
           {hasResultado && (() => {
-            // Build per-species strata data for EstruturaVertical
-            const h_max = Math.max(...resultado.arvores_calculadas
-              .map(a => a.altura_total_m ?? 0).filter(h => h > 0), 0);
-            const h1 = h_max / 3;
-            const h2 = (h_max * 2) / 3;
+            // individuosAgrupados (calculado no nível do componente) já traz os fustes
+            // agrupados por indivíduo — evita contar múltiplos fustes da mesma árvore
+            // como indivíduos separados, para o total desta tabela não divergir do total
+            // geral do inventário.
+
+            // Reaproveita os limites de estrato (h1/h2) já calculados em calculations.ts
+            // (via resultado.estrutura_vertical), em vez de recalcular de forma
+            // independente — garante que os dois lugares nunca divirjam.
+            const h1 = resultado.estrutura_vertical.find(e => e.estrato === 'Inferior')?.altura_max ?? 0;
+            const h2 = resultado.estrutura_vertical.find(e => e.estrato === 'Médio')?.altura_max ?? 0;
             const getEstrato = (h: number | null) => {
               if (h == null || h <= 0) return null;
               if (h <= h1) return 'Inferior';
@@ -490,15 +517,15 @@ export default function ProjectDetail() {
             type EspEst = { nome_comum: string; nome_cientifico: string; estrato: string; count: number };
             const espEstMap = new Map<string, EspEst>();
             const estratoCounts: Record<string, number> = { Inferior: 0, Médio: 0, Superior: 0 };
-            for (const arv of resultado.arvores_calculadas) {
-              const est = getEstrato(arv.altura_total_m);
+            for (const ind of individuosAgrupados) {
+              const est = getEstrato(ind.altura_total_m);
               if (!est) continue;
               estratoCounts[est] = (estratoCounts[est] ?? 0) + 1;
-              const key = `${arv.nome_comum}||${est}`;
+              const key = `${ind.nome_comum}||${est}`;
               if (!espEstMap.has(key)) {
                 espEstMap.set(key, {
-                  nome_comum: arv.nome_comum,
-                  nome_cientifico: arv.nome_cientifico ?? '',
+                  nome_comum: ind.nome_comum,
+                  nome_cientifico: ind.nome_cientifico ?? '',
                   estrato: est,
                   count: 0,
                 });
@@ -518,10 +545,13 @@ export default function ProjectDetail() {
                   : 0,
               }));
 
-            // individuos for Sturges
-            const individuosParaDiametrica = resultado.arvores_calculadas.map(a => ({
-              dap_cm: a.dap_cm,
-              area_basal_m2: a.area_basal_m2,
+            // Indivíduos agrupados para Sturges (reaproveita individuosAgrupados, já
+            // calculado acima) — evita contar cada fuste de uma árvore multicaule como
+            // um indivíduo separado. DAP = do fuste de maior CAP; AB = soma de todos os
+            // fustes (mesmo critério usado em calculations.ts para classes_diametricas).
+            const individuosParaDiametrica = individuosAgrupados.map(ind => ({
+              dap_cm: ind.dap_cm,
+              area_basal_m2: ind.area_basal_m2,
             }));
 
             return (
@@ -543,9 +573,17 @@ export default function ProjectDetail() {
                   estratos={resultado.estrutura_vertical}
                   especiesEstratos={especiesEstratos}
                 />
+                <VolumePorParcela parcelas={resultado.parcelas} />
               </>
             );
           })()}
+        </TabsContent>
+
+        {/* TAB: INDIVÍDUOS */}
+        <TabsContent value="individuos">
+          {hasResultado && (
+            <IndividuosPorParcela individuos={individuosAgrupados} />
+          )}
         </TabsContent>
 
         {/* TAB: RELATÓRIO */}
@@ -562,6 +600,21 @@ export default function ProjectDetail() {
           )}
         </TabsContent>
       </Tabs>
+
+      {showEdit && (
+        <EditarProjetoModal
+          projeto={projeto}
+          onClose={() => setShowEdit(false)}
+          onSaved={(atualizado: ProjetoEditavel) => {
+            setProjeto(prev => prev ? {
+              ...prev,
+              ...atualizado,
+              area_total_ha: atualizado.area_total_ha ?? prev.area_total_ha,
+            } : prev);
+            setShowEdit(false);
+          }}
+        />
+      )}
     </div>
   );
 }

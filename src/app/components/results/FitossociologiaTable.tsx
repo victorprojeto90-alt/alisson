@@ -26,6 +26,7 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
   // Totals for the espécies por VI% table
   const totNI = sorted.reduce((s, e) => s + e.n_individuos, 0);
   const totDA = sorted.reduce((s, e) => s + e.da, 0);
+  const totAB = sorted.reduce((s, e) => s + e.area_basal_m2, 0);
   const totDoA = sorted.reduce((s, e) => s + e.doa, 0);
   const totVI = sorted.reduce((s, e) => s + e.vi, 0);
   const totVol = sorted.reduce((s, e) => s + e.vol_ha, 0);
@@ -56,7 +57,7 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
           <TabsContent value="especies_vi" className="mt-0">
             <div className="overflow-x-auto max-h-[500px]">
               <table className="w-full text-xs">
-                <THead cols={['#', 'Nome Comum', 'Nome Científico', 'Família', 'NI', 'DA', 'DR%', 'DoA', 'DoR%', 'FA%', 'FR%', 'VI', 'VI%', 'Vol. (m³/ha)']} />
+                <THead cols={['#', 'Nome Comum', 'Nome Científico', 'Família', 'NI', 'DA', 'DR%', 'AB (m²)', 'DoA', 'DoR%', 'U', 'FA%', 'FR%', 'VI (0-300)', 'VI% (0-100)', 'Vol. (m³/ha)']} />
                 <tbody>
                   {sorted.map((e, i) => (
                     <tr key={e.nome_comum} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
@@ -67,8 +68,10 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
                       <td className="py-2 px-3 font-mono text-right">{e.n_individuos}</td>
                       <td className="py-2 px-3 font-mono text-right">{fmt.num(e.da, 2)}</td>
                       <td className="py-2 px-3 font-mono text-right">{fmt.num(e.dr, 2)}</td>
+                      <td className="py-2 px-3 font-mono text-right">{fmt.num(e.area_basal_m2, 4)}</td>
                       <td className="py-2 px-3 font-mono text-right">{fmt.num(e.doa, 4)}</td>
                       <td className="py-2 px-3 font-mono text-right">{fmt.num(e.dor, 2)}</td>
+                      <td className="py-2 px-3 font-mono text-right">{e.n_parcelas}</td>
                       <td className="py-2 px-3 font-mono text-right">{fmt.num(e.fa, 2)}</td>
                       <td className="py-2 px-3 font-mono text-right">{fmt.num(e.fr, 2)}</td>
                       <td className="py-2 px-3 font-mono text-right font-semibold">{fmt.num(e.vi, 2)}</td>
@@ -83,8 +86,10 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
                     <td className="py-2 px-3 font-mono text-right">{totNI}</td>
                     <td className="py-2 px-3 font-mono text-right">{fmt.num(totDA, 2)}</td>
                     <td className="py-2 px-3 font-mono text-right">100,00</td>
+                    <td className="py-2 px-3 font-mono text-right">{fmt.num(totAB, 4)}</td>
                     <td className="py-2 px-3 font-mono text-right">{fmt.num(totDoA, 4)}</td>
                     <td className="py-2 px-3 font-mono text-right">100,00</td>
+                    <td className="py-2 px-3 font-mono text-right">—</td>
                     <td className="py-2 px-3 font-mono text-right">—</td>
                     <td className="py-2 px-3 font-mono text-right">100,00</td>
                     <td className="py-2 px-3 font-mono text-right">{fmt.num(totVI, 2)}</td>
@@ -101,12 +106,14 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
                 <strong>NI</strong> = Nº de Indivíduos &nbsp;·&nbsp;
                 <strong>DA</strong> = Densidade Absoluta (ind/ha) &nbsp;·&nbsp;
                 <strong>DR%</strong> = Densidade Relativa (%) &nbsp;·&nbsp;
+                <strong>AB</strong> = Área Basal (m²) &nbsp;·&nbsp;
                 <strong>DoA</strong> = Dominância Absoluta (m²/ha) &nbsp;·&nbsp;
                 <strong>DoR%</strong> = Dominância Relativa (%) &nbsp;·&nbsp;
+                <strong>U</strong> = Nº de Parcelas onde a espécie ocorre &nbsp;·&nbsp;
                 <strong>FA%</strong> = Frequência Absoluta (%) &nbsp;·&nbsp;
                 <strong>FR%</strong> = Frequência Relativa (%) &nbsp;·&nbsp;
-                <strong>VI</strong> = Valor de Importância (DR + DoR + FR) &nbsp;·&nbsp;
-                <strong>VI%</strong> = VI / 3
+                <strong>VI (0-300)</strong> = Valor de Importância bruto, soma de DR% + DoR% + FR% (varia de 0 a 300) &nbsp;·&nbsp;
+                <strong>VI% (0-100)</strong> = VI ÷ 3 — <strong>métrica de referência recomendada</strong> para comparar a importância entre espécies
               </p>
             </div>
           </TabsContent>
@@ -115,7 +122,7 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
           <TabsContent value="especies_n" className="mt-0">
             <div className="overflow-x-auto max-h-[500px]">
               <table className="w-full text-xs">
-                <THead cols={['#', 'Nome Comum', 'Nome Científico', 'Família', 'NI', 'DR%', 'AB (m²)', 'DoR%', 'Vol. (m³)', 'VI%']} />
+                <THead cols={['#', 'Nome Comum', 'Nome Científico', 'Família', 'NI', 'DR%', 'AB (m²)', 'DoR%', 'Vol. (m³)', 'VI% (0-100)']} />
                 <tbody>
                   {[...especies]
                     .sort((a, b) => b.n_individuos - a.n_individuos)
