@@ -13,6 +13,17 @@ export interface Empresa {
   cnpj?: string | null;
   cidade?: string | null;
   estado_uf?: string | null;
+  // Campos de cobrança (Asaas) — só existem depois que a migração SQL em
+  // supabase/sql/2026-08-add-asaas-billing-fields.sql for rodada no Supabase.
+  // Ficam undefined até lá; todo código que os lê trata undefined como "sem efeito".
+  asaas_customer_id?: string | null;
+  asaas_subscription_id?: string | null;
+  plan_type?: 'trial' | 'mensal' | 'trimestral' | 'semestral' | 'anual' | 'bloqueado' | null;
+  plan_started_at?: string | null;
+  plan_expires_at?: string | null;
+  is_blocked?: boolean | null;
+  block_reason?: string | null;
+  ultimo_pagamento_at?: string | null;
 }
 
 export interface Profile {
@@ -73,6 +84,10 @@ interface AuthContextType {
   // redireciona com #error=...&error_description=... em vez de um token válido).
   passwordRecoveryError: string | null;
   clearPasswordRecoveryError: () => void;
+  // true quando a empresa está bloqueada (trial expirado, assinatura cancelada ou
+  // pagamento em atraso além do prazo) — ver ProtectedRoute em App.tsx.
+  isBlocked: boolean;
+  blockReason: string | null;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, name: string, companyName: string, extra?: ExtraSignUpData) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -86,6 +101,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => readRecoveryStateFromUrl().isRecovery);
   const [passwordRecoveryError, setPasswordRecoveryError] = useState(() => readRecoveryStateFromUrl().error);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockReason, setBlockReason] = useState<string | null>(null);
+
+  // Avalia se a empresa deve estar bloqueada (trial expirado, ou já marcada como
+  // bloqueada pelo webhook/admin). `plan_type`/`is_blocked` só existem depois da
+  // migração SQL rodar — até lá ficam undefined e são tratados como "não bloqueado",
+  // usando o campo antigo `plan` como fallback pra decidir se ainda está em trial.
+  const avaliarBloqueio = async (empresaData: Empresa | null | undefined) => {
+    if (!empresaData) { setIsBlocked(false); setBlockReason(null); return; }
+
+    const planEfetivo = empresaData.plan_type ?? empresaData.plan;
+    const trialFim = empresaData.trial_ends_at ? new Date(empresaData.trial_ends_at) : null;
+    const isTrialExpirado = !!trialFim && new Date() > trialFim && planEfetivo === 'trial';
+
+    let bloqueado = empresaData.is_blocked ?? false;
+    let motivo = empresaData.block_reason ?? null;
+
+    if (isTrialExpirado && !empresaData.is_blocked) {
+      bloqueado = true;
+      motivo = 'Trial expirado';
+      const { error } = await supabase
+        .from('empresas')
+        .update({ is_blocked: true, block_reason: 'Trial expirado', plan_type: 'bloqueado' })
+        .eq('id', empresaData.id);
+      if (error) {
+        // Esperado até a migração SQL rodar (colunas ainda não existem) — não deve
+        // impedir o resto do app de funcionar.
+        console.warn('[AuthContext] Não foi possível persistir bloqueio de trial:', error.message);
+      }
+    }
+
+    setIsBlocked(bloqueado);
+    setBlockReason(motivo);
+  };
 
   const loadProfile = async (userId: string) => {
     const { data, error: selectError } = await supabase
@@ -96,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (data) {
       setProfile(data as Profile);
+      await avaliarBloqueio((data as Profile).empresa);
       return;
     }
 
@@ -158,7 +208,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', userId)
         .maybeSingle();
 
-      if (newProfile) setProfile(newProfile as Profile);
+      if (newProfile) {
+        setProfile(newProfile as Profile);
+        await avaliarBloqueio((newProfile as Profile).empresa);
+      }
     }
   };
 
@@ -228,6 +281,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setIsBlocked(false);
+    setBlockReason(null);
   };
 
   const clearPasswordRecoveryError = () => setPasswordRecoveryError(null);
@@ -242,6 +297,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsPasswordRecovery,
       passwordRecoveryError,
       clearPasswordRecoveryError,
+      isBlocked,
+      blockReason,
       signIn,
       signUp,
       signOut,

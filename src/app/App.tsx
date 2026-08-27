@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/sonner';
+import BlockedScreen from './components/BlockedScreen';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import AppLayout from './components/layout/AppLayout';
@@ -17,7 +18,7 @@ import TermosDeUso from './pages/TermosDeUso';
 import Privacidade from './pages/Privacidade';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isBlocked, blockReason } = useAuth();
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -29,6 +30,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!user) return <Navigate to="/auth" replace />;
+  if (isBlocked) return <BlockedScreen reason={blockReason} />;
   return <>{children}</>;
 }
 

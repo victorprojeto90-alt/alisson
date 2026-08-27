@@ -9,8 +9,10 @@ import {
   Building2, Users, Trees, Crown, Clock, RefreshCw, Loader2,
   CheckCircle2, AlertTriangle, ShieldCheck, Search, TrendingUp,
   UserCheck, Briefcase, BarChart3, Mail, MessageCircleQuestion,
+  DollarSign, Ban, ExternalLink, ShieldOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PLANOS } from '../lib/planos';
 
 interface HelpQuestion {
   id: string;
@@ -31,6 +33,13 @@ interface EmpresaAdmin {
   cnpj?: string | null;
   cidade?: string | null;
   estado_uf?: string | null;
+  // Campos de cobrança (Asaas) — undefined até a migração SQL rodar.
+  asaas_customer_id?: string | null;
+  plan_type?: string | null;
+  is_blocked?: boolean | null;
+  block_reason?: string | null;
+  plan_expires_at?: string | null;
+  ultimo_pagamento_at?: string | null;
   profiles: {
     id: string;
     name: string;
@@ -44,12 +53,15 @@ interface EmpresaAdmin {
   projetos: { id: string; status: string }[];
 }
 
+const PLANOS_PAGOS = ['mensal', 'trimestral', 'semestral', 'anual'];
+const PLANO_POR_ID = Object.fromEntries(PLANOS.map(p => [p.id, p]));
+
 export default function AdminPage() {
   const { user } = useAuth();
   const [empresas, setEmpresas] = useState<EmpresaAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterPlan, setFilterPlan] = useState<'all' | 'trial' | 'profissional'>('all');
+  const [filterPlan, setFilterPlan] = useState<'all' | 'trial' | 'profissional' | 'pagante' | 'bloqueado'>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [helpQuestions, setHelpQuestions] = useState<HelpQuestion[]>([]);
 
@@ -115,6 +127,21 @@ export default function AdminPage() {
     else { toast.success('Trial estendido por 30 dias!'); load(); }
   };
 
+  const toggleBloqueio = async (empresaAlvo: EmpresaAdmin) => {
+    setUpdatingId(empresaAlvo.id);
+    const bloquear = !empresaAlvo.is_blocked;
+    const { error } = await supabase
+      .from('empresas')
+      .update({
+        is_blocked: bloquear,
+        block_reason: bloquear ? 'Bloqueado manualmente pelo admin' : null,
+      })
+      .eq('id', empresaAlvo.id);
+    setUpdatingId(null);
+    if (error) toast.error('Erro ao atualizar bloqueio: ' + error.message);
+    else { toast.success(bloquear ? 'Empresa bloqueada.' : 'Empresa desbloqueada.'); load(); }
+  };
+
   // Stats
   const total = empresas.length;
   const totalPro = empresas.filter(e => e.plan === 'profissional').length;
@@ -128,6 +155,18 @@ export default function AdminPage() {
   const totalProcessed = empresas.reduce((acc, e) =>
     acc + (e.projetos?.filter(p => p.status !== 'rascunho').length ?? 0), 0);
 
+  // Financeiro (Asaas) — plan_type/is_blocked só existem depois da migração SQL rodar;
+  // até lá esses cálculos ficam zerados sem quebrar o resto da tela.
+  const pagantes = empresas.filter(e => e.plan_type && PLANOS_PAGOS.includes(e.plan_type));
+  const bloqueados = empresas.filter(e => e.is_blocked);
+  const mrr = pagantes.reduce((acc, e) => acc + (PLANO_POR_ID[e.plan_type!]?.preco ?? 0), 0);
+  const trialParaPagoP = total > 0 ? Math.round((pagantes.length / total) * 100) : 0;
+  const mrrPorPlano = PLANOS.map(p => ({
+    plano: p,
+    qtd: empresas.filter(e => e.plan_type === p.id).length,
+    receita: empresas.filter(e => e.plan_type === p.id).length * p.preco,
+  })).filter(p => p.qtd > 0);
+
   // Recent 5 signups
   const recentSignups = [...empresas]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -139,7 +178,9 @@ export default function AdminPage() {
       e.name.toLowerCase().includes(search.toLowerCase()) ||
       e.profiles?.some(p => p.name?.toLowerCase().includes(search.toLowerCase()));
     const matchPlan = filterPlan === 'all' || e.plan === filterPlan ||
-      (filterPlan === 'trial' && e.plan !== 'profissional');
+      (filterPlan === 'trial' && e.plan !== 'profissional') ||
+      (filterPlan === 'pagante' && !!e.plan_type && PLANOS_PAGOS.includes(e.plan_type)) ||
+      (filterPlan === 'bloqueado' && !!e.is_blocked);
     return matchSearch && matchPlan;
   });
 
@@ -193,13 +234,51 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {/* Financeiro (Asaas) — zerado até a migração SQL rodar e existir assinatura ativa */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        {[
+          { label: 'MRR', value: `R$ ${mrr.toFixed(2).replace('.', ',')}`, icon: DollarSign, color: 'text-green-700', bg: 'bg-green-50' },
+          { label: 'Pagantes', value: String(pagantes.length), icon: Crown, color: 'text-[#0B3D2E]', bg: 'bg-[#0B3D2E]/10' },
+          { label: 'Trial → Pago', value: `${trialParaPagoP}%`, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Bloqueados', value: String(bloqueados.length), icon: Ban, color: 'text-red-600', bg: 'bg-red-50' },
+        ].map(({ label, value, icon: Icon, color, bg }) => (
+          <Card key={label} className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center mb-2`}>
+                <Icon className={`w-4 h-4 ${color}`} />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{value}</p>
+              <p className="text-xs text-gray-500">{label}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Futuros: Receita, Email MKT, etc. */}
-        <Card className="border-0 shadow-sm border-dashed border-2 border-gray-200 col-span-1">
-          <CardContent className="p-6 flex flex-col items-center justify-center h-32 text-center">
-            <TrendingUp className="w-8 h-8 text-gray-200 mb-2" />
-            <p className="text-sm text-gray-400 font-medium">Receita / Pagamentos</p>
-            <p className="text-xs text-gray-300">Em breve — integração Stripe</p>
+        {/* MRR por plano */}
+        <Card className="border-0 shadow-sm col-span-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-green-600" />
+              MRR por Plano
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 pb-4">
+            {mrrPorPlano.length === 0 ? (
+              <p className="text-xs text-gray-400 px-4 pb-2">Nenhum assinante pago ainda.</p>
+            ) : (
+              <div className="px-4 space-y-2">
+                {mrrPorPlano.map(({ plano, qtd, receita }) => (
+                  <div key={plano.id} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600">{plano.nome} ({qtd})</span>
+                    <span className="text-gray-800 font-semibold">R$ {receita.toFixed(2).replace('.', ',')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-[10px] text-gray-300 px-4 mt-3">
+              Gráfico de receita histórica requer endpoint de pagamentos do Asaas — não implementado ainda.
+            </p>
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm border-dashed border-2 border-gray-200 col-span-1">
@@ -363,7 +442,7 @@ export default function AdminPage() {
                 />
               </div>
               <div className="flex border rounded-lg overflow-hidden text-xs">
-                {(['all', 'profissional', 'trial'] as const).map(p => (
+                {(['all', 'profissional', 'pagante', 'trial', 'bloqueado'] as const).map(p => (
                   <button
                     key={p}
                     onClick={() => setFilterPlan(p)}
@@ -373,7 +452,7 @@ export default function AdminPage() {
                         : 'text-gray-600 hover:bg-gray-50'
                     }`}
                   >
-                    {p === 'all' ? 'Todos' : p === 'profissional' ? 'Pro' : 'Trial'}
+                    {p === 'all' ? 'Todos' : p === 'profissional' ? 'Pro' : p === 'pagante' ? 'Pagantes' : p === 'trial' ? 'Trial' : 'Bloqueados'}
                   </button>
                 ))}
               </div>
@@ -391,6 +470,7 @@ export default function AdminPage() {
                   <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Projetos</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Plano</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Trial</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Último Pagamento</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Cadastro</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Ações</th>
                 </tr>
@@ -452,7 +532,15 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {emp.plan === 'profissional' ? (
+                        {emp.is_blocked ? (
+                          <Badge className="bg-red-50 text-red-700 border-red-200 border text-xs gap-1 font-normal">
+                            <Ban className="w-3 h-3" /> Bloqueado
+                          </Badge>
+                        ) : emp.plan_type && PLANOS_PAGOS.includes(emp.plan_type) ? (
+                          <Badge className="bg-green-50 text-green-700 border-green-200 border text-xs gap-1 font-normal">
+                            <Crown className="w-3 h-3" /> {PLANO_POR_ID[emp.plan_type]?.nome ?? emp.plan_type}
+                          </Badge>
+                        ) : emp.plan === 'profissional' ? (
                           <Badge className="bg-green-50 text-green-700 border-green-200 border text-xs gap-1 font-normal">
                             <Crown className="w-3 h-3" /> Pro
                           </Badge>
@@ -472,6 +560,11 @@ export default function AdminPage() {
                             ? <span className="text-red-500">Expirado</span>
                             : <span className="text-green-600">{trialDays}d restantes</span>
                         ) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-500">
+                        {emp.ultimo_pagamento_at
+                          ? new Date(emp.ultimo_pagamento_at).toLocaleDateString('pt-BR')
+                          : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-400">
                         {new Date(emp.created_at).toLocaleDateString('pt-BR')}
@@ -508,6 +601,27 @@ export default function AdminPage() {
                                   +30d
                                 </Button>
                               </>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`text-xs h-7 gap-1 ${emp.is_blocked ? 'border-green-200 text-green-600' : 'border-red-200 text-red-600'}`}
+                              onClick={() => toggleBloqueio(emp)}
+                              title={emp.is_blocked ? 'Desbloquear acesso' : 'Bloquear acesso'}
+                            >
+                              {emp.is_blocked ? <ShieldOff className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
+                              {emp.is_blocked ? 'Desbloquear' : 'Bloquear'}
+                            </Button>
+                            {emp.asaas_customer_id && (
+                              <a
+                                href={`https://app.asaas.com/customer/${emp.asaas_customer_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs h-7 px-2 flex items-center gap-1 text-gray-400 hover:text-gray-700"
+                                title="Ver cliente no Asaas"
+                              >
+                                <ExternalLink className="w-3 h-3" /> Asaas
+                              </a>
                             )}
                           </div>
                         )}

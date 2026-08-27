@@ -6,11 +6,17 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { PLANOS } from '../lib/planos';
+import { cancelarAssinatura } from '../lib/asaasProxy';
+import PlanoModal from '../components/payment/PlanoModal';
 import { User, Building2, Crown, Loader2, Check, Clock, UserCheck, Briefcase } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Configuracoes() {
   const { user, profile, empresa } = useAuth();
+  const [planoModalAberto, setPlanoModalAberto] = useState(false);
+  const [confirmandoCancelamento, setConfirmandoCancelamento] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
 
   const [name, setName] = useState(profile?.name ?? '');
   const [telefone, setTelefone] = useState(profile?.telefone ?? '');
@@ -62,6 +68,27 @@ export default function Configuracoes() {
     : 0;
   const isTrialExpired = trialEndsAt ? trialEndsAt < new Date() : false;
   const tipoUsuario = profile?.tipo_usuario ?? 'pessoa_fisica';
+
+  // plan_type só existe depois da migração SQL do Asaas rodar — até lá fica undefined.
+  const planoAtualId = empresa?.plan_type && empresa.plan_type !== 'bloqueado' && empresa.plan_type !== 'trial'
+    ? empresa.plan_type
+    : null;
+  const planoAtualInfo = planoAtualId ? PLANOS.find(p => p.id === planoAtualId) : null;
+  const temAssinaturaAsaas = !!empresa?.asaas_subscription_id;
+
+  const handleCancelarAssinatura = async () => {
+    if (!empresa?.asaas_subscription_id) return;
+    setCancelando(true);
+    try {
+      await cancelarAssinatura(empresa.asaas_subscription_id);
+      toast.success('Cancelamento solicitado. Seu acesso continua até o fim do período já pago.');
+      setConfirmandoCancelamento(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao cancelar assinatura');
+    } finally {
+      setCancelando(false);
+    }
+  };
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto">
@@ -222,7 +249,29 @@ export default function Configuracoes() {
             <div className="space-y-1.5">
               <Label>Plano Atual</Label>
               <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                {empresa?.plan === 'profissional' ? (
+                {planoAtualInfo ? (
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Crown className="w-4 h-4 text-[#16A34A]" />
+                      <span className="font-semibold text-[#0B3D2E]">{planoAtualInfo.nome}</span>
+                      <Badge className="ml-auto bg-[#16A34A] text-white border-0">Ativo</Badge>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {planoAtualInfo.precoFormatado}/mês
+                      {empresa?.plan_expires_at && (
+                        <> · próxima cobrança em {new Date(empresa.plan_expires_at).toLocaleDateString('pt-BR')}</>
+                      )}
+                    </p>
+                    {temAssinaturaAsaas && (
+                      <button
+                        onClick={() => setConfirmandoCancelamento(true)}
+                        className="text-xs text-red-500 hover:text-red-600 hover:underline mt-2"
+                      >
+                        Cancelar assinatura
+                      </button>
+                    )}
+                  </div>
+                ) : empresa?.plan === 'profissional' ? (
                   <div className="flex items-center gap-3 flex-1">
                     <Crown className="w-5 h-5 text-[#16A34A]" />
                     <div>
@@ -233,7 +282,7 @@ export default function Configuracoes() {
                   </div>
                 ) : (
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-2">
                       <Clock className="w-4 h-4 text-yellow-500" />
                       <span className="font-semibold text-gray-800">Trial</span>
                       {!isTrialExpired ? (
@@ -246,9 +295,13 @@ export default function Configuracoes() {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400">
-                      Contato para assinar: <strong>contato@ambisafe.com.br</strong>
-                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => setPlanoModalAberto(true)}
+                      className="bg-[#16A34A] hover:bg-[#15803d] text-white"
+                    >
+                      Assinar Agora
+                    </Button>
                   </div>
                 )}
               </div>
@@ -291,6 +344,40 @@ export default function Configuracoes() {
           </CardContent>
         </Card>
       </div>
+
+      {planoModalAberto && (
+        <PlanoModal onClose={() => setPlanoModalAberto(false)} />
+      )}
+
+      {confirmandoCancelamento && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !cancelando && setConfirmandoCancelamento(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 z-10">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Cancelar assinatura</h3>
+            <p className="text-gray-500 text-sm mb-6">
+              Tem certeza que deseja cancelar sua assinatura? Seu acesso continua ativo até o fim do
+              período já pago, depois disso a conta é bloqueada.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setConfirmandoCancelamento(false)}
+                disabled={cancelando}
+              >
+                Voltar
+              </Button>
+              <Button
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleCancelarAssinatura}
+                disabled={cancelando}
+              >
+                {cancelando ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cancelar assinatura'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
