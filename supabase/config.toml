@@ -1,0 +1,35 @@
+# ============================================================================
+# NÃO APLICADO AUTOMATICAMENTE. Este projeto nunca teve `supabase link` rodado
+# aqui (sem project-ref local, sem credenciais) — o Claude não consegue publicar
+# isso na sua instância. Para aplicar: `supabase link --project-ref jwbnjzqbjmilhmtgyidf`
+# e depois `supabase db push` / o comando que sincroniza config de Auth, ou cole os
+# HTMLs manualmente em Authentication → Email Templates no painel do Supabase.
+# ============================================================================
+
+[auth.email]
+  enable_confirmations = true
+  double_confirm_changes = true
+
+# Só 4 dos 6 templates em supabase/email-templates/ correspondem a e-mails que o
+# Supabase Auth realmente dispara — são links de confirmação/ação, não notificações.
+# password-changed.html e email-changed.html NÃO têm seção aqui de propósito: o
+# Supabase Auth não envia um e-mail nativo de "sua senha/e-mail foi alterado" depois
+# do fato — só envia links de confirmação ANTES da ação (recovery, email_change).
+# Pra esses dois dispararem de verdade, precisaria de um mecanismo à parte (ex: Auth
+# webhook → Edge Function → serviço de e-mail transacional), que não existe ainda.
+
+[auth.email.template.confirmation]
+  subject = "✅ Confirme seu cadastro no AMBISAFE"
+  content_path = "./email-templates/confirm-signup.html"
+
+[auth.email.template.recovery]
+  subject = "🔐 Redefinir senha — AMBISAFE"
+  content_path = "./email-templates/reset-password.html"
+
+[auth.email.template.magic_link]
+  subject = "🔗 Seu link de acesso — AMBISAFE"
+  content_path = "./email-templates/magic-link.html"
+
+[auth.email.template.email_change]
+  subject = "📧 Confirme seu novo e-mail — AMBISAFE"
+  content_path = "./email-templates/change-email.html"

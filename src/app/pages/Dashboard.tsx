@@ -19,6 +19,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import OnboardingCard from '../components/help/OnboardingCard';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 interface Projeto {
   id: string;
@@ -286,6 +287,7 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
               </Button>
             </div>
           ) : (
+            <ErrorBoundary section="Lista de Projetos">
             <div className="space-y-3">
               {projetos.map(projeto => {
                 const statusCfg = STATUS_CONFIG[projeto.status] || STATUS_CONFIG['rascunho'];
@@ -341,6 +343,7 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
                 );
               })}
             </div>
+            </ErrorBoundary>
           )}
         </CardContent>
       </Card>

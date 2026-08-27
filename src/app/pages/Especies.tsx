@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 
-interface Especie {
+export interface Especie {
   nome_popular: string;
   nome_cientifico: string;
   familia: string;
@@ -15,7 +15,10 @@ interface Especie {
 }
 
 // Banco de dados de espécies por estado/bioma (base IFN)
-const BANCO_ESPECIES: Especie[] = [
+// Exportado para a aba "Banco de Espécies" do painel admin (leitura, ver AdminPage.tsx —
+// adicionar/editar/remover exigiria mover esses dados para uma tabela real no Supabase,
+// já que hoje é só um array estático embutido no bundle).
+export const BANCO_ESPECIES: Especie[] = [
   // Caatinga — Paraíba, PE, CE, RN, PI, SE, AL, BA
   { nome_popular: 'Aroeira do Sertão', nome_cientifico: 'Myracrodruon urundeuva', familia: 'Anacardiaceae', bioma: 'caatinga', grupo_sucessional: 'Secundária Tardia' },
   { nome_popular: 'Angico', nome_cientifico: 'Anadenanthera colubrina', familia: 'Fabaceae', bioma: 'caatinga', grupo_sucessional: 'Secundária Tardia' },
@@ -144,7 +147,7 @@ const ESTADOS_BIOMA: Record<string, string> = {
   SE: 'caatinga', SP: 'mata_atlantica', TO: 'cerrado',
 };
 
-const BIOMA_LABEL: Record<string, string> = {
+export const BIOMA_LABEL: Record<string, string> = {
   amazonia: 'Amazônia', cerrado: 'Cerrado', mata_atlantica: 'Mata Atlântica',
   caatinga: 'Caatinga', pampa: 'Pampa', pantanal: 'Pantanal',
 };

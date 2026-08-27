@@ -12,6 +12,7 @@ import { Badge } from '../components/ui/badge';
 import DataUpload from '../components/project/DataUpload';
 import ColumnMapper, { type SugestaoIA } from '../components/project/ColumnMapper';
 import EditarProjetoModal, { type ProjetoEditavel } from '../components/project/EditarProjetoModal';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import StatsSummary from '../components/results/StatsSummary';
 import FitossociologiaTable from '../components/results/FitossociologiaTable';
 import IndicesDiversidade from '../components/results/IndicesDiversidade';
@@ -616,24 +617,38 @@ export default function ProjectDetail() {
 
             return (
               <>
-                <ScoreCard
-                  score={resultado.score}
-                  precisaoRequerida={projeto.precisao_requerida}
-                  erroRelPct={resultado.dados_gerais.erro_rel_pct}
-                />
-                <StatsSummary
-                  dados={resultado.dados_gerais}
-                  precisaoRequerida={projeto.precisao_requerida}
-                  areaTotalHa={projeto.area_total_ha}
-                />
-                <IndicesDiversidade indices={resultado.indices_diversidade} />
-                <FitossociologiaTable especies={resultado.especies} familias={resultado.familias} />
-                <EstruturaDiametrica individuos={individuosParaDiametrica} />
-                <EstruturaVertical
-                  estratos={resultado.estrutura_vertical}
-                  especiesEstratos={especiesEstratos}
-                />
-                <VolumePorParcela parcelas={resultado.parcelas} />
+                <ErrorBoundary section="Score">
+                  <ScoreCard
+                    score={resultado.score}
+                    precisaoRequerida={projeto.precisao_requerida}
+                    erroRelPct={resultado.dados_gerais.erro_rel_pct}
+                  />
+                </ErrorBoundary>
+                <ErrorBoundary section="Dados Gerais">
+                  <StatsSummary
+                    dados={resultado.dados_gerais}
+                    precisaoRequerida={projeto.precisao_requerida}
+                    areaTotalHa={projeto.area_total_ha}
+                  />
+                </ErrorBoundary>
+                <ErrorBoundary section="Índices de Diversidade">
+                  <IndicesDiversidade indices={resultado.indices_diversidade} />
+                </ErrorBoundary>
+                <ErrorBoundary section="Fitossociologia">
+                  <FitossociologiaTable especies={resultado.especies} familias={resultado.familias} />
+                </ErrorBoundary>
+                <ErrorBoundary section="Estrutura Diamétrica">
+                  <EstruturaDiametrica individuos={individuosParaDiametrica} />
+                </ErrorBoundary>
+                <ErrorBoundary section="Estrutura Vertical">
+                  <EstruturaVertical
+                    estratos={resultado.estrutura_vertical}
+                    especiesEstratos={especiesEstratos}
+                  />
+                </ErrorBoundary>
+                <ErrorBoundary section="Volume por Parcela">
+                  <VolumePorParcela parcelas={resultado.parcelas} />
+                </ErrorBoundary>
               </>
             );
           })()}
@@ -642,7 +657,9 @@ export default function ProjectDetail() {
         {/* TAB: INDIVÍDUOS */}
         <TabsContent value="individuos">
           {hasResultado && (
-            <IndividuosPorParcela individuos={individuosAgrupados} />
+            <ErrorBoundary section="Indivíduos por Parcela">
+              <IndividuosPorParcela individuos={individuosAgrupados} />
+            </ErrorBoundary>
           )}
         </TabsContent>
 
