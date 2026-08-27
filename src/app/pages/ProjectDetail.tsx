@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
 import DataUpload from '../components/project/DataUpload';
-import ColumnMapper from '../components/project/ColumnMapper';
+import ColumnMapper, { type SugestaoIA } from '../components/project/ColumnMapper';
 import EditarProjetoModal, { type ProjetoEditavel } from '../components/project/EditarProjetoModal';
 import StatsSummary from '../components/results/StatsSummary';
 import FitossociologiaTable from '../components/results/FitossociologiaTable';
@@ -37,6 +37,7 @@ import {
   ChevronUp,
   Save,
   Pencil,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -78,6 +79,10 @@ export default function ProjectDetail() {
   const [uploading, setUploading] = useState(false);
   const [showMapper, setShowMapper] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [sugestoesIA, setSugestoesIA] = useState<Record<string, SugestaoIA>>({});
+  // Nomes comuns (normalizados) cujo nome científico/família vieram da sugestão da IA
+  // na última importação salva — usado só para marcar visualmente a pré-visualização.
+  const [nomesPreenchidosPorIA, setNomesPreenchidosPorIA] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (id) loadProject();
@@ -85,42 +90,54 @@ export default function ProjectDetail() {
 
   const loadProject = async () => {
     setLoading(true);
-    const [{ data: proj }, { data: arvs }, { data: parc }] = await Promise.all([
-      supabase.from('projetos').select('*').eq('id', id!).single(),
-      (async () => {
-        let all: any[] = [];
-        let from = 0;
-        const batch = 1000;
-        while (true) {
-          const { data } = await supabase.from('arvores').select('*').eq('projeto_id', id!).order('parcela_numero').order('numero_arvore').range(from, from + batch - 1);
-          if (!data || data.length === 0) break;
-          all = all.concat(data);
-          if (data.length < batch) break;
-          from += batch;
+    try {
+      const [{ data: proj }, { data: arvs }, { data: parc }] = await Promise.all([
+        supabase.from('projetos').select('*').eq('id', id!).single(),
+        (async () => {
+          let all: any[] = [];
+          let from = 0;
+          const batch = 1000;
+          while (true) {
+            const { data } = await supabase.from('arvores').select('*').eq('projeto_id', id!).order('parcela_numero').order('numero_arvore').range(from, from + batch - 1);
+            if (!data || data.length === 0) break;
+            all = all.concat(data);
+            if (data.length < batch) break;
+            from += batch;
+          }
+          return { data: all };
+        })(),
+        supabase.from('parcelas').select('*').eq('projeto_id', id!).order('numero'),
+      ]);
+
+      if (proj) setProjeto(proj);
+      if (arvs) {
+        setArvores(arvs);
+        console.log('Primeiros 5 arvores:', arvs?.slice(0, 5).map(a => ({ parcela: a.parcela_numero, num: a.numero_arvore, nome: a.nome_comum })));
+      }
+      if (parc) setParcelas(parc.map(p => ({ numero: p.numero, area_m2: p.area_m2, lat: p.lat, lng: p.lng })));
+
+      // Load previous result — falha aqui não deve travar a tela (ver useCalculations.ts)
+      if (proj?.status === 'processado' || proj?.status === 'finalizado') {
+        try {
+          await loadResultado(id!);
+        } catch (err) {
+          console.error('Erro ao carregar resultado do projeto:', err);
+          // continua sem resultado — usuário ainda vê os dados do projeto
         }
-        return { data: all };
-      })(),
-      supabase.from('parcelas').select('*').eq('projeto_id', id!).order('numero'),
-    ]);
-
-    if (proj) setProjeto(proj);
-    if (arvs) {
-      setArvores(arvs);
-      console.log('Primeiros 5 arvores:', arvs?.slice(0, 5).map(a => ({ parcela: a.parcela_numero, num: a.numero_arvore, nome: a.nome_comum })));
+      }
+    } catch (err) {
+      console.error('Erro ao carregar projeto:', err);
+      toast.error('Erro ao carregar projeto.');
+    } finally {
+      setLoading(false);
     }
-    if (parc) setParcelas(parc.map(p => ({ numero: p.numero, area_m2: p.area_m2, lat: p.lat, lng: p.lng })));
-
-    // Load previous result
-    if (proj?.status === 'processado' || proj?.status === 'finalizado') {
-      await loadResultado(id!);
-    }
-    setLoading(false);
   };
 
   const handleDataLoaded = (headers: string[], rows: RawRow[]) => {
     setRawHeaders(headers);
     setRawRows(rows);
     setShowMapper(true);
+    setSugestoesIA({});
   };
 
   const handleMappingChange = useCallback((m: ColumnMapping, dap: boolean) => {
@@ -136,11 +153,33 @@ export default function ProjectDetail() {
 
     setUploading(true);
     try {
+      // Nomes comuns (normalizados) que acabaram usando a sugestão da IA nesta gravação —
+      // só para marcar visualmente a pré-visualização depois de salvar.
+      const usadosPorIA = new Set<string>();
+
       // Convert raw rows to Arvore records
       const arvorasToInsert = rawRows.map((row, idx) => {
         const capRaw = Number(row[mapping.cap_cm] ?? 0);
         // If DAP mode, convert DAP → CAP = DAP * π
         const cap_cm = isDapMode ? capRaw * Math.PI : capRaw;
+
+        const nomeComum = mapping.nome_comum ? String(row[mapping.nome_comum] ?? 'Desconhecida') : 'Desconhecida';
+        const sugestao = sugestoesIA[nomeComum.toLowerCase().trim()];
+
+        const nomeCientificoPlanilha = mapping.nome_cientifico && row[mapping.nome_cientifico]
+          ? String(row[mapping.nome_cientifico])
+          : null;
+        const familiaPlanilha = mapping.familia && row[mapping.familia]
+          ? String(row[mapping.familia])
+          : null;
+
+        // Só usa a sugestão da IA quando a planilha não trouxe o dado — nunca sobrescreve
+        // um nome científico/família que o usuário já informou.
+        const nome_cientifico = nomeCientificoPlanilha ?? sugestao?.nome_cientifico ?? null;
+        const familia = familiaPlanilha ?? sugestao?.familia ?? null;
+        if (!nomeCientificoPlanilha && !familiaPlanilha && sugestao) {
+          usadosPorIA.add(nomeComum.toLowerCase().trim());
+        }
 
         return {
           projeto_id: id!,
@@ -150,13 +189,9 @@ export default function ProjectDetail() {
             const v = parseInt(String(row[mapping.numero_arvore]));
             return isNaN(v) ? null : v;
           })(),
-          nome_comum: mapping.nome_comum ? String(row[mapping.nome_comum] ?? 'Desconhecida') : 'Desconhecida',
-          nome_cientifico: mapping.nome_cientifico && row[mapping.nome_cientifico]
-            ? String(row[mapping.nome_cientifico])
-            : null,
-          familia: mapping.familia && row[mapping.familia]
-            ? String(row[mapping.familia])
-            : null,
+          nome_comum: nomeComum,
+          nome_cientifico,
+          familia,
           numero_fuste: mapping.numero_fuste && row[mapping.numero_fuste]
             ? parseInt(String(row[mapping.numero_fuste])) || 1
             : 1,
@@ -194,6 +229,7 @@ export default function ProjectDetail() {
       setShowMapper(false);
       setRawRows([]);
       setRawHeaders([]);
+      setNomesPreenchidosPorIA(usadosPorIA);
       const nInds = new Set(
         arvorasToInsert.map((a, i) => a.numero_arvore != null ? `${a.parcela_numero}:${a.numero_arvore}` : `__${i}`)
       ).size;
@@ -388,7 +424,9 @@ export default function ProjectDetail() {
                 <ColumnMapper
                   headers={rawHeaders}
                   rows={rawRows}
+                  bioma={projeto.bioma}
                   onMappingChange={handleMappingChange}
+                  onAiSuggestionsChange={setSugestoesIA}
                 />
                 <div className="flex justify-end mt-4">
                   <Button
@@ -454,21 +492,43 @@ export default function ProjectDetail() {
                       </tr>
                     </thead>
                     <tbody>
-                      {arvores.slice(0, 10).map((arv, i) => (
-                        <tr key={arv.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="px-3 py-2 font-mono">{arv.parcela_numero}</td>
-                          <td className="px-3 py-2 font-mono">{arv.numero_arvore ?? '—'}</td>
-                          <td className="px-3 py-2">{arv.nome_comum}</td>
-                          <td className="px-3 py-2 font-mono">{arv.cap_cm?.toFixed(2) ?? '—'}</td>
-                          <td className="px-3 py-2 font-mono">{arv.altura_total_m?.toFixed(2) ?? '—'}</td>
-                          <td className="px-3 py-2 text-gray-400 italic">{arv.nome_cientifico || '—'}</td>
-                        </tr>
-                      ))}
+                      {arvores.slice(0, 10).map((arv, i) => {
+                        const viaIA = nomesPreenchidosPorIA.has((arv.nome_comum ?? '').toLowerCase().trim());
+                        return (
+                          <tr key={arv.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="px-3 py-2 font-mono">{arv.parcela_numero}</td>
+                            <td className="px-3 py-2 font-mono">{arv.numero_arvore ?? '—'}</td>
+                            <td className="px-3 py-2">{arv.nome_comum}</td>
+                            <td className="px-3 py-2 font-mono">{arv.cap_cm?.toFixed(2) ?? '—'}</td>
+                            <td className="px-3 py-2 font-mono">{arv.altura_total_m?.toFixed(2) ?? '—'}</td>
+                            <td className="px-3 py-2 text-gray-400 italic">
+                              <span className="inline-flex items-center gap-1">
+                                {arv.nome_cientifico || '—'}
+                                {viaIA && (
+                                  <span
+                                    title="Sugerido por IA — confira antes de usar em relatórios"
+                                    className="inline-flex items-center gap-0.5 bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded-full font-semibold not-italic flex-shrink-0"
+                                  >
+                                    <Sparkles className="w-2.5 h-2.5" /> IA
+                                  </span>
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                   {arvores.length > 10 && (
                     <p className="text-xs text-gray-400 text-center py-2 bg-gray-50 border-t">
                       + {arvores.length - 10} árvores não exibidas
+                    </p>
+                  )}
+                  {nomesPreenchidosPorIA.size > 0 && (
+                    <p className="text-xs text-purple-700 bg-purple-50 border-t border-purple-100 px-3 py-2 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+                      Registros marcados com <strong>IA</strong> tiveram nome científico/família sugeridos
+                      automaticamente e ainda não foram conferidos — revise-os antes de finalizar o inventário.
                     </p>
                   )}
                 </div>

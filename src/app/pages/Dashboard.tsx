@@ -99,14 +99,15 @@ export default function Dashboard() {
     if (data) {
       // Fetch scores
       const projetosComScore = await Promise.all(data.map(async (p) => {
-        const { data: res } = await supabase
+        const { data: resultado } = await supabase
           .from('resultados')
           .select('score')
           .eq('projeto_id', p.id)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single();
-        return { ...p, score: res?.score?.total ?? null };
+          .maybeSingle(); // retorna null se não existir, sem erro 406
+        // score pode ser null se o projeto ainda não foi processado
+        return { ...p, score: resultado?.score?.total ?? null };
       }));
       setProjetos(projetosComScore);
     }

@@ -52,15 +52,18 @@ export function useCalculations() {
   }, []);
 
   const loadResultado = useCallback(async (projetoId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('resultados')
       .select('dados, score')
       .eq('projeto_id', projetoId)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle(); // retorna null se não existir, sem erro 406
 
-    if (data?.dados) {
+    if (error) throw error;
+    if (!data) return null; // projeto ainda não processado — tudo certo
+
+    if (data.dados) {
       setResultado(data.dados as unknown as ResultadoInventario);
       return data.dados as unknown as ResultadoInventario;
     }

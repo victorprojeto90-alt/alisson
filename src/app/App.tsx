@@ -33,9 +33,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isPasswordRecovery } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to="/app/dashboard" replace />;
+  // Durante o fluxo de recuperação de senha o Supabase cria uma sessão temporária
+  // (evento PASSWORD_RECOVERY) só para permitir a troca — não deve ser tratada como um
+  // login normal, senão o usuário é redirecionado para o dashboard antes de conseguir
+  // ver o formulário de nova senha em /auth.
+  if (user && !isPasswordRecovery) return <Navigate to="/app/dashboard" replace />;
   return <>{children}</>;
 }
 

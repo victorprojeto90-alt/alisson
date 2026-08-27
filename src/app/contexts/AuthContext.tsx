@@ -36,11 +36,43 @@ export interface ExtraSignUpData {
   estadoUf?: string;
 }
 
+// Lê o hash da URL (#access_token=...&type=recovery, ou #error=...&error_description=...
+// quando o link já expirou/foi usado) de forma SÍNCRONA, antes de qualquer chamada
+// assíncrona ao Supabase. Isso existe porque supabase.auth.getSession() resolve antes do
+// evento PASSWORD_RECOVERY ser notificado (o auth-js dispara esse evento dentro de um
+// setTimeout(…, 0) separado de _initialize()) — se isPasswordRecovery só fosse setado ao
+// reagir ao evento, PublicOnlyRoute via `user` truthy primeiro (pelo getSession) e
+// redirecionava para o dashboard antes do PASSWORD_RECOVERY chegar. Lendo a URL de forma
+// síncrona no estado inicial, isPasswordRecovery já nasce correto no primeiro render.
+function readRecoveryStateFromUrl(): { isRecovery: boolean; error: string | null } {
+  if (typeof window === 'undefined') return { isRecovery: false, error: null };
+  const raw = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+  if (!raw) return { isRecovery: false, error: null };
+  const params = new URLSearchParams(raw);
+  const errorDescription = params.get('error_description');
+  if (errorDescription) {
+    return { isRecovery: false, error: errorDescription };
+  }
+  if (params.get('type') === 'recovery') {
+    return { isRecovery: true, error: null };
+  }
+  return { isRecovery: false, error: null };
+}
+
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   empresa: Empresa | null;
   loading: boolean;
+  // true entre o clique no link de recuperação de senha (evento PASSWORD_RECOVERY) e a
+  // troca de senha ser concluída — enquanto true, rotas públicas não devem redirecionar
+  // o usuário para dentro do app só porque uma sessão (temporária, de recovery) existe.
+  isPasswordRecovery: boolean;
+  setIsPasswordRecovery: (value: boolean) => void;
+  // Preenchido quando o link de recuperação chega expirado/já utilizado (Supabase
+  // redireciona com #error=...&error_description=... em vez de um token válido).
+  passwordRecoveryError: string | null;
+  clearPasswordRecoveryError: () => void;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, name: string, companyName: string, extra?: ExtraSignUpData) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -52,6 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => readRecoveryStateFromUrl().isRecovery);
+  const [passwordRecoveryError, setPasswordRecoveryError] = useState(() => readRecoveryStateFromUrl().error);
 
   const loadProfile = async (userId: string) => {
     const { data, error: selectError } = await supabase
@@ -138,7 +172,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Evento PASSWORD_RECOVERY cria uma sessão temporária só para permitir a troca de
+      // senha — não é um login normal, então marcamos isso separadamente para que rotas
+      // públicas (ver PublicOnlyRoute em App.tsx) não redirecionem o usuário para dentro
+      // do app antes de ele conseguir definir a nova senha.
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
       setUser(session?.user ?? null);
       if (session?.user) {
         loadProfile(session.user.id);
@@ -189,12 +230,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
+  const clearPasswordRecoveryError = () => setPasswordRecoveryError(null);
+
   return (
     <AuthContext.Provider value={{
       user,
       profile,
       empresa: profile?.empresa ?? null,
       loading,
+      isPasswordRecovery,
+      setIsPasswordRecovery,
+      passwordRecoveryError,
+      clearPasswordRecoveryError,
       signIn,
       signUp,
       signOut,

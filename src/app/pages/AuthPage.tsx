@@ -14,11 +14,13 @@ type TipoUsuario = 'pessoa_fisica' | 'empresa';
 export default function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { signIn, signUp } = useAuth();
+  const {
+    signIn, signUp, isPasswordRecovery, setIsPasswordRecovery,
+    passwordRecoveryError, clearPasswordRecoveryError,
+  } = useAuth();
 
   const [isSignIn, setIsSignIn] = useState(searchParams.get('mode') !== 'register');
   const [isForgot, setIsForgot] = useState(false);
-  const [isRecovery, setIsRecovery] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -34,14 +36,15 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Detecta redirecionamento do Supabase com token no hash
+  // Link de recuperação expirado/já utilizado — Supabase redireciona com
+  // #error=...&error_description=... em vez de um token válido. Mostra aviso claro e já
+  // leva o usuário para o formulário de "esqueci minha senha" para pedir um novo link.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsRecovery(true);
-      }
-    });
-    return () => subscription.unsubscribe();
+    if (passwordRecoveryError) {
+      toast.error('Link expirado ou já utilizado. Solicite um novo link de redefinição.');
+      setIsForgot(true);
+      clearPasswordRecoveryError();
+    }
   }, []);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -55,11 +58,15 @@ export default function AuthPage() {
       toast.error('Erro ao atualizar senha: ' + error.message);
     } else {
       toast.success('Senha atualizada com sucesso! Redirecionando...');
-      setIsRecovery(false);
       setNewPassword('');
       setConfirmPassword('');
-      // Pequeno delay para o toast aparecer antes de redirecionar
-      setTimeout(() => navigate('/app/dashboard'), 1500);
+      // Pequeno delay para o toast aparecer antes de sair da tela de recuperação. Só
+      // depois de a senha já ter sido trocada com sucesso é que encerramos o estado de
+      // recovery e navegamos — antes disso, PublicOnlyRoute mantém o usuário em /auth.
+      setTimeout(() => {
+        setIsPasswordRecovery(false);
+        navigate('/app/dashboard', { replace: true });
+      }, 1500);
     }
   };
 
@@ -166,13 +173,13 @@ export default function AuthPage() {
           <CardHeader className="space-y-4 pb-4">
             <div className="text-center">
               <CardTitle className="text-xl">
-                {isRecovery ? 'Criar nova senha'
+                {isPasswordRecovery ? 'Criar nova senha'
                   : isForgot ? 'Redefinir senha'
                   : isSignIn ? 'Bem-vindo de volta'
                   : 'Criar conta'}
               </CardTitle>
               <CardDescription className="mt-1">
-                {isRecovery ? 'Escolha uma senha segura para sua conta'
+                {isPasswordRecovery ? 'Escolha uma senha segura para sua conta'
                   : isForgot ? 'Enviaremos um link para seu e-mail'
                   : isSignIn ? 'Entre com suas credenciais para acessar a plataforma'
                   : 'Teste grátis por 14 dias, sem cartão de crédito'}
@@ -182,7 +189,7 @@ export default function AuthPage() {
 
           <CardContent>
             {/* ── Tela de definir nova senha (vindo do link do e-mail) ── */}
-            {isRecovery && (
+            {isPasswordRecovery && (
               <form onSubmit={handleUpdatePassword} className="space-y-4">
                 <div className="text-center mb-2">
                   <div className="w-12 h-12 bg-[#0B3D2E]/10 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -236,7 +243,7 @@ export default function AuthPage() {
             )}
 
             {/* ── Tela de redefinição de senha ── */}
-            {!isRecovery && isForgot && (
+            {!isPasswordRecovery && isForgot && (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="text-center mb-2">
                   <div className="w-12 h-12 bg-[#0B3D2E]/10 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -278,7 +285,7 @@ export default function AuthPage() {
             )}
 
             {/* ── Tela de login / cadastro ── */}
-            {!isRecovery && !isForgot && (
+            {!isPasswordRecovery && !isForgot && (
             <form onSubmit={handleSubmit} className="space-y-3">
               {/* Tipo de usuário — só no cadastro */}
               {!isSignIn && (
