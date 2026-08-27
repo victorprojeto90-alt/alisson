@@ -7,6 +7,7 @@ import { ArrowLeft, Eye, EyeOff, UserCheck, Briefcase, Mail, KeyRound } from 'lu
 import logoFull from '../../assets/ambisafe-logo-full2.png';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { validarCpfCnpj, validarEmail } from '../lib/validators';
 import { toast } from 'sonner';
 
 type TipoUsuario = 'pessoa_fisica' | 'empresa';
@@ -106,7 +107,13 @@ export default function AuthPage() {
         if (tipoUsuario === 'empresa' && !companyName.trim()) {
           toast.error('Informe o nome da empresa'); return;
         }
+        if (!validarEmail(email)) { toast.error('E-mail inválido.'); return; }
         if (password.length < 6) { toast.error('Senha deve ter pelo menos 6 caracteres'); return; }
+        // CPF/CNPJ é opcional — só valida o dígito verificador se algo foi digitado.
+        if (cpfCnpj.trim() && !validarCpfCnpj(cpfCnpj)) {
+          toast.error(`${tipoUsuario === 'empresa' ? 'CNPJ' : 'CPF'} inválido. Verifique os dígitos.`);
+          return;
+        }
 
         const resolvedCompanyName = tipoUsuario === 'empresa' ? companyName.trim() : name.trim();
         const { error } = await signUp(

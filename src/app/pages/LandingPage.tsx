@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router';
 import logoFull from '../../assets/ambisafe-logo-full2.png';
 import alissonFoto from '../../assets/alisson-monteiro.jpg';
+import { PLANOS } from '../lib/planos';
 
 // ─── Brand tokens ──────────────────────────────────────────────────────────
 const C = {
@@ -195,53 +196,6 @@ const FAQ = [
     q: 'Como é calculada a suficiência amostral?',
     a: 'O AMBISAFE calcula automaticamente o erro de amostragem e intervalo de confiança. Se insuficiente para o limite do órgão (10% ou 20%), emite alerta sugerindo novas parcelas.',
   },
-];
-
-// ─── Planos e preços ───────────────────────────────────────────────────────
-// TODO(Alisson): os percentuais de desconto do trimestral (10%) e do anual (20%)
-// abaixo são PLACEHOLDERS — confirmar os valores reais de desconto antes de publicar.
-const PRECO_MENSAL = 299.90;
-const DESCONTO_TRIMESTRAL = 0.10; // placeholder — confirmar valor real
-const DESCONTO_ANUAL = 0.20;      // placeholder — confirmar valor real
-
-function formatPreco(valor: number) {
-  const [inteiro, centavos] = valor.toFixed(2).split('.');
-  return { inteiro, centavos };
-}
-
-const totalTrimestral = PRECO_MENSAL * 3 * (1 - DESCONTO_TRIMESTRAL);
-const totalAnual = PRECO_MENSAL * 12 * (1 - DESCONTO_ANUAL);
-
-const PLANOS = [
-  {
-    id: 'mensal',
-    badge: 'Mensal',
-    preco: formatPreco(PRECO_MENSAL),
-    totalLabel: null as string | null,
-  },
-  {
-    id: 'trimestral',
-    badge: 'Trimestral · Economize 10%',
-    preco: formatPreco(totalTrimestral / 3),
-    totalLabel: `Total de R$ ${formatPreco(totalTrimestral).inteiro},${formatPreco(totalTrimestral).centavos} a cada 3 meses`,
-  },
-  {
-    id: 'anual',
-    badge: 'Anual · Economize 20%',
-    preco: formatPreco(totalAnual / 12),
-    totalLabel: `Total de R$ ${formatPreco(totalAnual).inteiro},${formatPreco(totalAnual).centavos} por ano`,
-  },
-];
-
-const PLANO_FEATURES = [
-  'Projetos ilimitados',
-  'Cálculos ilimitados',
-  'Amostragem Casual Simples e Censo Florestal',
-  'Estrutura horizontal, vertical e diamétrica',
-  'Pré-relatório com IA',
-  'Exportação PDF e Word',
-  'Banco de espécies por bioma',
-  'Suporte por WhatsApp',
 ];
 
 // ─── Reveal wrapper ────────────────────────────────────────────────────────
@@ -733,69 +687,79 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal>
-            <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch">
-              {PLANOS.map(plano => (
-                <div key={plano.id} className="rounded-3xl overflow-hidden shadow-2xl flex flex-col"
-                  style={{ backgroundColor: C.dark }}>
-                  <div className="relative p-8 flex flex-col flex-1">
-                    <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-20 -translate-y-1/4 translate-x-1/4"
-                      style={{ backgroundColor: C.lime }} />
-                    <div className="relative flex flex-col flex-1">
-                      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
+              {PLANOS.map(plano => {
+                const isMensal = plano.id === 'mensal';
+                return (
+                  <div key={plano.id} className="relative rounded-3xl overflow-hidden shadow-2xl flex flex-col"
+                    style={{
+                      backgroundColor: C.dark,
+                      outline: plano.destaque ? `2px solid ${C.lime}` : undefined,
+                    }}>
+                    {plano.destaque && (
+                      <span
+                        className="absolute top-4 right-4 text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full z-10"
+                        style={{ backgroundColor: C.lime, color: C.dark }}
+                      >
+                        Mais Popular
+                      </span>
+                    )}
+                    <div className="relative p-8 flex flex-col flex-1">
+                      <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-20 -translate-y-1/4 translate-x-1/4"
+                        style={{ backgroundColor: C.lime }} />
+                      <div className="relative flex flex-col flex-1">
                         <span
-                          className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+                          className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full self-start mb-6"
                           style={{ backgroundColor: `${C.lime}20`, color: C.lime }}
                         >
-                          AMBISAFE Pro
+                          {plano.nome}
                         </span>
-                        <span
-                          className="text-xs font-bold px-3 py-1 rounded-full"
-                          style={{ backgroundColor: C.lime, color: C.dark }}
-                        >
-                          {plano.badge}
-                        </span>
-                      </div>
 
-                      <div className="mb-2">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-white/50 text-lg">R$</span>
-                          <span className="text-white font-black text-5xl">{plano.preco.inteiro}</span>
-                          <span className="text-white font-black text-2xl">,{plano.preco.centavos}</span>
-                          <span className="text-white/50">/mês</span>
+                        <div className="mb-2">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-white/50 text-base">R$</span>
+                            <span className="text-white font-black text-4xl">{plano.precoFormatado.replace('R$ ', '')}</span>
+                            <span className="text-white/50 text-sm">/{plano.periodo}</span>
+                          </div>
+                          {plano.fidelidade && plano.desconto && (
+                            <p className="text-white/40 text-xs mt-1.5">
+                              Fidelidade de {plano.fidelidade} meses · {plano.desconto}% de desconto
+                              {plano.economia !== undefined && (
+                                <> · economia de R$ {plano.economia.toFixed(2).replace('.', ',')}</>
+                              )}
+                            </p>
+                          )}
                         </div>
-                        {plano.totalLabel && (
-                          <p className="text-white/40 text-xs mt-1.5">{plano.totalLabel}</p>
-                        )}
-                      </div>
 
-                      <ul className="space-y-3 mb-8 mt-6 flex-1">
-                        {PLANO_FEATURES.map(item => (
-                          <li key={item} className="flex items-center gap-3 text-white/80 text-sm">
-                            <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" fill="none">
-                              <circle cx="8" cy="8" r="7" fill={C.lime} />
-                              <path d="M5 8l2 2 4-4" stroke={C.dark} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
+                        <ul className="space-y-3 mb-8 mt-6 flex-1">
+                          {plano.beneficios.map(item => (
+                            <li key={item} className="flex items-center gap-3 text-white/80 text-sm">
+                              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+                                <circle cx="8" cy="8" r="7" fill={C.lime} />
+                                <path d="M5 8l2 2 4-4" stroke={C.dark} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
 
-                      <div>
-                        <button
-                          onClick={goAuth}
-                          className="w-full py-4 rounded-full font-bold text-sm transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
-                          style={{ backgroundColor: C.lime, color: C.dark }}
-                        >
-                          Começar Teste Grátis — 14 dias
-                        </button>
-                        <p className="text-white/30 text-xs text-center mt-3">
-                          Sem cartão de crédito. Cancele quando quiser.
-                        </p>
+                        <div>
+                          <button
+                            onClick={isMensal ? goAuth : () => window.open('https://wa.me/5583991144456', '_blank')}
+                            className="w-full py-4 rounded-full font-bold text-sm transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
+                            style={{ backgroundColor: C.lime, color: C.dark }}
+                          >
+                            {isMensal ? 'Começar Teste Grátis — 14 dias' : 'Assinar Agora'}
+                          </button>
+                          <p className="text-white/30 text-xs text-center mt-3">
+                            {isMensal ? 'Sem cartão de crédito. Cancele quando quiser.' : 'Fale com a gente pelo WhatsApp para assinar.'}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Reveal>
         </div>
