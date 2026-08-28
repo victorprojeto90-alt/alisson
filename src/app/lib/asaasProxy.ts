@@ -79,3 +79,14 @@ export function cancelarAssinatura(subscriptionId: string) {
     method: 'POST',
   });
 }
+
+export interface PagamentoHistorico {
+  id: string;
+  value: number;
+  dueDate: string;
+  status: string;
+}
+
+export function buscarHistoricoPagamentos(subscriptionId: string) {
+  return authFetch<{ payments: PagamentoHistorico[] }>(`/assinatura/${subscriptionId}/historico`);
+}

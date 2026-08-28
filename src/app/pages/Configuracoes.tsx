@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -7,16 +7,28 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { PLANOS } from '../lib/planos';
-import { cancelarAssinatura } from '../lib/asaasProxy';
+import { cancelarAssinatura, buscarHistoricoPagamentos, type PagamentoHistorico } from '../lib/asaasProxy';
 import PlanoModal from '../components/payment/PlanoModal';
-import { User, Building2, Crown, Loader2, Check, Clock, UserCheck, Briefcase } from 'lucide-react';
+import { User, Building2, Crown, Loader2, Check, Clock, UserCheck, Briefcase, CreditCard, Info } from 'lucide-react';
 import { toast } from 'sonner';
+
+const STATUS_LABEL: Record<string, { label: string; color: string }> = {
+  RECEIVED: { label: 'Pago', color: 'bg-green-50 text-green-700 border-green-200' },
+  CONFIRMED: { label: 'Pago', color: 'bg-green-50 text-green-700 border-green-200' },
+  RECEIVED_IN_CASH: { label: 'Pago', color: 'bg-green-50 text-green-700 border-green-200' },
+  PENDING: { label: 'Pendente', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  OVERDUE: { label: 'Em atraso', color: 'bg-red-50 text-red-700 border-red-200' },
+  REFUNDED: { label: 'Estornado', color: 'bg-gray-50 text-gray-600 border-gray-200' },
+};
 
 export default function Configuracoes() {
   const { user, profile, empresa } = useAuth();
   const [planoModalAberto, setPlanoModalAberto] = useState(false);
   const [confirmandoCancelamento, setConfirmandoCancelamento] = useState(false);
   const [cancelando, setCancelando] = useState(false);
+  const [historico, setHistorico] = useState<PagamentoHistorico[]>([]);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
+  const [erroHistorico, setErroHistorico] = useState(false);
 
   const [name, setName] = useState(profile?.name ?? '');
   const [telefone, setTelefone] = useState(profile?.telefone ?? '');
@@ -31,6 +43,16 @@ export default function Configuracoes() {
   const [companyCidade, setCompanyCidade] = useState(empresa?.cidade ?? '');
   const [companyEstado, setCompanyEstado] = useState(empresa?.estado_uf ?? '');
   const [savingEmpresa, setSavingEmpresa] = useState(false);
+
+  useEffect(() => {
+    if (!empresa?.asaas_subscription_id) return;
+    setCarregandoHistorico(true);
+    setErroHistorico(false);
+    buscarHistoricoPagamentos(empresa.asaas_subscription_id)
+      .then(r => setHistorico(r.payments ?? []))
+      .catch(() => setErroHistorico(true))
+      .finally(() => setCarregandoHistorico(false));
+  }, [empresa?.asaas_subscription_id]);
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -102,8 +124,8 @@ export default function Configuracoes() {
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#0B3D2E]/10 rounded-lg flex items-center justify-center">
-                <User className="w-5 h-5 text-[#0B3D2E]" />
+              <div className="w-10 h-10 bg-[#00420d]/10 rounded-lg flex items-center justify-center">
+                <User className="w-5 h-5 text-[#00420d]" />
               </div>
               <div className="flex-1">
                 <CardTitle className="text-base">Perfil</CardTitle>
@@ -177,7 +199,7 @@ export default function Configuracoes() {
             <Button
               onClick={handleSaveProfile}
               disabled={savingProfile}
-              className="bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white"
+              className="bg-[#00420d] hover:bg-[#00420d]/90 text-white"
             >
               {savingProfile
                 ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Salvando...</>
@@ -191,8 +213,8 @@ export default function Configuracoes() {
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#0B3D2E]/10 rounded-lg flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-[#0B3D2E]" />
+              <div className="w-10 h-10 bg-[#00420d]/10 rounded-lg flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-[#00420d]" />
               </div>
               <div>
                 <CardTitle className="text-base">Empresa / Organização</CardTitle>
@@ -252,9 +274,9 @@ export default function Configuracoes() {
                 {planoAtualInfo ? (
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <Crown className="w-4 h-4 text-[#16A34A]" />
-                      <span className="font-semibold text-[#0B3D2E]">{planoAtualInfo.nome}</span>
-                      <Badge className="ml-auto bg-[#16A34A] text-white border-0">Ativo</Badge>
+                      <Crown className="w-4 h-4 text-[#acd115]" />
+                      <span className="font-semibold text-[#00420d]">{planoAtualInfo.nome}</span>
+                      <Badge className="ml-auto bg-[#acd115] text-[#00420d] border-0">Ativo</Badge>
                     </div>
                     <p className="text-xs text-gray-500">
                       {planoAtualInfo.precoFormatado}/mês
@@ -273,12 +295,12 @@ export default function Configuracoes() {
                   </div>
                 ) : empresa?.plan === 'profissional' ? (
                   <div className="flex items-center gap-3 flex-1">
-                    <Crown className="w-5 h-5 text-[#16A34A]" />
+                    <Crown className="w-5 h-5 text-[#acd115]" />
                     <div>
-                      <p className="font-semibold text-[#0B3D2E]">Profissional</p>
+                      <p className="font-semibold text-[#00420d]">Profissional</p>
                       <p className="text-xs text-gray-500">Acesso completo</p>
                     </div>
-                    <Badge className="ml-auto bg-[#16A34A] text-white border-0">Ativo</Badge>
+                    <Badge className="ml-auto bg-[#acd115] text-white border-0">Ativo</Badge>
                   </div>
                 ) : (
                   <div className="flex-1">
@@ -298,7 +320,7 @@ export default function Configuracoes() {
                     <Button
                       size="sm"
                       onClick={() => setPlanoModalAberto(true)}
-                      className="bg-[#16A34A] hover:bg-[#15803d] text-white"
+                      className="bg-[#acd115] hover:bg-[#9abd0f] text-[#00420d]"
                     >
                       Assinar Agora
                     </Button>
@@ -310,7 +332,7 @@ export default function Configuracoes() {
             <Button
               onClick={handleSaveEmpresa}
               disabled={savingEmpresa}
-              className="bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white"
+              className="bg-[#00420d] hover:bg-[#00420d]/90 text-white"
             >
               {savingEmpresa
                 ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Salvando...</>
@@ -320,29 +342,83 @@ export default function Configuracoes() {
           </CardContent>
         </Card>
 
-        {/* Zona de Perigo */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base text-gray-700">Zona de Perigo</CardTitle>
-            <CardDescription className="text-xs">Ações irreversíveis</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between p-4 border border-red-100 rounded-xl bg-red-50/50">
-              <div>
-                <p className="text-sm font-medium text-gray-800">Excluir minha conta</p>
-                <p className="text-xs text-gray-500 mt-0.5">Remove permanentemente todos os dados</p>
+        {/* Meu Plano e Pagamentos */}
+        {temAssinaturaAsaas && (
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#00420d]/10 rounded-lg flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-[#00420d]" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Meu Plano e Pagamentos</CardTitle>
+                  <CardDescription className="text-xs">Histórico de cobranças da sua assinatura</CardDescription>
+                </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-red-200 text-red-600 hover:bg-red-50"
-                onClick={() => toast.error('Para excluir, contate contato@ambisafe.com.br')}
-              >
-                Excluir Conta
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Histórico de pagamentos</h3>
+                {carregandoHistorico ? (
+                  <div className="flex items-center justify-center py-8 text-gray-400">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  </div>
+                ) : erroHistorico ? (
+                  <p className="text-xs text-gray-400 py-2">
+                    Não foi possível carregar o histórico agora. Tente novamente mais tarde.
+                  </p>
+                ) : historico.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-2">Nenhuma cobrança registrada ainda.</p>
+                ) : (
+                  <div className="overflow-x-auto border border-gray-100 rounded-xl">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500 text-xs">Vencimento</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500 text-xs">Valor</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-500 text-xs">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {historico.map(p => {
+                          const st = STATUS_LABEL[p.status] ?? { label: p.status, color: 'bg-gray-50 text-gray-600 border-gray-200' };
+                          return (
+                            <tr key={p.id}>
+                              <td className="px-3 py-2 text-gray-700">{new Date(p.dueDate).toLocaleDateString('pt-BR')}</td>
+                              <td className="px-3 py-2 text-gray-700">R$ {p.value.toFixed(2).replace('.', ',')}</td>
+                              <td className="px-3 py-2">
+                                <Badge variant="outline" className={`${st.color} text-xs font-normal`}>{st.label}</Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2">
+                <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-700">
+                  A próxima parcela é gerada automaticamente antes do vencimento. Mesmo após gerada, você
+                  pode cancelar o plano — o acesso permanece até o dia do vencimento já pago.
+                </p>
+              </div>
+
+              {temAssinaturaAsaas && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-red-200 text-red-600 hover:bg-red-50"
+                  onClick={() => setConfirmandoCancelamento(true)}
+                >
+                  Cancelar assinatura
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {planoModalAberto && (

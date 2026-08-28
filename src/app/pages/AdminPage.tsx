@@ -9,16 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import {
   Building2, Users, Trees, Crown, Clock, RefreshCw, Loader2,
   CheckCircle2, AlertTriangle, ShieldCheck, Search, TrendingUp,
-  UserCheck, Briefcase, BarChart3, MessageCircleQuestion,
+  UserCheck, Briefcase, MessageCircleQuestion,
   DollarSign, Ban, ExternalLink, ShieldOff, LayoutDashboard, Wallet,
-  Leaf, Settings2, X, Eye, CalendarClock,
+  X, Eye, CalendarClock, MessageCircle, Download, ArrowUpDown, XCircle,
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  PieChart, Pie, Cell, Legend,
+} from 'recharts';
 import { toast } from 'sonner';
 import { PLANOS } from '../lib/planos';
-import { BANCO_ESPECIES, BIOMA_LABEL } from './Especies';
-import { projectId } from '/utils/supabase/info';
-import packageJson from '../../../package.json';
 
 interface HelpQuestion {
   id: string;
@@ -61,6 +61,7 @@ interface EmpresaAdmin {
 
 const PLANOS_PAGOS = ['mensal', 'trimestral', 'semestral', 'anual'];
 const PLANO_POR_ID = Object.fromEntries(PLANOS.map(p => [p.id, p]));
+const CORES_PIZZA = ['#00420d', '#acd115', '#16a34a', '#65a30d', '#0d9488'];
 
 // Mascara CPF/CNPJ mantendo a pontuação original, só os últimos 2 dígitos visíveis.
 function maskCpfCnpj(v: string): string {
@@ -73,15 +74,46 @@ function maskCpfCnpj(v: string): string {
   });
 }
 
-type Secao = 'dashboard' | 'clientes' | 'financeiro' | 'especies' | 'sistema';
+// Abre o WhatsApp com uma mensagem pré-formatada para a empresa. Não existe um
+// "link de pagamento" persistido no banco (o PIX é gerado sob demanda pelo
+// PlanoModal) — por isso a mensagem direciona o cliente para dentro do app em
+// vez de tentar reenviar um link que não existe.
+function abrirWhatsApp(emp: EmpresaAdmin, mensagemExtra?: string) {
+  const tel = (emp.telefone ?? emp.profiles?.[0]?.telefone ?? '').replace(/\D/g, '');
+  if (!tel) {
+    toast.error('Esta empresa não tem telefone cadastrado.');
+    return;
+  }
+  const msg = encodeURIComponent(
+    mensagemExtra ??
+    `Olá! Aqui é da equipe AMBISAFE. Estamos entrando em contato sobre a conta de ${emp.name}. Para regularizar ou tirar dúvidas sobre o plano, acesse Configurações > Meu Plano e Pagamentos no app, ou responda por aqui.`
+  );
+  window.open(`https://wa.me/55${tel}?text=${msg}`, '_blank');
+}
+
+function baixarCSV(nomeArquivo: string, headers: string[], rows: (string | number)[][]) {
+  const csv = [headers, ...rows]
+    .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';'))
+    .join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArquivo;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+type Secao = 'dashboard' | 'clientes' | 'financeiro';
 
 const SECOES: { id: Secao; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'clientes', label: 'Clientes', icon: Users },
   { id: 'financeiro', label: 'Financeiro', icon: Wallet },
-  { id: 'especies', label: 'Banco de Espécies', icon: Leaf },
-  { id: 'sistema', label: 'Sistema', icon: Settings2 },
 ];
+
+type FiltroPlano = 'all' | 'trial' | 'trial_expirando' | 'profissional' | 'pagante' | 'bloqueado';
+type OrdenarPor = 'cadastro' | 'nome' | 'vencimento' | 'plano';
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -89,7 +121,8 @@ export default function AdminPage() {
   const [empresas, setEmpresas] = useState<EmpresaAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterPlan, setFilterPlan] = useState<'all' | 'trial' | 'profissional' | 'pagante' | 'bloqueado'>('all');
+  const [filterPlan, setFilterPlan] = useState<FiltroPlano>('all');
+  const [ordenarPor, setOrdenarPor] = useState<OrdenarPor>('cadastro');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [helpQuestions, setHelpQuestions] = useState<HelpQuestion[]>([]);
   const [detalheEmpresa, setDetalheEmpresa] = useState<EmpresaAdmin | null>(null);
@@ -144,16 +177,34 @@ export default function AdminPage() {
     }
   };
 
-  const extendTrial = async (empresaId: string) => {
+  // Muda o plan_type "novo" (billing Asaas) manualmente — separado do changePlan
+  // acima, que mexe no campo `plan` legado (Profissional/Trial). Os dois campos
+  // convivem hoje porque a migração de billing é opcional/gradual (ver AuthContext.tsx).
+  const mudarPlanoManual = async (empresaId: string, novoPlano: string) => {
     setUpdatingId(empresaId);
-    const newDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const { error } = await supabase
       .from('empresas')
-      .update({ trial_ends_at: newDate })
+      .update({ plan_type: novoPlano, is_blocked: false, block_reason: null })
+      .eq('id', empresaId);
+    setUpdatingId(null);
+    if (error) toast.error('Erro ao mudar plano: ' + error.message);
+    else { toast.success('Plano atualizado!'); load(); setDetalheEmpresa(null); }
+  };
+
+  const extendTrial = async (empresaId: string, dias = 30) => {
+    setUpdatingId(empresaId);
+    const empresaAtual = empresas.find(e => e.id === empresaId);
+    const base = empresaAtual?.trial_ends_at && new Date(empresaAtual.trial_ends_at) > new Date()
+      ? new Date(empresaAtual.trial_ends_at)
+      : new Date();
+    base.setDate(base.getDate() + dias);
+    const { error } = await supabase
+      .from('empresas')
+      .update({ trial_ends_at: base.toISOString() })
       .eq('id', empresaId);
     setUpdatingId(null);
     if (error) toast.error('Erro: ' + error.message);
-    else { toast.success('Trial estendido por 30 dias!'); load(); }
+    else { toast.success(`Trial estendido por ${dias} dias!`); load(); }
   };
 
   const toggleBloqueio = async (empresaAlvo: EmpresaAdmin) => {
@@ -173,26 +224,25 @@ export default function AdminPage() {
 
   // Stats
   const total = empresas.length;
-  const totalPro = empresas.filter(e => e.plan === 'profissional').length;
-  const totalTrial = empresas.filter(e => e.plan !== 'profissional').length;
-  const totalExpired = empresas.filter(e => {
-    if (e.plan === 'profissional') return false;
-    return e.trial_ends_at ? new Date(e.trial_ends_at) < new Date() : false;
-  }).length;
-  const totalUsers = empresas.reduce((acc, e) => acc + (e.profiles?.length ?? 0), 0);
   const totalProjects = empresas.reduce((acc, e) => acc + (e.projetos?.length ?? 0), 0);
-  const totalProcessed = empresas.reduce((acc, e) =>
-    acc + (e.projetos?.filter(p => p.status !== 'rascunho').length ?? 0), 0);
-  // "Processados este mês" ficou de fora: `projetos` só traz {id, status} no select
-  // atual (sem data de processamento), não dá pra filtrar por mês sem estender a
-  // query e sem um campo de "processado_em" na tabela — não inventei esse dado.
 
   // Financeiro (Asaas) — plan_type/is_blocked só existem depois da migração SQL rodar;
   // até lá esses cálculos ficam zerados sem quebrar o resto da tela.
   const pagantes = empresas.filter(e => e.plan_type && PLANOS_PAGOS.includes(e.plan_type));
   const bloqueados = empresas.filter(e => e.is_blocked);
+  const emTrialAtivo = empresas.filter(e => {
+    if (e.is_blocked) return false;
+    if (e.plan_type) return e.plan_type === 'trial';
+    return e.plan !== 'profissional'; // fallback pré-migração
+  });
   const mrr = pagantes.reduce((acc, e) => acc + (PLANO_POR_ID[e.plan_type!]?.preco ?? 0), 0);
+  const arr = mrr * 12;
+  const ticketMedio = pagantes.length > 0 ? mrr / pagantes.length : 0;
   const trialParaPagoP = total > 0 ? Math.round((pagantes.length / total) * 100) : 0;
+  // "Churn" de verdade exigiria histórico de cancelamentos ao longo do tempo, que não
+  // existe no schema — em vez de inventar uma % de churn, mostro a contagem real de
+  // cancelamentos solicitados (sinalizados pelo próprio fluxo de cancelamento).
+  const cancelamentosSolicitados = empresas.filter(e => e.block_reason === 'Cancelamento solicitado pelo usuário').length;
   const mrrPorPlano = PLANOS.map(p => ({
     plano: p,
     qtd: empresas.filter(e => e.plan_type === p.id).length,
@@ -213,6 +263,20 @@ export default function AdminPage() {
     const em7dias = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     return venc >= new Date() && venc <= em7dias;
   }).sort((a, b) => new Date(a.plan_expires_at!).getTime() - new Date(b.plan_expires_at!).getTime());
+
+  // Trials expirando em até 3 dias (para o card de alertas do Dashboard)
+  const trialsExpirando = emTrialAtivo.filter(e => {
+    if (!e.trial_ends_at) return false;
+    const venc = new Date(e.trial_ends_at);
+    const em3dias = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    return venc >= new Date() && venc <= em3dias;
+  }).sort((a, b) => new Date(a.trial_ends_at!).getTime() - new Date(b.trial_ends_at!).getTime());
+
+  const diasEmAtraso = (e: EmpresaAdmin): number | null => {
+    if (!e.plan_expires_at) return null;
+    const dias = Math.floor((Date.now() - new Date(e.plan_expires_at).getTime()) / (1000 * 60 * 60 * 24));
+    return dias > 0 ? dias : 0;
+  };
 
   // Cadastros por mês (últimos 6 meses) — pro gráfico do Dashboard
   const cadastrosPorMes = useMemo(() => {
@@ -235,27 +299,89 @@ export default function AdminPage() {
     return meses;
   }, [empresas]);
 
-  // Recent 5 signups
+  // Recent 10 signups (atividade recente)
   const recentSignups = [...empresas]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 5);
+    .slice(0, 10);
 
-  // Filtered
+  // Filtered + sorted
   const filtered = empresas.filter(e => {
     const matchSearch = !search ||
       e.name.toLowerCase().includes(search.toLowerCase()) ||
       e.profiles?.some(p => p.name?.toLowerCase().includes(search.toLowerCase()));
+    const trialExpirandoLogo = (() => {
+      if (e.is_blocked || !e.trial_ends_at) return false;
+      const venc = new Date(e.trial_ends_at);
+      const em3dias = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      return venc >= new Date() && venc <= em3dias;
+    })();
     const matchPlan = filterPlan === 'all' || e.plan === filterPlan ||
       (filterPlan === 'trial' && e.plan !== 'profissional') ||
+      (filterPlan === 'trial_expirando' && trialExpirandoLogo) ||
       (filterPlan === 'pagante' && !!e.plan_type && PLANOS_PAGOS.includes(e.plan_type)) ||
       (filterPlan === 'bloqueado' && !!e.is_blocked);
     return matchSearch && matchPlan;
   });
 
+  const sorted = useMemo(() => {
+    const arr2 = [...filtered];
+    switch (ordenarPor) {
+      case 'nome':
+        return arr2.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      case 'vencimento':
+        return arr2.sort((a, b) => {
+          const va = a.plan_expires_at ?? a.trial_ends_at;
+          const vb = b.plan_expires_at ?? b.trial_ends_at;
+          if (!va) return 1;
+          if (!vb) return -1;
+          return new Date(va).getTime() - new Date(vb).getTime();
+        });
+      case 'plano':
+        return arr2.sort((a, b) => (a.plan_type ?? a.plan).localeCompare(b.plan_type ?? b.plan));
+      case 'cadastro':
+      default:
+        return arr2.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+  }, [filtered, ordenarPor]);
+
+  const exportarClientesCSV = () => {
+    baixarCSV(
+      `clientes-ambisafe-${new Date().toISOString().split('T')[0]}.csv`,
+      ['Empresa', 'Responsável', 'Tipo', 'CPF/CNPJ', 'Plano', 'Status', 'Trial/Vencimento', 'Projetos', 'Cadastro'],
+      sorted.map(e => [
+        e.name,
+        e.profiles?.[0]?.name ?? '',
+        e.profiles?.[0]?.tipo_usuario === 'empresa' ? 'Empresa' : 'Pessoa Física',
+        e.profiles?.[0]?.cpf_cnpj ?? e.cnpj ?? '',
+        e.plan_type && PLANOS_PAGOS.includes(e.plan_type) ? (PLANO_POR_ID[e.plan_type]?.nome ?? e.plan_type) : (e.plan === 'profissional' ? 'Profissional' : 'Trial'),
+        e.is_blocked ? 'Bloqueado' : 'Ativo',
+        e.plan_expires_at ?? e.trial_ends_at ?? '',
+        String(e.projetos?.length ?? 0),
+        e.created_at,
+      ])
+    );
+  };
+
+  const exportarFinanceiroCSV = () => {
+    const lista = [...pagantes, ...inadimplentes.filter(e => !pagantes.includes(e))];
+    baixarCSV(
+      `financeiro-ambisafe-${new Date().toISOString().split('T')[0]}.csv`,
+      ['Nome', 'Plano', 'Valor/mês', 'Status', 'Último Pagamento', 'Próxima Cobrança'],
+      lista.map(e => [
+        e.name,
+        PLANO_POR_ID[e.plan_type ?? '']?.nome ?? e.plan_type ?? '',
+        PLANO_POR_ID[e.plan_type ?? '']?.precoFormatado ?? '',
+        e.is_blocked ? 'Bloqueado / Inadimplente' : 'Ativo',
+        e.ultimo_pagamento_at ?? '',
+        e.plan_expires_at ?? '',
+      ])
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#0B3D2E]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#00420d]" />
       </div>
     );
   }
@@ -302,18 +428,14 @@ export default function AdminPage() {
         <div className="flex-1 min-w-0 space-y-6">
           {secao === 'dashboard' && (
             <>
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {/* Cards de métricas principais */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {[
-                  { label: 'Empresas', value: total, icon: Building2, color: 'text-[#0B3D2E]', bg: 'bg-[#0B3D2E]/10' },
-                  { label: 'Usuários', value: totalUsers, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-                  { label: 'Plano Pro', value: totalPro, icon: Crown, color: 'text-green-600', bg: 'bg-green-50' },
-                  { label: 'Trial Ativo', value: totalTrial - totalExpired, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-                  { label: 'Trial Exp.', value: totalExpired, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
-                  { label: 'Inventários', value: totalProjects, icon: Trees, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                  { label: 'Processados', value: totalProcessed, icon: BarChart3, color: 'text-purple-600', bg: 'bg-purple-50' },
+                  { label: 'Contas', value: total, icon: Building2, color: 'text-[#00420d]', bg: 'bg-[#00420d]/10' },
+                  { label: 'Em Trial', value: emTrialAtivo.length, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+                  { label: 'Pagantes', value: pagantes.length, icon: Crown, color: 'text-green-600', bg: 'bg-green-50' },
                   { label: 'Bloqueados', value: bloqueados.length, icon: Ban, color: 'text-red-600', bg: 'bg-red-50' },
-                  { label: 'Espécies no Banco', value: BANCO_ESPECIES.length, icon: Leaf, color: 'text-lime-700', bg: 'bg-lime-50' },
+                  { label: 'Projetos criados', value: totalProjects, icon: Trees, color: 'text-emerald-600', bg: 'bg-emerald-50' },
                 ].map(({ label, value, icon: Icon, color, bg }) => (
                   <Card key={label} className="border-0 shadow-sm">
                     <CardContent className="p-4">
@@ -325,70 +447,86 @@ export default function AdminPage() {
                     </CardContent>
                   </Card>
                 ))}
-                <Card className="border-0 shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center mb-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-600" />
-                    </div>
-                    <p className="text-lg font-bold text-green-700">Operacional</p>
-                    <p className="text-xs text-gray-500">Status do sistema</p>
-                  </CardContent>
-                </Card>
               </div>
 
-              {/* Gráfico de cadastros por mês */}
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold text-gray-700">Novos Cadastros — Últimos 6 Meses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-56">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={cadastrosPorMes}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                        <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                        <Tooltip formatter={(v: number) => [`${v} cadastro${v !== 1 ? 's' : ''}`, '']} />
-                        <Bar dataKey="cadastros" fill="#00420d" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Cards financeiros */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { label: 'MRR', value: `R$ ${mrr.toFixed(2).replace('.', ',')}`, icon: DollarSign, color: 'text-green-700', bg: 'bg-green-50' },
+                  { label: 'Conversão trial → pago', value: `${trialParaPagoP}%`, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { label: 'Cancelamentos', value: cancelamentosSolicitados, icon: XCircle, color: 'text-red-600', bg: 'bg-red-50' },
+                  { label: 'Ticket médio', value: `R$ ${ticketMedio.toFixed(2).replace('.', ',')}`, icon: Wallet, color: 'text-[#00420d]', bg: 'bg-[#00420d]/10' },
+                ].map(({ label, value, icon: Icon, color, bg }) => (
+                  <Card key={label} className="border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center mb-2`}>
+                        <Icon className={`w-4 h-4 ${color}`} />
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">{value}</p>
+                      <p className="text-xs text-gray-500">{label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Cadastros Recentes */}
-                <Card className="border-0 shadow-sm lg:col-span-2">
+              {/* Alertas */}
+              {(trialsExpirando.length > 0 || inadimplentes.length > 0) && (
+                <Card className="border-0 shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold text-gray-700">Cadastros Recentes</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                      Alertas ({trialsExpirando.length + inadimplentes.length})
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 pb-2">
                     <div className="divide-y divide-gray-50">
-                      {recentSignups.map(emp => (
-                        <div key={emp.id} className="flex items-center gap-3 px-5 py-3">
-                          <div className="w-8 h-8 bg-[#0B3D2E]/10 rounded-full flex items-center justify-center text-[#0B3D2E] font-bold text-sm flex-shrink-0">
-                            {emp.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800 truncate">{emp.name}</p>
-                            <p className="text-xs text-gray-400">{emp.profiles?.[0]?.name}</p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <Badge
-                              variant="outline"
-                              className={emp.plan === 'profissional'
-                                ? 'text-green-600 border-green-200 bg-green-50 text-xs'
-                                : 'text-yellow-600 border-yellow-200 bg-yellow-50 text-xs'
-                              }
-                            >
-                              {emp.plan === 'profissional' ? 'Pro' : 'Trial'}
-                            </Badge>
-                            <span className="text-xs text-gray-400">
-                              {new Date(emp.created_at).toLocaleDateString('pt-BR')}
-                            </span>
-                          </div>
-                        </div>
+                      {inadimplentes.map(e => (
+                        <button
+                          key={`inad-${e.id}`}
+                          onClick={() => setDetalheEmpresa(e)}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-gray-50 text-sm"
+                        >
+                          <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                          <span className="text-gray-800 font-medium">{e.name}</span>
+                          <span className="text-gray-400 text-xs">— pagamento em atraso</span>
+                        </button>
                       ))}
+                      {trialsExpirando.map(e => {
+                        const dias = Math.max(0, Math.ceil((new Date(e.trial_ends_at!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+                        return (
+                          <button
+                            key={`trial-${e.id}`}
+                            onClick={() => setDetalheEmpresa(e)}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-gray-50 text-sm"
+                          >
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dias <= 1 ? 'bg-red-500' : 'bg-yellow-400'}`} />
+                            <span className="text-gray-800 font-medium">{e.name}</span>
+                            <span className="text-gray-400 text-xs">— trial expira em {dias} dia{dias !== 1 ? 's' : ''}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Gráfico de cadastros por mês */}
+                <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold text-gray-700">Novos Cadastros — Últimos 6 Meses</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-56">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={cadastrosPorMes}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                          <Tooltip formatter={(v: number) => [`${v} cadastro${v !== 1 ? 's' : ''}`, '']} />
+                          <Bar dataKey="cadastros" fill="#00420d" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </CardContent>
                 </Card>
@@ -398,7 +536,7 @@ export default function AdminPage() {
                   <Card className="border-0 shadow-sm">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <MessageCircleQuestion className="w-4 h-4 text-[#16A34A]" />
+                        <MessageCircleQuestion className="w-4 h-4 text-[#acd115]" />
                         Perguntas por Tela
                       </CardTitle>
                     </CardHeader>
@@ -408,11 +546,11 @@ export default function AdminPage() {
                         helpQuestions.forEach(q => {
                           counts[q.page] = (counts[q.page] ?? 0) + 1;
                         });
-                        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-                        const max = sorted[0]?.[1] ?? 1;
+                        const sortedCounts = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                        const max = sortedCounts[0]?.[1] ?? 1;
                         return (
                           <div className="px-4 space-y-2">
-                            {sorted.map(([page, count]) => (
+                            {sortedCounts.map(([page, count]) => (
                               <div key={page}>
                                 <div className="flex justify-between text-xs mb-1">
                                   <span className="text-gray-600 capitalize">{page}</span>
@@ -420,7 +558,7 @@ export default function AdminPage() {
                                 </div>
                                 <div className="w-full bg-gray-100 rounded-full h-1.5">
                                   <div
-                                    className="bg-[#16A34A] h-1.5 rounded-full"
+                                    className="bg-[#acd115] h-1.5 rounded-full"
                                     style={{ width: `${(count / max) * 100}%` }}
                                   />
                                 </div>
@@ -433,6 +571,53 @@ export default function AdminPage() {
                   </Card>
                 )}
               </div>
+
+              {/* Atividade recente */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold text-gray-700">Atividade Recente</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-y border-gray-100">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600 text-xs">Nome</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600 text-xs">Plano</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600 text-xs">Cadastro</th>
+                          <th className="px-4 py-2 text-left font-semibold text-gray-600 text-xs">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {recentSignups.map(emp => (
+                          <tr key={emp.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2.5">
+                              <button onClick={() => setDetalheEmpresa(emp)} className="text-left hover:underline">
+                                <p className="text-sm font-medium text-gray-800">{emp.name}</p>
+                              </button>
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-gray-500">
+                              {emp.plan_type && PLANOS_PAGOS.includes(emp.plan_type)
+                                ? PLANO_POR_ID[emp.plan_type]?.nome
+                                : emp.plan === 'profissional' ? 'Profissional' : 'Trial'}
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-gray-400">
+                              {new Date(emp.created_at).toLocaleDateString('pt-BR')}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              {emp.is_blocked ? (
+                                <Badge className="bg-red-50 text-red-700 border-red-200 border text-xs font-normal">Bloqueado</Badge>
+                              ) : (
+                                <Badge className="bg-green-50 text-green-700 border-green-200 border text-xs font-normal">Ativo</Badge>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Satisfação + Últimas perguntas */}
               {helpQuestions.length > 0 && (
@@ -449,10 +634,10 @@ export default function AdminPage() {
                         const pct = withFeedback.length > 0 ? Math.round((positive / withFeedback.length) * 100) : 0;
                         return (
                           <div className="space-y-3 text-center">
-                            <p className="text-4xl font-bold text-[#0B3D2E]">{totalPerguntas}</p>
+                            <p className="text-4xl font-bold text-[#00420d]">{totalPerguntas}</p>
                             <p className="text-xs text-gray-400">perguntas totais</p>
                             <div className="border-t pt-3">
-                              <p className="text-2xl font-bold text-[#16A34A]">{pct}%</p>
+                              <p className="text-2xl font-bold text-[#acd115]">{pct}%</p>
                               <p className="text-xs text-gray-400">avaliadas positivamente</p>
                               <p className="text-xs text-gray-300 mt-1">({withFeedback.length} avaliações)</p>
                             </div>
@@ -504,21 +689,37 @@ export default function AdminPage() {
                         className="pl-9 h-8 text-sm w-52"
                       />
                     </div>
-                    <div className="flex border rounded-lg overflow-hidden text-xs">
-                      {(['all', 'profissional', 'pagante', 'trial', 'bloqueado'] as const).map(p => (
+                    <Select value={ordenarPor} onValueChange={v => setOrdenarPor(v as OrdenarPor)}>
+                      <SelectTrigger className="h-8 text-xs w-40 gap-1">
+                        <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cadastro">Mais recentes</SelectItem>
+                        <SelectItem value="nome">Nome (A-Z)</SelectItem>
+                        <SelectItem value="vencimento">Vencimento</SelectItem>
+                        <SelectItem value="plano">Plano</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex border rounded-lg overflow-hidden text-xs flex-wrap">
+                      {(['all', 'profissional', 'pagante', 'trial', 'trial_expirando', 'bloqueado'] as const).map(p => (
                         <button
                           key={p}
                           onClick={() => setFilterPlan(p)}
                           className={`px-3 py-1.5 font-medium transition-colors ${
                             filterPlan === p
-                              ? 'bg-[#0B3D2E] text-white'
+                              ? 'bg-[#00420d] text-white'
                               : 'text-gray-600 hover:bg-gray-50'
                           }`}
                         >
-                          {p === 'all' ? 'Todos' : p === 'profissional' ? 'Pro' : p === 'pagante' ? 'Pagantes' : p === 'trial' ? 'Trial' : 'Bloqueados'}
+                          {p === 'all' ? 'Todos' : p === 'profissional' ? 'Pro' : p === 'pagante' ? 'Pagantes' : p === 'trial' ? 'Trial' : p === 'trial_expirando' ? 'Expirando' : 'Bloqueados'}
                         </button>
                       ))}
                     </div>
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportarClientesCSV}>
+                      <Download className="w-3.5 h-3.5" />
+                      CSV
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -532,14 +733,14 @@ export default function AdminPage() {
                         <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">CPF/CNPJ</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Projetos</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Plano</th>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Trial</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Trial/Venc.</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Último Pagamento</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Cadastro</th>
                         <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {filtered.map((emp, i) => {
+                      {sorted.map((emp, i) => {
                         const trialEndsAt = emp.trial_ends_at ? new Date(emp.trial_ends_at) : null;
                         const trialExpired = trialEndsAt ? trialEndsAt < new Date() : false;
                         const trialDays = trialEndsAt
@@ -597,9 +798,10 @@ export default function AdminPage() {
                                 <Badge variant="outline" className={
                                   trialExpired
                                     ? 'text-red-600 border-red-200 bg-red-50 text-xs'
+                                    : trialDays <= 3 ? 'text-yellow-600 border-yellow-300 bg-yellow-50 text-xs'
                                     : 'text-yellow-600 border-yellow-200 bg-yellow-50 text-xs'
                                 }>
-                                  {trialExpired ? 'Expirado' : 'Trial'}
+                                  {trialExpired ? 'Expirado' : `Trial · ${trialDays}d`}
                                 </Badge>
                               )}
                             </td>
@@ -608,6 +810,8 @@ export default function AdminPage() {
                                 trialExpired
                                   ? <span className="text-red-500">Expirado</span>
                                   : <span className="text-green-600">{trialDays}d restantes</span>
+                              ) : emp.plan_expires_at ? (
+                                <span className="text-gray-500">{new Date(emp.plan_expires_at).toLocaleDateString('pt-BR')}</span>
                               ) : <span className="text-gray-300">—</span>}
                             </td>
                             <td className="px-4 py-3 text-xs text-gray-500">
@@ -643,7 +847,7 @@ export default function AdminPage() {
                                     <>
                                       <Button
                                         size="sm"
-                                        className="text-xs h-7 bg-[#16A34A] hover:bg-[#15803d] text-white gap-1"
+                                        className="text-xs h-7 bg-[#acd115] hover:bg-[#9abd0f] text-[#00420d] gap-1"
                                         onClick={() => changePlan(emp.id, 'profissional')}
                                       >
                                         <CheckCircle2 className="w-3 h-3" /> Ativar Pro
@@ -667,6 +871,13 @@ export default function AdminPage() {
                                   >
                                     {emp.is_blocked ? <ShieldOff className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
                                   </Button>
+                                  <button
+                                    onClick={() => abrirWhatsApp(emp)}
+                                    className="text-xs h-7 px-2 flex items-center gap-1 text-gray-400 hover:text-green-600"
+                                    title="Falar no WhatsApp"
+                                  >
+                                    <MessageCircle className="w-3 h-3" />
+                                  </button>
                                   {emp.asaas_customer_id && (
                                     <a
                                       href={`https://app.asaas.com/customer/${emp.asaas_customer_id}`}
@@ -707,8 +918,8 @@ export default function AdminPage() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   { label: 'MRR', value: `R$ ${mrr.toFixed(2).replace('.', ',')}`, icon: DollarSign, color: 'text-green-700', bg: 'bg-green-50' },
-                  { label: 'Pagantes', value: String(pagantes.length), icon: Crown, color: 'text-[#0B3D2E]', bg: 'bg-[#0B3D2E]/10' },
-                  { label: 'Trial → Pago', value: `${trialParaPagoP}%`, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { label: 'ARR', value: `R$ ${arr.toFixed(2).replace('.', ',')}`, icon: TrendingUp, color: 'text-[#00420d]', bg: 'bg-[#00420d]/10' },
+                  { label: 'Pagantes', value: String(pagantes.length), icon: Crown, color: 'text-blue-600', bg: 'bg-blue-50' },
                   { label: 'Inadimplentes', value: String(inadimplentes.length), icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
                 ].map(({ label, value, icon: Icon, color, bg }) => (
                   <Card key={label} className="border-0 shadow-sm">
@@ -735,18 +946,38 @@ export default function AdminPage() {
                     {mrrPorPlano.length === 0 ? (
                       <p className="text-xs text-gray-400 px-4 pb-2">Nenhum assinante pago ainda.</p>
                     ) : (
-                      <div className="px-4 space-y-2">
-                        {mrrPorPlano.map(({ plano, qtd, receita }) => (
-                          <div key={plano.id} className="flex items-center justify-between text-xs">
-                            <span className="text-gray-600">{plano.nome} ({qtd})</span>
-                            <span className="text-gray-800 font-semibold">R$ {receita.toFixed(2).replace('.', ',')}</span>
-                          </div>
-                        ))}
-                      </div>
+                      <>
+                        <div className="h-52">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={mrrPorPlano.map(m => ({ name: m.plano.nome, value: m.receita }))}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={70}
+                                label={(p: { name: string; percent?: number }) => `${p.name} ${Math.round((p.percent ?? 0) * 100)}%`}
+                              >
+                                {mrrPorPlano.map((m, i) => (
+                                  <Cell key={m.plano.id} fill={CORES_PIZZA[i % CORES_PIZZA.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip formatter={(v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`} />
+                              <Legend wrapperStyle={{ fontSize: 11 }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="px-4 space-y-1 mt-2">
+                          {mrrPorPlano.map(({ plano, qtd, receita }) => (
+                            <div key={plano.id} className="flex items-center justify-between text-xs">
+                              <span className="text-gray-600">{plano.nome} ({qtd})</span>
+                              <span className="text-gray-800 font-semibold">R$ {receita.toFixed(2).replace('.', ',')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
                     )}
-                    <p className="text-[10px] text-gray-300 px-4 mt-3">
-                      Gráfico de receita histórica requer endpoint de pagamentos do Asaas — não implementado ainda.
-                    </p>
                   </CardContent>
                 </Card>
 
@@ -765,6 +996,7 @@ export default function AdminPage() {
                         {proximasCobrancas.map(e => (
                           <div key={e.id} className="flex items-center justify-between px-4 py-2 text-xs">
                             <span className="text-gray-700">{e.name}</span>
+                            <span className="text-gray-800 font-medium">{PLANO_POR_ID[e.plan_type ?? '']?.precoFormatado}</span>
                             <span className="text-gray-400">{new Date(e.plan_expires_at!).toLocaleDateString('pt-BR')}</span>
                           </div>
                         ))}
@@ -776,10 +1008,16 @@ export default function AdminPage() {
 
               <Card className="border-0 shadow-sm">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-red-600" />
-                    Clientes Inadimplentes
-                  </CardTitle>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <CardTitle className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                      Clientes Inadimplentes
+                    </CardTitle>
+                    <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={exportarFinanceiroCSV}>
+                      <Download className="w-3.5 h-3.5" />
+                      Exportar relatório CSV
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   {inadimplentes.length === 0 ? (
@@ -792,6 +1030,7 @@ export default function AdminPage() {
                             <th className="px-4 py-2.5 text-left font-semibold text-gray-600 text-xs">Empresa</th>
                             <th className="px-4 py-2.5 text-left font-semibold text-gray-600 text-xs">Plano</th>
                             <th className="px-4 py-2.5 text-left font-semibold text-gray-600 text-xs">Vencimento</th>
+                            <th className="px-4 py-2.5 text-left font-semibold text-gray-600 text-xs">Dias em atraso</th>
                             <th className="px-4 py-2.5 text-left font-semibold text-gray-600 text-xs">Ações</th>
                           </tr>
                         </thead>
@@ -803,15 +1042,39 @@ export default function AdminPage() {
                               <td className="px-4 py-2.5 text-xs text-gray-500">
                                 {e.plan_expires_at ? new Date(e.plan_expires_at).toLocaleDateString('pt-BR') : '—'}
                               </td>
+                              <td className="px-4 py-2.5 text-xs">
+                                {diasEmAtraso(e) !== null
+                                  ? <span className="text-red-600 font-medium">{diasEmAtraso(e)}d</span>
+                                  : <span className="text-gray-300">—</span>}
+                              </td>
                               <td className="px-4 py-2.5">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-xs h-7 border-red-200 text-red-600"
-                                  onClick={() => toggleBloqueio(e)}
-                                >
-                                  Bloquear
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => abrirWhatsApp(e)}
+                                    className="text-xs h-7 px-2 flex items-center gap-1 text-gray-500 hover:text-green-600"
+                                    title="Reenviar cobrança via WhatsApp"
+                                  >
+                                    <MessageCircle className="w-3 h-3" /> WhatsApp
+                                  </button>
+                                  {e.asaas_customer_id && (
+                                    <a
+                                      href={`https://app.asaas.com/customer/${e.asaas_customer_id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs h-7 px-2 flex items-center gap-1 text-gray-400 hover:text-gray-700"
+                                    >
+                                      <ExternalLink className="w-3 h-3" /> Asaas
+                                    </a>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs h-7 border-red-200 text-red-600"
+                                    onClick={() => toggleBloqueio(e)}
+                                  >
+                                    Bloquear
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -823,10 +1086,6 @@ export default function AdminPage() {
               </Card>
             </>
           )}
-
-          {secao === 'especies' && <AbaEspecies />}
-
-          {secao === 'sistema' && <AbaSistema />}
         </div>
       </div>
 
@@ -834,7 +1093,7 @@ export default function AdminPage() {
       {detalheEmpresa && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setDetalheEmpresa(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 z-10">
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 z-10 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900">{detalheEmpresa.name}</h3>
               <button onClick={() => setDetalheEmpresa(null)} className="text-gray-400 hover:text-gray-600">
@@ -872,9 +1131,29 @@ export default function AdminPage() {
                 </span>
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 mt-6">
+
+            <div className="mt-4 pt-4 border-t border-gray-100 space-y-1.5">
+              <label className="text-xs font-medium text-gray-500">Mudar plano (billing Asaas)</label>
+              <Select
+                value={detalheEmpresa.plan_type ?? 'trial'}
+                onValueChange={v => mudarPlanoManual(detalheEmpresa.id, v)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="trial">Trial</SelectItem>
+                  {PLANOS.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.nome} — {p.precoFormatado}/mês</SelectItem>
+                  ))}
+                  <SelectItem value="bloqueado">Bloqueado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mt-4">
               <Button size="sm" variant="outline" className="text-xs" onClick={() => extendTrial(detalheEmpresa.id)}>
-                Estender Trial
+                Estender Trial (+30d)
               </Button>
               <Button
                 size="sm"
@@ -883,6 +1162,14 @@ export default function AdminPage() {
                 onClick={() => { toggleBloqueio(detalheEmpresa); setDetalheEmpresa(null); }}
               >
                 {detalheEmpresa.is_blocked ? 'Desbloquear' : 'Bloquear'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs gap-1 border-green-200 text-green-700"
+                onClick={() => abrirWhatsApp(detalheEmpresa)}
+              >
+                <MessageCircle className="w-3 h-3" /> WhatsApp
               </Button>
               {detalheEmpresa.asaas_customer_id && (
                 <a
@@ -898,177 +1185,6 @@ export default function AdminPage() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── Aba Banco de Espécies (leitura) ───────────────────────────────────────
-// BANCO_ESPECIES é um array estático embutido no bundle (ver Especies.tsx) — não
-// existe tabela `species_database` no Supabase. Por isso esta aba é só consulta;
-// adicionar/editar/remover/importar CSV exigiria migrar esses dados para uma
-// tabela real primeiro (nova migração + refatorar Especies.tsx pra ler do banco
-// em vez do array estático), o que não foi feito aqui.
-function AbaEspecies() {
-  const [busca, setBusca] = useState('');
-  const [bioma, setBioma] = useState('all');
-
-  const filtradas = BANCO_ESPECIES.filter(e => {
-    const matchBioma = bioma === 'all' || e.bioma === bioma;
-    const matchBusca = !busca ||
-      e.nome_popular.toLowerCase().includes(busca.toLowerCase()) ||
-      e.nome_cientifico.toLowerCase().includes(busca.toLowerCase());
-    return matchBioma && matchBusca;
-  });
-
-  return (
-    <Card className="border-0 shadow-sm">
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <CardTitle className="text-base">Banco de Espécies ({filtradas.length} de {BANCO_ESPECIES.length})</CardTitle>
-            <p className="text-xs text-gray-400 mt-1">
-              Somente leitura — os dados vêm de um array estático no código, não de uma tabela no banco.
-              Adicionar/editar/remover/importar CSV exige migrar isso para o Supabase primeiro.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Buscar espécie..."
-                value={busca}
-                onChange={e => setBusca(e.target.value)}
-                className="pl-9 h-8 text-sm w-52"
-              />
-            </div>
-            <Select value={bioma} onValueChange={setBioma}>
-              <SelectTrigger className="h-8 text-xs w-40">
-                <SelectValue placeholder="Bioma" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os biomas</SelectItem>
-                {Object.entries(BIOMA_LABEL).map(([id, label]) => (
-                  <SelectItem key={id} value={id}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto max-h-[500px]">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-y border-gray-100 sticky top-0">
-              <tr>
-                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 text-xs">Nome Popular</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 text-xs">Nome Científico</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 text-xs">Família</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 text-xs">Bioma</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtradas.map((e, i) => (
-                <tr key={`${e.nome_popular}-${i}`}>
-                  <td className="px-4 py-2 text-sm text-gray-800">{e.nome_popular}</td>
-                  <td className="px-4 py-2 text-sm italic text-gray-500">{e.nome_cientifico}</td>
-                  <td className="px-4 py-2 text-xs text-gray-500">{e.familia}</td>
-                  <td className="px-4 py-2">
-                    <span className="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded-full">
-                      {BIOMA_LABEL[e.bioma] ?? e.bioma}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── Aba Sistema ────────────────────────────────────────────────────────────
-function AbaSistema() {
-  const [statusServer, setStatusServer] = useState<'checando' | 'ok' | 'erro'>('checando');
-  const [statusAsaasProxy, setStatusAsaasProxy] = useState<'checando' | 'ok' | 'erro'>('checando');
-
-  useEffect(() => {
-    const base = `https://${projectId}.supabase.co/functions/v1`;
-    fetch(`${base}/make-server-eed79e88/health`).then(r => setStatusServer(r.ok ? 'ok' : 'erro')).catch(() => setStatusServer('erro'));
-    fetch(`${base}/asaas-proxy/health`).then(r => setStatusAsaasProxy(r.ok ? 'ok' : 'erro')).catch(() => setStatusAsaasProxy('erro'));
-  }, []);
-
-  const statusBadge = (s: 'checando' | 'ok' | 'erro') => {
-    if (s === 'checando') return <Badge variant="outline" className="text-gray-500 border-gray-200 bg-gray-50 gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Checando</Badge>;
-    if (s === 'ok') return <Badge className="bg-green-50 text-green-700 border-green-200 border gap-1"><CheckCircle2 className="w-3 h-3" /> Online</Badge>;
-    return <Badge className="bg-red-50 text-red-700 border-red-200 border gap-1"><AlertTriangle className="w-3 h-3" /> Offline / não deployada</Badge>;
-  };
-
-  return (
-    <div className="space-y-6">
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-gray-700">Informações do Sistema</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div className="flex justify-between py-1.5 border-b border-gray-50">
-            <span className="text-gray-500">Versão do app</span>
-            <span className="text-gray-800 font-mono">{packageJson.version}</span>
-          </div>
-          <div className="flex justify-between py-1.5 border-b border-gray-50">
-            <span className="text-gray-500">Edge Function — server (IA, admin)</span>
-            {statusBadge(statusServer)}
-          </div>
-          <div className="flex justify-between py-1.5">
-            <span className="text-gray-500">Edge Function — asaas-proxy</span>
-            {statusBadge(statusAsaasProxy)}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-gray-700">Variáveis de Ambiente</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs text-gray-400">
-            Não é possível checar a presença de secrets do servidor (GEMINI_API_KEY, ASAAS_API_KEY,
-            ASAAS_WEBHOOK_TOKEN, SUPABASE_SERVICE_ROLE_KEY) a partir do navegador — isso é intencional,
-            é exatamente o que os mantém seguros. Confira no painel do Supabase em Edge Functions → Secrets.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-gray-700">Últimos Erros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs text-gray-400">
-            Ainda não existe uma tabela de log de erros no Supabase — os erros só aparecem no console do
-            navegador de cada usuário (ver ErrorBoundary) e nos logs de cada Edge Function no painel do
-            Supabase. Um log centralizado exigiria uma tabela nova + captura nos ErrorBoundary.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-gray-700">Manutenção</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              try { localStorage.clear(); sessionStorage.clear(); } catch { /* ignora se bloqueado pelo navegador */ }
-              toast.success('Cache local limpo.');
-            }}
-          >
-            Limpar cache local
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }

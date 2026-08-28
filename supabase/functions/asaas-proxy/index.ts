@@ -252,6 +252,32 @@ app.get("/asaas-proxy/assinatura/:id/status", async (c) => {
 });
 
 // =========================================================
+// GET /asaas-proxy/assinatura/:id/historico — últimas cobranças da assinatura
+// Returns: { payments: [{ id, value, dueDate, status, ... }] }
+// =========================================================
+app.get("/asaas-proxy/assinatura/:id/historico", async (c) => {
+  const user = await getUser(c);
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+  const subscriptionId = c.req.param('id');
+  const empresaDoUsuario = await getEmpresaDoUsuario(user.id);
+  const { data: empresa } = await supabase
+    .from('empresas')
+    .select('id')
+    .eq('id', empresaDoUsuario ?? '')
+    .eq('asaas_subscription_id', subscriptionId)
+    .maybeSingle();
+  if (!empresa) return c.json({ error: "Forbidden" }, 403);
+
+  try {
+    const pagamentos = await asaasFetch(`/subscriptions/${subscriptionId}/payments?limit=12`);
+    return c.json({ payments: pagamentos?.data ?? [] });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'Erro ao buscar histórico de pagamentos' }, 500);
+  }
+});
+
+// =========================================================
 // POST /asaas-proxy/assinatura/:id/cancelar
 // =========================================================
 app.post("/asaas-proxy/assinatura/:id/cancelar", async (c) => {
