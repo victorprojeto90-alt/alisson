@@ -12,8 +12,6 @@ export type MotivoInventario =
 
 export type TipoInventario =
   | 'casual_simples'
-  | 'sistematico'
-  | 'estratificado'
   | 'censo';
 
 export interface ProjetoParaRelatorio {
@@ -32,8 +30,6 @@ export interface ProjetoParaRelatorio {
 
 const TIPO_INVENTARIO_LABEL: Record<TipoInventario, string> = {
   casual_simples: 'Amostragem Casual Simples',
-  sistematico: 'Amostragem Sistemática',
-  estratificado: 'Amostragem Estratificada',
   censo: 'Inventário 100% (Censo Florestal)',
 };
 
@@ -50,6 +46,32 @@ function formatNum(v: number, dec = 2): string {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
+// ---- Introdução ----
+export function gerarTextoIntroducao(projeto: ProjetoParaRelatorio): string {
+  const bioma = BIOMA_LABEL[projeto.bioma || ''] || projeto.bioma || '';
+  const local = projeto.municipio
+    ? `, localizada no município de ${projeto.municipio}${projeto.estado ? '/' + projeto.estado.toUpperCase() : ''}`
+    : '';
+
+  return `O presente relatório apresenta os resultados do inventário florestal realizado na área denominada "${projeto.nome}"${local}${bioma ? `, inserida no Bioma ${bioma}` : ''}. Este documento tem como finalidade apresentar de forma técnica e objetiva os dados coletados em campo, os métodos estatísticos empregados e os resultados obtidos, servindo como base para as análises e decisões relacionadas à área objeto do estudo.`;
+}
+
+// ---- Objetivo ----
+const OBJETIVO_POR_MOTIVO: Record<MotivoInventario, string> = {
+  licenciamento: 'fornecer os subsídios técnicos necessários para instruir o processo de licenciamento ambiental da área, quantificando o volume de madeira, a composição florística e a estrutura da vegetação existente',
+  manejo: 'fornecer os parâmetros técnicos necessários à elaboração do Plano de Manejo Florestal Sustentável (PMFS) da área',
+  supressao: 'caracterizar tecnicamente a vegetação a ser suprimida, quantificando o volume de madeira e a composição florística para fins de licenciamento de supressão vegetal e definição de medidas compensatórias',
+  academico: 'gerar conhecimento técnico-científico sobre a estrutura, composição e diversidade florística da área amostrada',
+};
+
+export function gerarTextoObjetivo(projeto: ProjetoParaRelatorio): string {
+  const objetivoEspecifico = OBJETIVO_POR_MOTIVO[projeto.motivo_inventario] || OBJETIVO_POR_MOTIVO.academico;
+
+  return `O presente inventário florestal tem como objetivo geral ${objetivoEspecifico}.
+
+Especificamente, buscou-se: (i) quantificar o volume de madeira em pé na área de estudo; (ii) caracterizar a composição florística e a estrutura fitossociológica da vegetação; (iii) calcular os índices de diversidade biológica; e (iv) avaliar a qualidade técnica do inventário por meio do Score AMBISAFE.`;
+}
+
 // ---- 1. Metodologia ----
 export function gerarTextoMetodologia(projeto: ProjetoParaRelatorio, resultado: ResultadoInventario): string {
   const tipo = TIPO_INVENTARIO_LABEL[projeto.tipo_inventario] || projeto.tipo_inventario;
@@ -60,10 +82,6 @@ export function gerarTextoMetodologia(projeto: ProjetoParaRelatorio, resultado: 
     switch (projeto.tipo_inventario) {
       case 'casual_simples':
         return 'As parcelas foram alocadas aleatoriamente na área de estudo, garantindo representatividade estatística sem estratificação prévia do ambiente';
-      case 'sistematico':
-        return 'As parcelas foram distribuídas sistematicamente em grid regular sobre a área, proporcionando cobertura uniforme e maior controle espacial da amostragem';
-      case 'estratificado':
-        return 'A área foi dividida em estratos homogêneos com base em características fisionômicas e estruturais da vegetação, sendo as parcelas alocadas proporcionalmente em cada estrato';
       case 'censo':
         return 'Foram mensurados todos os indivíduos arbóreos presentes na área de estudo, caracterizando um levantamento censitário completo da vegetação';
     }
@@ -78,11 +96,13 @@ export function gerarTextoMetodologia(projeto: ProjetoParaRelatorio, resultado: 
 
 O critério de inclusão adotado foi o Diâmetro à Altura do Peito (DAP) ≥ 5 cm, determinado a partir da Circunferência à Altura do Peito (CAP), por meio da fórmula DAP = CAP/π. O volume individual foi estimado pelo método do cilindro, com aplicação de Fator de Forma (ff = ${formatNum(projeto.fator_forma, 2)}), conforme: V = (π × DAP²/40.000) × HT × ff.
 
-Os parâmetros estatísticos foram calculados com nível de confiança de ${projeto.nivel_confianca}% (t-Student com ${dados_gerais.n_parcelas - 1} graus de liberdade = ${formatNum(dados_gerais.t_student, 3)}) e precisão requerida de ${projeto.precisao_requerida}%.`;
+Os parâmetros estatísticos foram calculados com nível de confiança de ${projeto.nivel_confianca}% (t-Student com ${dados_gerais.n_parcelas - 1} graus de liberdade = ${formatNum(dados_gerais.t_student, 3)}) e precisão requerida de ${projeto.precisao_requerida}%.
+
+Os dados foram processados pelo sistema AMBISAFE, que realiza os cálculos estatísticos conforme metodologia da engenharia florestal brasileira, incluindo parâmetros fitossociológicos, índices de diversidade e estrutura da vegetação, em conformidade com as normas técnicas vigentes.`;
 }
 
 // ---- 2. Resultados Gerais ----
-export function gerarTextoResultadosGerais(resultado: ResultadoInventario): string {
+export function gerarTextoResultadosGerais(projeto: ProjetoParaRelatorio, resultado: ResultadoInventario): string {
   const { dados_gerais } = resultado;
   const espMaisImportante = resultado.especies[0];
   const espMaisAbundante = [...resultado.especies].sort((a, b) => b.n_individuos - a.n_individuos)[0];
@@ -93,13 +113,23 @@ export function gerarTextoResultadosGerais(resultado: ResultadoInventario): stri
       ? 'próximo ao limite aceitável'
       : 'superior ao limite recomendado de 10%, indicando maior variabilidade entre parcelas';
 
+  const precisao = projeto.precisao_requerida;
+  const nivelPrecisao = dados_gerais.erro_rel_pct <= precisao * 0.5
+    ? 'Excelente'
+    : dados_gerais.erro_rel_pct <= precisao
+      ? 'Muito Bom'
+      : 'Necessita Atenção';
+  const relacaoLimite = dados_gerais.erro_rel_pct <= precisao ? 'ficando abaixo' : 'ficando acima';
+
   return `Foram amostrados ${dados_gerais.n_individuos} indivíduos arbóreos em ${dados_gerais.n_parcelas} parcelas, totalizando ${formatNum(dados_gerais.area_amostrada_ha, 4)} ha de área amostral. Registrou-se a ocorrência de ${dados_gerais.n_especies} espécies distribuídas em ${dados_gerais.n_familias} famílias botânicas.
 
 O volume médio estimado por hectare foi de ${formatNum(dados_gerais.media_vol_ha, 4)} m³/ha, com desvio padrão de ${formatNum(dados_gerais.desvio_padrao, 4)} m³/ha e coeficiente de variação de ${formatNum(dados_gerais.coeficiente_variacao_pct, 2)}%. O erro amostral obtido foi de ${formatNum(dados_gerais.erro_rel_pct, 2)}%, ${qualidadeErro}. O intervalo de confiança (IC ${95}%) para a estimativa volumétrica por hectare situa-se entre ${formatNum(dados_gerais.ic_inferior_ha, 4)} e ${formatNum(dados_gerais.ic_superior_ha, 4)} m³/ha.
 
 O volume total estimado para a área de estudo é de ${formatNum(dados_gerais.volume_estimado_total, 2)} m³, com IC variando entre ${formatNum(dados_gerais.ic_inferior_pop, 2)} e ${formatNum(dados_gerais.ic_superior_pop, 2)} m³.${espMaisImportante ? `
 
-A espécie com maior Valor de Importância (VI) foi ${espMaisImportante.nome_cientifico || espMaisImportante.nome_comum} (VI% = ${formatNum(espMaisImportante.vi_pct, 2)}%), enquanto a espécie mais abundante foi ${espMaisAbundante.nome_cientifico || espMaisAbundante.nome_comum} com ${espMaisAbundante.n_individuos} indivíduos (${formatNum(espMaisAbundante.dr, 2)}% da densidade total).` : ''}`;
+A espécie com maior Valor de Importância (VI) foi ${espMaisImportante.nome_cientifico || espMaisImportante.nome_comum} (VI% = ${formatNum(espMaisImportante.vi_pct, 2)}%), enquanto a espécie mais abundante foi ${espMaisAbundante.nome_cientifico || espMaisAbundante.nome_comum} com ${espMaisAbundante.n_individuos} indivíduos (${formatNum(espMaisAbundante.dr, 2)}% da densidade total).` : ''}
+
+O erro de amostragem obtido indica ${nivelPrecisao} precisão estatística, ${relacaoLimite} do limite estabelecido de ${formatNum(precisao, 0)}% para este inventário.`;
 }
 
 // ---- 3. Estrutura Horizontal ----
@@ -120,7 +150,9 @@ export function gerarTextoEstruturaHorizontal(resultado: ResultadoInventario): s
 
 As três espécies ecologicamente mais importantes concentraram ${formatNum(pctTop3, 2)}% do Valor de Importância total da área, o que ${pctTop3 > 60 ? 'indica certa dominância de poucas espécies, o que pode refletir estágios sucessionais intermediários ou perturbações históricas' : 'indica boa distribuição ecológica entre as espécies amostradas, característica de florestas em estágio avançado de sucessão ecológica'}.
 
-${espDominante ? `Em termos de dominância, destaca-se a espécie ${espDominante.nome_cientifico || espDominante.nome_comum} com Dominância Absoluta de ${formatNum(espDominante.doa, 4)} m²/ha e Dominância Relativa de ${formatNum(espDominante.dor, 2)}%.` : ''}`;
+${espDominante ? `Em termos de dominância, destaca-se a espécie ${espDominante.nome_cientifico || espDominante.nome_comum} com Dominância Absoluta de ${formatNum(espDominante.doa, 4)} m²/ha e Dominância Relativa de ${formatNum(espDominante.dor, 2)}%.` : ''}
+
+O Índice de Valor de Importância (IVI) é calculado pela soma das densidades relativa (DR), dominância relativa (DoR) e frequência relativa (FR), expressas em porcentagem, sendo o valor máximo possível igual a 3 (ou 300%). As espécies com maior IVI são consideradas as mais importantes ecologicamente na área estudada.`;
 }
 
 // ---- 4. Estrutura Diamétrica ----
@@ -141,6 +173,24 @@ export function gerarTextoEstruturaDiametrica(resultado: ResultadoInventario): s
 Foram identificadas ${nonEmpty.length} classes diamétricas com ocorrência de indivíduos, totalizando ${dados_gerais.n_individuos} indivíduos mensurados.
 
 ${interpretacao}`;
+}
+
+// ---- Estrutura Vertical ----
+export function gerarTextoEstruturaVertical(resultado: ResultadoInventario): string {
+  const { estrutura_vertical, dados_gerais } = resultado;
+  if (!estrutura_vertical || estrutura_vertical.length === 0) {
+    return 'Não há dados suficientes para análise da estrutura vertical.';
+  }
+
+  const listaEstratos = estrutura_vertical
+    .map(e => `estrato ${e.estrato} (${e.descricao}), com ${e.n_individuos} indivíduos (${formatNum(e.pct, 2)}%)`)
+    .join('; ');
+
+  const estratoDominante = estrutura_vertical.reduce((max, e) => e.n_individuos > max.n_individuos ? e : max);
+
+  return `A estratificação vertical foi realizada com base na altura total (Ht) dos indivíduos amostrados, dividindo a comunidade em três estratos calculados proporcionalmente à altura máxima registrada (${formatNum(Math.max(...estrutura_vertical.map(e => e.altura_max)), 1)} m): ${listaEstratos}.
+
+O estrato ${estratoDominante.estrato} concentrou o maior número de indivíduos, o que ${estratoDominante.estrato === 'Inferior' ? 'é característico de florestas com regeneração natural ativa e recrutamento contínuo de novos indivíduos' : estratoDominante.estrato === 'Superior' ? 'pode indicar predomínio de indivíduos de maior porte, associado a estágios avançados de desenvolvimento florestal' : 'sugere equilíbrio entre os processos de regeneração e desenvolvimento da estrutura florestal'}, totalizando ${dados_gerais.n_individuos} indivíduos distribuídos entre os três estratos analisados.`;
 }
 
 // ---- 5. Índices de Diversidade ----
@@ -207,27 +257,43 @@ export function gerarRelatorioCompleto(
 ): SecaoRelatorio[] {
   return [
     {
-      titulo: '1. Metodologia',
+      titulo: '1 INTRODUÇÃO',
+      conteudo: gerarTextoIntroducao(projeto),
+    },
+    {
+      titulo: '2 OBJETIVO',
+      conteudo: gerarTextoObjetivo(projeto),
+    },
+    {
+      titulo: '3 MATERIAL E MÉTODOS',
       conteudo: gerarTextoMetodologia(projeto, resultado),
     },
     {
-      titulo: '2. Resultados Gerais',
-      conteudo: gerarTextoResultadosGerais(resultado),
+      titulo: '4 RESULTADOS E DISCUSSÃO',
+      conteudo: 'A seguir são apresentados os resultados obtidos no inventário florestal e a discussão técnica dos parâmetros calculados.',
     },
     {
-      titulo: '3. Estrutura Horizontal',
+      titulo: '4.1 Parâmetros gerais',
+      conteudo: gerarTextoResultadosGerais(projeto, resultado),
+    },
+    {
+      titulo: '4.2 Análise fitossociológica',
       conteudo: gerarTextoEstruturaHorizontal(resultado),
     },
     {
-      titulo: '4. Estrutura Diamétrica',
+      titulo: '4.3 Estrutura diamétrica',
       conteudo: gerarTextoEstruturaDiametrica(resultado),
     },
     {
-      titulo: '5. Índices de Diversidade Florística',
+      titulo: '4.4 Estrutura vertical',
+      conteudo: gerarTextoEstruturaVertical(resultado),
+    },
+    {
+      titulo: '4.5 Índices de diversidade',
       conteudo: gerarTextoIndicesDiversidade(resultado),
     },
     {
-      titulo: '6. Conclusão Técnica',
+      titulo: '5 CONCLUSÃO',
       conteudo: gerarTextoConclusao(projeto, resultado),
     },
   ];

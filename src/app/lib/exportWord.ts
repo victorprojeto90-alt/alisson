@@ -1,11 +1,21 @@
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  HeadingLevel, AlignmentType, WidthType, ShadingType,
-  PageBreak,
+  HeadingLevel, AlignmentType, WidthType, ShadingType, BorderStyle,
+  PageBreak, convertMillimetersToTwip,
 } from 'docx';
 import type { ResultadoInventario } from './calculations';
 import { gerarRelatorioCompleto, type ProjetoParaRelatorio } from './reportText';
 import { saveAs } from './fileSaver';
+
+const COR_PRIMARIA = '00420d';
+const COR_ACENTO = 'acd115';
+
+// Referências bibliográficas (ABNT NBR 6023:2018)
+const REFERENCIAS = [
+  'IBGE. Manual Técnico da Vegetação Brasileira. 2. ed. Rio de Janeiro: IBGE, 2012.',
+  'MÜLLER-DOMBOIS, D.; ELLENBERG, H. Aims and methods of vegetation ecology. New York: Wiley, 1974.',
+  'SHANNON, C. E.; WEAVER, W. The mathematical theory of communication. Urbana: University of Illinois Press, 1949.',
+];
 
 function headingPara(text: string, level: typeof HeadingLevel.HEADING_1 = HeadingLevel.HEADING_1): Paragraph {
   return new Paragraph({ text, heading: level, spacing: { before: 400, after: 200 } });
@@ -19,9 +29,36 @@ function bodyPara(text: string): Paragraph {
   });
 }
 
+// "Tabela N — Descrição" acima da tabela (ABNT)
+function tableCaption(numero: number, descricao: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text: `Tabela ${numero} — ${descricao}`, bold: true, size: 20, font: 'Arial' })],
+    spacing: { before: 200, after: 80 },
+  });
+}
+
+// "Fonte: AMBISAFE (ano)" abaixo da tabela (ABNT)
+function tableSource(): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text: `Fonte: AMBISAFE (${new Date().getFullYear()}).`, size: 18, font: 'Arial', color: '666666' })],
+    spacing: { before: 80, after: 200 },
+  });
+}
+
+// Bordas ABNT: apenas linhas horizontais, sem bordas verticais
+const BORDAS_ABNT = {
+  top: { style: BorderStyle.SINGLE, size: 4, color: COR_PRIMARIA },
+  bottom: { style: BorderStyle.SINGLE, size: 4, color: COR_PRIMARIA },
+  left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  insideHorizontal: { style: BorderStyle.SINGLE, size: 2, color: 'CCCCCC' },
+  insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+};
+
 function simpleTable(headers: string[], rows: string[][]): Table {
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: BORDAS_ABNT,
     rows: [
       new TableRow({
         children: headers.map(h =>
@@ -30,7 +67,7 @@ function simpleTable(headers: string[], rows: string[][]): Table {
               children: [new TextRun({ text: h, bold: true, size: 20, color: 'FFFFFF', font: 'Arial' })],
               alignment: AlignmentType.CENTER,
             })],
-            shading: { type: ShadingType.SOLID, color: '0B3D2E', fill: '0B3D2E' },
+            shading: { type: ShadingType.SOLID, color: COR_PRIMARIA, fill: COR_PRIMARIA },
           })
         ),
       }),
@@ -63,12 +100,12 @@ export async function exportarWord(
   const children: (Paragraph | Table)[] = [
     // Capa
     new Paragraph({
-      children: [new TextRun({ text: 'AMBISAFE Geotecnologias', bold: true, size: 48, font: 'Arial', color: '0B3D2E' })],
+      children: [new TextRun({ text: 'AMBISAFE Geotecnologias', bold: true, size: 48, font: 'Arial', color: COR_PRIMARIA })],
       alignment: AlignmentType.CENTER,
       spacing: { before: 2000 },
     }),
     new Paragraph({
-      children: [new TextRun({ text: 'Relatório Técnico de Inventário Florestal', size: 32, font: 'Arial', color: '16A34A' })],
+      children: [new TextRun({ text: 'Relatório Técnico de Inventário Florestal', size: 32, font: 'Arial', color: COR_ACENTO })],
       alignment: AlignmentType.CENTER,
       spacing: { before: 200 },
     }),
@@ -101,7 +138,7 @@ export async function exportarWord(
     new Paragraph({ children: [new PageBreak()], pageBreakBefore: true }),
 
     // Tabela de Dados Gerais
-    headingPara('TABELA 1 — Dados Gerais do Inventário Florestal', HeadingLevel.HEADING_2),
+    tableCaption(1, 'Dados Gerais do Inventário Florestal'),
     simpleTable(
       ['Parâmetro', 'Valor'],
       [
@@ -128,11 +165,12 @@ export async function exportarWord(
         ['Score AMBISAFE', `${resultado.score.total}/100 — ${resultado.score.nivel}`],
       ]
     ),
+    tableSource(),
 
     new Paragraph({ children: [new PageBreak()], pageBreakBefore: true }),
 
     // Fitossociologia
-    headingPara('TABELA 2 — Análise Fitossociológica das Espécies (ordenado por VI%)', HeadingLevel.HEADING_2),
+    tableCaption(2, 'Análise Fitossociológica das Espécies (ordenado por VI%)'),
     simpleTable(
       ['Espécie', 'NI', 'DA', 'DR%', 'DoA', 'DoR%', 'FA%', 'FR%', 'VI%'],
       resultado.especies.slice(0, 30).map(e => [
@@ -147,11 +185,12 @@ export async function exportarWord(
         e.vi_pct.toFixed(2),
       ])
     ),
+    tableSource(),
 
     new Paragraph({ children: [new PageBreak()], pageBreakBefore: true }),
 
     // Índices diversidade
-    headingPara('TABELA 3 — Índices de Diversidade Florística', HeadingLevel.HEADING_2),
+    tableCaption(3, 'Índices de Diversidade Florística'),
     simpleTable(
       ['Índice', 'Valor', 'Interpretação'],
       [
@@ -163,6 +202,16 @@ export async function exportarWord(
           resultado.indices_diversidade.pielou_j >= 0.8 ? 'Alta' : 'Moderada'],
       ]
     ),
+    tableSource(),
+
+    new Paragraph({ children: [new PageBreak()], pageBreakBefore: true }),
+
+    // Referências bibliográficas (ABNT NBR 6023:2018)
+    headingPara('REFERÊNCIAS', HeadingLevel.HEADING_1),
+    ...REFERENCIAS.map(ref => new Paragraph({
+      children: [new TextRun({ text: ref, size: 24, font: 'Times New Roman' })],
+      spacing: { before: 120, after: 120, line: 360 },
+    })),
   ];
 
   const doc = new Document({
@@ -173,7 +222,19 @@ export async function exportarWord(
         },
       },
     },
-    sections: [{ children }],
+    sections: [{
+      properties: {
+        page: {
+          margin: {
+            top: convertMillimetersToTwip(30),
+            left: convertMillimetersToTwip(30),
+            bottom: convertMillimetersToTwip(20),
+            right: convertMillimetersToTwip(20),
+          },
+        },
+      },
+      children,
+    }],
   });
 
   const blob = await Packer.toBlob(doc);
