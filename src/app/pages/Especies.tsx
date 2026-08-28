@@ -1,17 +1,28 @@
-import { useState, useMemo } from 'react';
-import { Search, Download, Leaf, Info } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Download, Leaf, Info, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 export interface Especie {
+  id?: string;
   nome_popular: string;
   nome_cientifico: string;
   familia: string;
   bioma: string;
   grupo_sucessional: string;
   estado?: string;
+}
+
+const PAGE_SIZE = 50;
+
+// Escapa vírgulas e parênteses, que têm significado especial na sintaxe de
+// filtro .or() do PostgREST, para não quebrar a query com o texto digitado.
+function sanitizarTermoBusca(termo: string): string {
+  return termo.replace(/[,()]/g, ' ').trim();
 }
 
 // Banco de dados de espécies por estado/bioma (base IFN)
@@ -184,41 +195,92 @@ export const BIOMA_LABEL: Record<string, string> = {
 
 const ESTADOS = Object.keys(ESTADOS_BIOMA).sort();
 
-// Fuzzy match: normalize accents, lowercase, check if query terms appear in target
-function fuzzyMatch(query: string, target: string): boolean {
-  const normalize = (s: string) =>
-    s.toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[-_]/g, ' ');
-  const q = normalize(query);
-  const t = normalize(target);
-  // Each word in query must appear in target
-  return q.split(' ').filter(Boolean).every(word => t.includes(word));
-}
-
 export default function Especies() {
   const [estado, setEstado] = useState('');
   const [busca, setBusca] = useState('');
+  const [buscaDebounced, setBuscaDebounced] = useState('');
+  const [pagina, setPagina] = useState(0);
+  const [resultados, setResultados] = useState<Especie[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [baixando, setBaixando] = useState(false);
 
   const bioma = estado ? ESTADOS_BIOMA[estado] : null;
 
-  const resultados = useMemo(() => {
-    let lista = BANCO_ESPECIES;
-    if (bioma) lista = lista.filter(e => e.bioma === bioma);
-    if (busca.trim()) {
-      lista = lista.filter(e =>
-        fuzzyMatch(busca, e.nome_popular) ||
-        fuzzyMatch(busca, e.nome_cientifico) ||
-        fuzzyMatch(busca, e.familia)
-      );
-    }
-    return lista.sort((a, b) => a.nome_popular.localeCompare(b.nome_popular, 'pt-BR'));
-  }, [bioma, busca]);
+  // Debounce da busca para não disparar uma query a cada tecla digitada
+  useEffect(() => {
+    const t = setTimeout(() => setBuscaDebounced(busca), 300);
+    return () => clearTimeout(t);
+  }, [busca]);
 
-  const handleDownload = () => {
+  // Volta para a primeira página sempre que os filtros mudam
+  useEffect(() => {
+    setPagina(0);
+  }, [bioma, buscaDebounced]);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    async function buscarEspecies() {
+      setLoading(true);
+      try {
+        let query = supabase.from('species_database').select('*', { count: 'exact' });
+
+        if (bioma) query = query.eq('bioma', bioma);
+
+        const termo = sanitizarTermoBusca(buscaDebounced);
+        if (termo) {
+          query = query.or(
+            `nome_popular.ilike.%${termo}%,nome_cientifico.ilike.%${termo}%,familia.ilike.%${termo}%`
+          );
+        }
+
+        const from = pagina * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        const { data, error, count } = await query
+          .order('nome_popular', { ascending: true })
+          .range(from, to);
+
+        if (error) throw error;
+        if (cancelado) return;
+        setResultados(data ?? []);
+        setTotal(count ?? 0);
+      } catch (e) {
+        if (cancelado) return;
+        const message = e instanceof Error ? e.message : 'Erro desconhecido';
+        toast.error('Erro ao buscar espécies: ' + message);
+        setResultados([]);
+        setTotal(0);
+      } finally {
+        if (!cancelado) setLoading(false);
+      }
+    }
+
+    buscarEspecies();
+    return () => { cancelado = true; };
+  }, [bioma, buscaDebounced, pagina]);
+
+  const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const handleDownload = async () => {
     if (!estado) return;
-    const lista = BANCO_ESPECIES.filter(e => e.bioma === bioma);
+    setBaixando(true);
+    let lista: Especie[] = [];
+    try {
+      const { data, error } = await supabase
+        .from('species_database')
+        .select('*')
+        .eq('bioma', bioma)
+        .order('nome_popular', { ascending: true });
+      if (error) throw error;
+      lista = data ?? [];
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Erro desconhecido';
+      toast.error('Erro ao gerar CSV: ' + message);
+      setBaixando(false);
+      return;
+    }
     const header = ['Nome Popular', 'Nome Científico', 'Família', 'Bioma', 'Grupo Sucessional'];
     const rows = lista.map(e => [
       e.nome_popular, e.nome_cientifico, e.familia,
@@ -234,6 +296,7 @@ export default function Especies() {
     a.download = `especies_${estado}_AMBISAFE.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    setBaixando(false);
   };
 
   return (
@@ -285,10 +348,10 @@ export default function Especies() {
                 variant="outline"
                 className="gap-2 border-[#00420d] text-[#00420d] hover:bg-[#00420d]/5"
                 onClick={handleDownload}
-                disabled={!estado}
+                disabled={!estado || baixando}
                 title={!estado ? 'Selecione um estado primeiro' : ''}
               >
-                <Download className="w-4 h-4" />
+                {baixando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 Baixar CSV
               </Button>
             </div>
@@ -307,7 +370,7 @@ export default function Especies() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center justify-between">
             <span>
-              {resultados.length} espécie{resultados.length !== 1 ? 's' : ''} encontrada{resultados.length !== 1 ? 's' : ''}
+              {loading ? 'Buscando...' : `${total} espécie${total !== 1 ? 's' : ''} encontrada${total !== 1 ? 's' : ''}`}
             </span>
             {!estado && (
               <span className="text-xs font-normal text-gray-400">Selecione um estado para filtrar por bioma</span>
@@ -327,18 +390,25 @@ export default function Especies() {
                 </tr>
               </thead>
               <tbody>
-                {resultados.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="py-12 text-center text-gray-400">
+                      <Loader2 className="w-6 h-6 mx-auto mb-3 animate-spin" />
+                      <p className="text-sm">Buscando espécies...</p>
+                    </td>
+                  </tr>
+                ) : resultados.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-12 text-center text-gray-400">
                       <Leaf className="w-10 h-10 mx-auto mb-3 opacity-20" />
                       <p className="text-sm">
-                        {busca ? 'Nenhuma espécie encontrada para esta busca.' : 'Selecione um estado ou busque uma espécie.'}
+                        {busca ? 'Nenhuma espécie encontrada para esta busca.' : 'Nenhuma espécie cadastrada ainda.'}
                       </p>
                     </td>
                   </tr>
                 ) : (
                   resultados.map((esp, i) => (
-                    <tr key={i} className={i % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'}>
+                    <tr key={esp.id ?? i} className={i % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'}>
                       <td className="py-3 px-4 font-medium text-gray-900">{esp.nome_popular}</td>
                       <td className="py-3 px-4 italic text-gray-500">{esp.nome_cientifico}</td>
                       <td className="py-3 px-4 text-gray-600">{esp.familia}</td>
@@ -364,6 +434,35 @@ export default function Especies() {
               </tbody>
             </table>
           </div>
+          {total > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <span className="text-xs text-gray-400">
+                Página {pagina + 1} de {totalPaginas}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => setPagina(p => Math.max(0, p - 1))}
+                  disabled={pagina === 0 || loading}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => setPagina(p => Math.min(totalPaginas - 1, p + 1))}
+                  disabled={pagina >= totalPaginas - 1 || loading}
+                >
+                  Próxima
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
           <p className="text-xs text-gray-400 text-center py-4 border-t">
             Fonte: Serviço Florestal Brasileiro — Inventário Florestal Nacional (SNIF)
           </p>
