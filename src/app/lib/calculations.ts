@@ -128,6 +128,44 @@ export function agruparIndividuos(arvores_calculadas: ArvoreCalculada[]): Indivi
   });
 }
 
+// ---- Curva do Coletor (acumulação de espécies por parcela) ----
+export interface PontoCurvaColetor {
+  parcela: number;             // posição acumulada (1ª, 2ª, 3ª parcela amostrada...)
+  numero_parcela: number;      // número real da parcela (pode não ser sequencial)
+  especies_acumuladas: number; // espécies únicas distintas até esta parcela (inclusive)
+  especies_novas: number;      // espécies que apareceram pela primeira vez nesta parcela
+}
+
+// Calcula a curva de acumulação de espécies (curva do coletor) a partir dos indivíduos
+// já agrupados por árvore (não por fuste — mesma lógica de agruparIndividuos, evita
+// contar uma árvore multicaule como "espécie nova" mais de uma vez) e da ordem real em
+// que as parcelas foram numeradas/amostradas. Usa a mesma normalização de nome_comum
+// (toLowerCase().trim() || 'desconhecida') que especiesMap em calcularInventario, para
+// que o total final bata exatamente com dados_gerais.n_especies.
+export function calcularCurvaColetor(
+  individuosCalculados: IndividuoCalculado[],
+  numeroParcelasOrdenado: number[]
+): PontoCurvaColetor[] {
+  const especiesVistas = new Set<string>();
+  const curva: PontoCurvaColetor[] = [];
+
+  numeroParcelasOrdenado.forEach((numParcela, index) => {
+    const antes = especiesVistas.size;
+    const indsDaParcela = individuosCalculados.filter(i => i.parcela_numero === numParcela);
+    for (const ind of indsDaParcela) {
+      especiesVistas.add(ind.nome_comum?.toLowerCase().trim() || 'desconhecida');
+    }
+    curva.push({
+      parcela: index + 1,
+      numero_parcela: numParcela,
+      especies_acumuladas: especiesVistas.size,
+      especies_novas: especiesVistas.size - antes,
+    });
+  });
+
+  return curva;
+}
+
 // ---- Resultados por Parcela ----
 export interface ResultadoParcela {
   numero: number;
@@ -249,6 +287,7 @@ export interface ResultadoInventario {
   estrutura_vertical: Estratificacao[];
   indices_diversidade: IndicesDiversidade;
   score: ScoreAmbisafe;
+  curva_coletor: PontoCurvaColetor[];
 }
 
 export interface ResultadoFamilia {
@@ -636,6 +675,9 @@ export function calcularInventario(
     nivel: scoreTotal >= 80 ? 'Excelente' : scoreTotal >= 50 ? 'Bom' : 'Necessita Atenção',
   };
 
+  // 11. Curva do coletor (acumulação de espécies por parcela)
+  const curva_coletor = calcularCurvaColetor(individuosCalculados, numeroParcelas);
+
   return {
     arvores_calculadas,
     arvores_invalidas,
@@ -647,6 +689,7 @@ export function calcularInventario(
     estrutura_vertical,
     indices_diversidade,
     score,
+    curva_coletor,
   };
 }
 

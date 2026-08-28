@@ -18,6 +18,7 @@ import FitossociologiaTable from '../components/results/FitossociologiaTable';
 import IndicesDiversidade from '../components/results/IndicesDiversidade';
 import EstruturaDiametrica from '../components/results/EstruturaDiametrica';
 import EstruturaVertical from '../components/results/EstruturaVertical';
+import CurvaColetor from '../components/results/CurvaColetor';
 import VolumePorParcela from '../components/results/VolumePorParcela';
 import IndividuosPorParcela from '../components/results/IndividuosPorParcela';
 import ReportPreview from '../components/results/ReportPreview';
@@ -644,6 +645,12 @@ export default function ProjectDetail() {
                   <EstruturaVertical
                     estratos={resultado.estrutura_vertical}
                     especiesEstratos={especiesEstratos}
+                  />
+                </ErrorBoundary>
+                <ErrorBoundary section="Curva do Coletor">
+                  <CurvaColetor
+                    pontos={resultado.curva_coletor}
+                    totalParcelas={resultado.dados_gerais.n_parcelas}
                   />
                 </ErrorBoundary>
                 <ErrorBoundary section="Volume por Parcela">

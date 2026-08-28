@@ -48,7 +48,10 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
                 Espécies por Nº ind.
               </TabsTrigger>
               <TabsTrigger value="familias_n" className="text-xs rounded py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                Famílias
+                Famílias por Nº ind.
+              </TabsTrigger>
+              <TabsTrigger value="familias_vi" className="text-xs rounded py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                Famílias por VI
               </TabsTrigger>
             </TabsList>
           </div>
@@ -145,7 +148,7 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
             </div>
           </TabsContent>
 
-          {/* Famílias */}
+          {/* Famílias por Nº de indivíduos */}
           <TabsContent value="familias_n" className="mt-0">
             <div className="overflow-x-auto max-h-[500px]">
               <table className="w-full text-xs">
@@ -161,6 +164,31 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
                       <td className="py-2 px-3 font-mono text-right text-[#0B3D2E] font-semibold">{fmt.num(f.vi_medio, 2)}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
+
+          {/* Famílias por VI — ResultadoFamilia não tem um campo "vi" separado, só
+              vi_medio (média do VI% das espécies da família), que já é a métrica de
+              importância da família — não duplicamos criando um segundo campo. */}
+          <TabsContent value="familias_vi" className="mt-0">
+            <div className="overflow-x-auto max-h-[500px]">
+              <table className="w-full text-xs">
+                <THead cols={['#', 'Família', 'Nº Espécies', 'Nº Indivíduos', '% Indivíduos', 'VI Médio (%)']} />
+                <tbody>
+                  {[...familias]
+                    .sort((a, b) => b.vi_medio - a.vi_medio)
+                    .map((f, i) => (
+                      <tr key={f.familia} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="py-2 px-3 text-gray-400">{i + 1}</td>
+                        <td className="py-2 px-3 font-medium italic">{f.familia}</td>
+                        <td className="py-2 px-3 font-mono text-right">{f.n_especies}</td>
+                        <td className="py-2 px-3 font-mono text-right font-semibold">{f.n_individuos}</td>
+                        <td className="py-2 px-3 font-mono text-right">{fmt.num(f.pct_individuos, 2)}%</td>
+                        <td className="py-2 px-3 font-mono text-right text-[#0B3D2E] font-semibold">{fmt.num(f.vi_medio, 2)}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
