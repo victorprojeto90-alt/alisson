@@ -6,7 +6,6 @@ import {
   Settings,
   LogOut,
   Plus,
-  Crown,
   ChevronRight,
   Leaf,
   HelpCircle,
@@ -42,8 +41,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
     navigate('/app/projetos/novo');
     onClose?.();
   };
-
-  const isFounder = user?.email === 'admin@ambisafe.com.br';
 
   return (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
@@ -102,22 +99,6 @@ export default function Sidebar({ onClose }: SidebarProps) {
             )}
           </NavLink>
         ))}
-
-        {isFounder && (
-          <NavLink
-            to="/app/admin"
-            onClick={onClose}
-            className={({ isActive }) => cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors mt-2',
-              isActive
-                ? 'bg-yellow-500/30 text-yellow-300'
-                : 'text-yellow-400/80 hover:bg-yellow-500/10 hover:text-yellow-300'
-            )}
-          >
-            <Crown className="w-5 h-5" />
-            <span>Admin Supremo</span>
-          </NavLink>
-        )}
       </nav>
 
       {/* User */}

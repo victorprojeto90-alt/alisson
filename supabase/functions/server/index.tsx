@@ -18,7 +18,7 @@ app.use('*', logger(console.log));
 app.use("/*", cors({
   origin: "*",
   allowHeaders: ["Content-Type", "Authorization"],
-  allowMethods: ["GET", "POST", "PATCH", "OPTIONS"],
+  allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   maxAge: 600,
 }));
 
@@ -298,6 +298,48 @@ app.patch("/make-server-eed79e88/admin/empresas/:id", async (c) => {
 
   if (error) return c.json({ error: error.message }, 500);
   return c.json({ success: true });
+});
+
+// =========================================================
+// DELETE /admin/empresas/:id — exclui cliente permanentemente
+// Remove projetos, profiles, a empresa e OS USUÁRIOS DE AUTENTICAÇÃO vinculados
+// (via supabase.auth.admin.deleteUser, só possível com a service role key desta
+// função). Só apagar as linhas do Postgres não bastaria: se a conta de auth
+// continuasse existindo, o AuthContext auto-provisionaria empresa+profile de novo
+// no próximo login, ressuscitando o "cliente fantasma" que o admin acabou de excluir.
+// =========================================================
+app.delete("/make-server-eed79e88/admin/empresas/:id", async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) return c.json({ error: "Forbidden" }, 403);
+
+  const empresaId = c.req.param('id');
+
+  const { data: profiles, error: profilesErr } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('empresa_id', empresaId);
+  if (profilesErr) return c.json({ error: profilesErr.message }, 500);
+
+  const { error: projetosErr } = await supabase.from('projetos').delete().eq('empresa_id', empresaId);
+  if (projetosErr) return c.json({ error: projetosErr.message }, 500);
+
+  const { error: profilesDelErr } = await supabase.from('profiles').delete().eq('empresa_id', empresaId);
+  if (profilesDelErr) return c.json({ error: profilesDelErr.message }, 500);
+
+  const { error: empresaDelErr } = await supabase.from('empresas').delete().eq('id', empresaId);
+  if (empresaDelErr) return c.json({ error: empresaDelErr.message }, 500);
+
+  const falhasAuth: string[] = [];
+  for (const p of profiles ?? []) {
+    const { error } = await supabase.auth.admin.deleteUser(p.id);
+    if (error) falhasAuth.push(p.id);
+  }
+
+  return c.json({
+    success: true,
+    usuariosRemovidos: (profiles?.length ?? 0) - falhasAuth.length,
+    falhasAuth,
+  });
 });
 
 Deno.serve(app.fetch);
