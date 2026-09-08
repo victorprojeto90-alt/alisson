@@ -13,23 +13,28 @@ export function useApi() {
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-eed79e88${endpoint}`;
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-eed79e88${endpoint}`,
-        {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            ...options.headers,
-          },
-        }
-      );
+      // Log temporário para diagnosticar falhas de exclusão/chamadas admin — remover
+      // depois de confirmar que a Edge Function "server" foi redeployada com sucesso.
+      console.log('[useApi] chamando:', options.method ?? 'GET', url);
+      console.log('[useApi] token presente:', !!token, token ? token.slice(0, 20) + '…' : '(nenhum)');
 
-      const data = await response.json();
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          ...options.headers,
+        },
+      });
+
+      console.log('[useApi] status da resposta:', response.status);
+      const data = await response.json().catch(() => ({}));
+      console.log('[useApi] corpo da resposta:', data);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro na requisição');
+        throw new Error(data.error || `Erro na requisição (HTTP ${response.status})`);
       }
 
       return data;

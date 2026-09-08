@@ -16,6 +16,7 @@ export interface EmpresaAdmin {
   estado_uf?: string | null;
   // Campos de cobrança (Asaas) — undefined até a migração SQL rodar.
   asaas_customer_id?: string | null;
+  asaas_subscription_id?: string | null;
   plan_type?: string | null;
   is_blocked?: boolean | null;
   block_reason?: string | null;

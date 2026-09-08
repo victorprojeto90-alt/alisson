@@ -39,6 +39,7 @@ export default function AdminClientes() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [detalheEmpresa, setDetalheEmpresa] = useState<EmpresaAdmin | null>(null);
+  const [periodoFiltro, setPeriodoFiltro] = useState<'todos' | '7d' | '30d' | '90d'>('todos');
 
   const changePlan = async (empresaId: string, newPlan: string) => {
     setUpdatingId(empresaId);
@@ -124,7 +125,15 @@ export default function AdminClientes() {
       (filterPlan === 'trial_expirando' && trialExpirandoLogo) ||
       (filterPlan === 'pagante' && !!e.plan_type && PLANOS_PAGOS.includes(e.plan_type)) ||
       (filterPlan === 'bloqueado' && !!e.is_blocked);
-    return matchSearch && matchPlan;
+    if (!matchSearch || !matchPlan) return false;
+
+    if (periodoFiltro !== 'todos') {
+      const dias = periodoFiltro === '7d' ? 7 : periodoFiltro === '30d' ? 30 : 90;
+      const limite = new Date(Date.now() - dias * 24 * 60 * 60 * 1000);
+      if (new Date(e.created_at) < limite) return false;
+    }
+
+    return true;
   });
 
   const sorted = useMemo(() => {
@@ -218,6 +227,17 @@ export default function AdminClientes() {
                     </button>
                   ))}
                 </div>
+                <Select value={periodoFiltro} onValueChange={v => setPeriodoFiltro(v as typeof periodoFiltro)}>
+                  <SelectTrigger className="h-8 text-xs w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Cadastro: todos</SelectItem>
+                    <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                    <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                    <SelectItem value="90d">Últimos 90 dias</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportarCSV}>
                   <Download className="w-3.5 h-3.5" />
                   CSV

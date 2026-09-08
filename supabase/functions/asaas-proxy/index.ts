@@ -308,4 +308,90 @@ app.post("/asaas-proxy/assinatura/:id/cancelar", async (c) => {
   }
 });
 
+// =========================================================
+// ROTAS ADMIN — requer admin@ambisafe.com.br (mesmo critério de
+// supabase/functions/server/index.ts, App.tsx e Sidebar.tsx). NÃO usar
+// profile.role === 'admin' aqui: esse campo marca o dono de cada empresa/tenant,
+// não o superadmin da plataforma.
+// =========================================================
+const ADMIN_EMAIL = 'admin@ambisafe.com.br';
+
+async function requireAdmin(c: Parameters<Parameters<typeof app.get>[1]>[0]) {
+  const user = await getUser(c);
+  if (!user || user.email !== ADMIN_EMAIL) return null;
+  return user;
+}
+
+// GET /asaas-proxy/admin/payments — lista pagamentos (opcionalmente filtrados
+// por período e status). Query: dateCreated[ge], dateCreated[le], status, limit
+app.get("/asaas-proxy/admin/payments", async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) return c.json({ error: "Forbidden" }, 403);
+
+  const dataInicio = c.req.query('dateCreated[ge]') ?? '';
+  const dataFim = c.req.query('dateCreated[le]') ?? '';
+  const status = c.req.query('status') ?? '';
+  const limit = c.req.query('limit') ?? '100';
+
+  let endpoint = `/payments?limit=${limit}`;
+  if (dataInicio) endpoint += `&dateCreated[ge]=${dataInicio}`;
+  if (dataFim) endpoint += `&dateCreated[le]=${dataFim}`;
+  if (status) endpoint += `&status=${status}`;
+
+  try {
+    const data = await asaasFetch(endpoint);
+    return c.json(data);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'Erro ao buscar pagamentos' }, 500);
+  }
+});
+
+// GET /asaas-proxy/admin/subscriptions — lista assinaturas por status (default ACTIVE)
+app.get("/asaas-proxy/admin/subscriptions", async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) return c.json({ error: "Forbidden" }, 403);
+
+  const status = c.req.query('status') ?? 'ACTIVE';
+
+  try {
+    const data = await asaasFetch(`/subscriptions?status=${status}&limit=100`);
+    return c.json(data);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'Erro ao buscar assinaturas' }, 500);
+  }
+});
+
+// POST /asaas-proxy/admin/reenviar-cobranca — cria uma cobrança avulsa PIX
+// (vencimento em 3 dias) para o cliente Asaas informado. Usado pelo admin quando
+// quer regularizar manualmente um cliente inadimplente ou que nunca completou o
+// checkout. Body: { customerId, valor, descricao? }
+app.post("/asaas-proxy/admin/reenviar-cobranca", async (c) => {
+  const admin = await requireAdmin(c);
+  if (!admin) return c.json({ error: "Forbidden" }, 403);
+
+  const body = await c.req.json() as { customerId: string; valor: number; descricao?: string };
+  if (!body.customerId || !body.valor) {
+    return c.json({ error: "customerId e valor são obrigatórios" }, 400);
+  }
+
+  const vencimento = new Date();
+  vencimento.setDate(vencimento.getDate() + 3);
+
+  try {
+    const payment = await asaasFetch('/payments', {
+      method: 'POST',
+      body: JSON.stringify({
+        customer: body.customerId,
+        billingType: 'PIX',
+        value: body.valor,
+        dueDate: vencimento.toISOString().split('T')[0],
+        description: body.descricao || 'AMBISAFE — Regularização de assinatura',
+      }),
+    });
+    return c.json(payment);
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : 'Erro ao criar cobrança' }, 500);
+  }
+});
+
 Deno.serve(app.fetch);
