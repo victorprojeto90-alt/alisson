@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { PageSkeleton } from '../components/ui/skeletons';
 import { useNavigate } from 'react-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,7 +10,6 @@ import {
   FileText,
   BarChart3,
   ChevronRight,
-  Loader2,
   Trees,
   MapPin,
   Calendar,
@@ -58,9 +58,7 @@ export default function Relatorios() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#0B3D2E]" />
-      </div>
+      <PageSkeleton />
     );
   }
 

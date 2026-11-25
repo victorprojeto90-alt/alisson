@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { PageSkeleton } from './components/ui/skeletons';
 import { Routes, Route, Navigate } from 'react-router';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/sonner';
@@ -25,9 +26,7 @@ const Privacidade = lazy(() => import('./pages/Privacidade'));
 
 function PageLoader() {
   return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
+    <PageSkeleton />
   );
 }
 
@@ -43,11 +42,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, isBlocked, blockReason } = useAuth();
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
+      <div className="min-h-screen bg-background">
+        <PageSkeleton />
       </div>
     );
   }
@@ -60,11 +56,8 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
+      <div className="min-h-screen bg-background">
+        <PageSkeleton />
       </div>
     );
   }

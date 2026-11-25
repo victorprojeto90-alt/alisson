@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Bone, ListSkeleton } from '../components/ui/skeletons';
 import { useNavigate } from 'react-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -78,7 +79,7 @@ export default function Projetos() {
   const [editTarget, setEditTarget] = useState<Projeto | null>(null);
 
   const fetchProjetos = async () => {
-    if (!empresa?.id) { setLoading(false); return; }
+    if (!empresa?.id) return; // perfil ainda carregando: mantém os blocos de carregamento
     const { data } = await supabase
       .from('projetos')
       .select('id, nome, data_inventario, descricao, municipio, estado, area_total_ha, tipo_inventario, motivo_inventario, bioma, status, created_at')
@@ -130,7 +131,7 @@ export default function Projetos() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Inventários</h1>
           <p className="text-gray-400 text-sm mt-0.5">
-            {projetos.length} projeto{projetos.length !== 1 ? 's' : ''} no total
+            {loading ? <Bone className="h-4 w-28 mt-1 inline-block" /> : <>{projetos.length} projeto{projetos.length !== 1 ? 's' : ''} no total</>}
           </p>
         </div>
         <Button
@@ -150,7 +151,7 @@ export default function Projetos() {
           { label: 'Finalizados', count: countByStatus('finalizado'), color: 'text-green-700', bg: 'bg-green-50' },
         ].map(s => (
           <div key={s.label} className={`${s.bg} rounded-xl p-4 text-center`}>
-            <p className={`text-2xl font-bold ${s.color}`}>{s.count}</p>
+            {loading ? <Bone className="h-7 w-8 mx-auto mb-1" /> : <p className={`text-2xl font-bold ${s.color}`}>{s.count}</p>}
             <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
           </div>
         ))}
@@ -187,9 +188,7 @@ export default function Projetos() {
 
       {/* Project list */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-[#00420d]" />
-        </div>
+        <ListSkeleton rows={4} />
       ) : filtered.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-2xl">
           <Trees className="w-12 h-12 text-gray-200 mx-auto mb-4" />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ListSkeleton } from '../components/ui/skeletons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -360,9 +361,7 @@ export default function Configuracoes() {
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Histórico de pagamentos</h3>
                 {carregandoHistorico ? (
-                  <div className="flex items-center justify-center py-8 text-gray-400">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  </div>
+                  <ListSkeleton rows={2} />
                 ) : erroHistorico ? (
                   <p className="text-xs text-gray-400 py-2">
                     Não foi possível carregar o histórico agora. Tente novamente mais tarde.

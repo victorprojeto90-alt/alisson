@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useState } from 'react';
+import { PageSkeleton } from '../ui/skeletons';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
 import { LayoutDashboard, Trees, Plus, Leaf, Menu } from 'lucide-react';
@@ -17,9 +18,7 @@ const tabs = [
 
 function PageLoader() {
   return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
+    <PageSkeleton />
   );
 }
 

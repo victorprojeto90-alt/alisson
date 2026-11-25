@@ -108,6 +108,10 @@ export default function AuthPage() {
         if (tipoUsuario === 'empresa' && !companyName.trim()) {
           toast.error('Informe o nome da empresa'); return;
         }
+        // Todos os dados são obrigatórios (menos CPF/CNPJ) — servem para organizar os clientes.
+        if (telefone.replace(/\D/g, '').length < 10) { toast.error('Informe um telefone válido com DDD'); return; }
+        if (!cidade.trim()) { toast.error('Informe sua cidade'); return; }
+        if (!/^[A-Za-z]{2}$/.test(estadoUf.trim())) { toast.error('Informe a UF (ex: PB)'); return; }
         if (!validarEmail(email)) { toast.error('E-mail inválido.'); return; }
         if (password.length < 6) { toast.error('Senha deve ter pelo menos 6 caracteres'); return; }
         // CPF/CNPJ é opcional — só valida o dígito verificador se algo foi digitado.
@@ -354,6 +358,7 @@ export default function AuthPage() {
                       {tipoUsuario === 'empresa' ? 'Nome do Responsável' : 'Nome Completo'} *
                     </label>
                     <Input
+                      required
                       placeholder="João da Silva"
                       value={name}
                       onChange={e => setName(e.target.value)}
@@ -365,6 +370,7 @@ export default function AuthPage() {
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-gray-700">Nome da Empresa *</label>
                       <Input
+                        required
                         placeholder="Consultoria Ambiental Ltda"
                         value={companyName}
                         onChange={e => setCompanyName(e.target.value)}
@@ -376,7 +382,7 @@ export default function AuthPage() {
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-gray-700">
                         {tipoUsuario === 'empresa'
-                          ? <span>CNPJ <span className="text-gray-400 font-normal text-xs">(opcional — deixe em branco se for autônomo com CPF)</span></span>
+                          ? <span>CNPJ <span className="text-gray-400 font-normal">(opcional)</span></span>
                           : <span>CPF <span className="text-gray-400 font-normal">(opcional)</span></span>
                         }
                       </label>
@@ -388,12 +394,13 @@ export default function AuthPage() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-gray-700">Telefone</label>
+                      <label className="text-sm font-medium text-gray-700">Telefone *</label>
                       <Input
                         placeholder="(00) 90000-0000"
                         value={telefone}
                         onChange={e => setTelefone(formatTelefone(e.target.value))}
                         maxLength={15}
+                        required
                         type="tel"
                       />
                     </div>
@@ -401,17 +408,19 @@ export default function AuthPage() {
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-gray-700">Cidade</label>
+                      <label className="text-sm font-medium text-gray-700">Cidade *</label>
                       <Input
-                        placeholder="Ex: Manaus"
+                        required
+                        placeholder="Ex: Patos"
                         value={cidade}
                         onChange={e => setCidade(e.target.value)}
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-gray-700">UF</label>
+                      <label className="text-sm font-medium text-gray-700">UF *</label>
                       <Input
-                        placeholder="AM"
+                        required
+                        placeholder="PB"
                         value={estadoUf}
                         onChange={e => setEstadoUf(e.target.value.toUpperCase().slice(0, 2))}
                         maxLength={2}

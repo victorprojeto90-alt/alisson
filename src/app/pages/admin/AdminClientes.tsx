@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { PageSkeleton } from '../../components/ui/skeletons';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { useApi } from '../../hooks/useApi';
@@ -177,9 +178,7 @@ export default function AdminClientes() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <Loader2 className="animate-spin" size={32} color={cores.verde} />
-      </div>
+      <PageSkeleton />
     );
   }
 
