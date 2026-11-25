@@ -2,7 +2,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { PageSkeleton } from '../ui/skeletons';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { AnimatePresence, motion } from 'motion/react';
-import { LayoutDashboard, Trees, Plus, Leaf, Menu } from 'lucide-react';
+import { LayoutDashboard, Trees, Plus, Leaf, Menu, HelpCircle } from 'lucide-react';
 import Sidebar from './Sidebar';
 import HelpWidget from '../help/HelpWidget';
 import InstallPrompt from '../pwa/InstallPrompt';
@@ -70,11 +70,12 @@ export default function AppLayout() {
           <img src={logoFull} alt="AMBISAFE" className="h-7 w-auto object-contain" />
           <button
             type="button"
-            aria-label="Abrir menu"
-            onClick={() => setMobileOpen(true)}
-            className="w-10 h-10 -mr-2 rounded-full flex items-center justify-center active:bg-white/15 transition-colors"
+            aria-label="Central de ajuda"
+            onClick={() => window.dispatchEvent(new Event('ambisafe:ajuda'))}
+            className="h-9 pl-2.5 pr-3 -mr-1 rounded-full flex items-center gap-1.5 bg-white/10 active:bg-white/20 transition-colors text-sm font-medium"
           >
-            <Menu className="w-6 h-6" />
+            <HelpCircle className="w-[18px] h-[18px] text-[#acd115]" />
+            Ajuda
           </button>
         </div>
       </header>

@@ -190,12 +190,24 @@ export default function HelpWidget() {
     if (!open) setMessages([]);
   };
 
+  // No celular a ajuda abre pelo botão "?" do cabeçalho (evento disparado pelo AppLayout)
+  useEffect(() => {
+    const onAbrir = () => {
+      setOpen(prev => {
+        if (!prev) setMessages([]);
+        return !prev;
+      });
+    };
+    window.addEventListener('ambisafe:ajuda', onAbrir);
+    return () => window.removeEventListener('ambisafe:ajuda', onAbrir);
+  }, []);
+
   return (
     <>
       {/* Floating Button */}
       <button
         onClick={toggleOpen}
-        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6 z-30 md:z-50 w-[52px] h-[52px] bg-[#16A34A] hover:bg-[#15803d] text-white rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        className="hidden md:flex fixed bottom-6 right-6 z-50 w-[52px] h-[52px] bg-[#16A34A] hover:bg-[#15803d] text-white rounded-full shadow-xl items-center justify-center transition-all hover:scale-105 active:scale-95"
         title="Central de Ajuda"
         aria-label="Abrir ajuda"
       >
@@ -208,8 +220,7 @@ export default function HelpWidget() {
       {/* Panel */}
       {open && (
         <div
-          className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-3 md:bottom-[76px] md:right-6 z-50 w-[380px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
-          style={{ height: '540px' }}
+          className="fixed z-50 inset-x-3 top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)] bottom-[calc(5rem+env(safe-area-inset-bottom))] md:inset-x-auto md:top-auto md:right-6 md:bottom-[76px] md:w-[380px] md:h-[540px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="bg-[#0B3D2E] px-4 py-3 flex items-center gap-3 flex-shrink-0">

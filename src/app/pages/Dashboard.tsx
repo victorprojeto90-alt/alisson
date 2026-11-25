@@ -217,8 +217,24 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      {/* Celular: cabeçalho verde estilo app, com o botão Novo Inventário dentro */}
+      <div className="md:hidden relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#00420d] to-[#16A34A] text-white p-5 mb-5 shadow-lg">
+        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 pointer-events-none" />
+        <p className="text-white/70 text-sm">{empresa?.name}</p>
+        <h1 className="text-2xl font-bold mt-0.5">Olá, {profile?.name?.split(' ')[0] || 'Bem-vindo'} 👋</h1>
+        <span className="inline-block mt-2 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#acd115] text-[#00420d]">
+          {empresa?.plan === 'trial' ? 'Período de trial' : 'Plano Profissional'}
+        </span>
+        <button
+          onClick={() => navigate('/app/projetos/novo')}
+          className="relative mt-4 w-full h-12 rounded-xl bg-white text-[#00420d] font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+        >
+          <Plus className="w-5 h-5" /> Novo Inventário
+        </button>
+      </div>
+
+      {/* Header (computador) */}
+      <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
             Olá, {profile?.name?.split(' ')[0] || 'Bem-vindo'} 👋
@@ -240,24 +256,26 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
       {!loading && <OnboardingCard projetos={projetos} />}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-8">
         {stats.map((stat, i) => (
-          <Card key={i} className="border-0 shadow-sm">
-            <CardContent className="p-5">
-              <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center mb-3`}>
+          <Card key={i} className="border-0 shadow-sm rounded-2xl">
+            <CardContent className="p-3.5 md:p-5 flex md:block items-center gap-3">
+              <div className={`w-9 h-9 md:w-10 md:h-10 rounded-xl ${stat.bg} flex items-center justify-center md:mb-3 flex-shrink-0`}>
                 {stat.icon}
               </div>
-              {loading ? <Bone className="h-7 w-16 mb-1" /> : <p className="text-2xl font-bold text-gray-900">{stat.value}</p>}
-              <p className="text-xs text-gray-500 mt-0.5">{stat.title}</p>
-              <p className="text-xs text-gray-400 mt-1">{stat.sub}</p>
+              <div className="min-w-0">
+                {loading ? <Bone className="h-6 md:h-7 w-14 md:w-16 mb-1" /> : <p className="text-lg md:text-2xl font-bold text-gray-900 leading-tight truncate">{stat.value}</p>}
+                <p className="text-[11px] md:text-xs text-gray-500 md:mt-0.5 leading-snug">{stat.title}</p>
+                <p className="hidden md:block text-xs text-gray-400 mt-1">{stat.sub}</p>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Projects List */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-4">
+      <Card className="border-0 shadow-sm rounded-2xl">
+        <CardHeader className="pb-4 px-4 md:px-6">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Meus Inventários</CardTitle>
@@ -265,7 +283,7 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 md:px-6">
           {loading ? (
             <ListSkeleton rows={3} />
           ) : projetos.length === 0 ? (
@@ -292,7 +310,7 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
                   <div
                     key={projeto.id}
                     onClick={() => navigate(`/app/projetos/${projeto.id}`)}
-                    className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-[#16A34A]/30 hover:bg-gray-50 cursor-pointer transition-all group"
+                    className="flex items-center gap-3 md:gap-4 p-3.5 md:p-4 rounded-xl border border-gray-100 hover:border-[#16A34A]/30 hover:bg-gray-50 active:bg-gray-50 cursor-pointer transition-all group"
                   >
                     <div className="w-11 h-11 bg-[#0B3D2E]/10 rounded-xl flex items-center justify-center flex-shrink-0">
                       <Trees className="w-5 h-5 text-[#0B3D2E]" />
@@ -300,16 +318,23 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <h4 className="font-semibold text-gray-900 truncate">{projeto.nome}</h4>
+                        <h4 className="font-semibold text-gray-900 leading-snug line-clamp-2 md:truncate">{projeto.nome}</h4>
                         <Badge
                           variant="outline"
-                          className={`flex-shrink-0 text-xs gap-1 ${statusCfg.color}`}
+                          className={`hidden md:inline-flex flex-shrink-0 text-xs gap-1 ${statusCfg.color}`}
                         >
                           {statusCfg.icon}
                           {statusCfg.label}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
+                      <div className="flex items-center gap-x-3 gap-y-1.5 text-xs text-gray-400 flex-wrap mt-1 md:mt-0">
+                        <Badge
+                          variant="outline"
+                          className={`md:hidden text-[11px] gap-1 px-2 py-0 ${statusCfg.color}`}
+                        >
+                          {statusCfg.icon}
+                          {statusCfg.label}
+                        </Badge>
                         {projeto.municipio && (
                           <span>{projeto.municipio}{projeto.estado ? `/${projeto.estado}` : ''}</span>
                         )}
