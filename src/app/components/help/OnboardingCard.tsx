@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CheckCircle2, Circle, ChevronRight, X, Sparkles } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -12,14 +12,20 @@ interface Props {
 }
 
 const STORAGE_KEY = 'ambisafe_onboarding_dismissed';
+const CONCLUIDO_KEY = 'ambisafe_onboarding_concluido_visto';
+
+function ler(chave: string) {
+  try { return localStorage.getItem(chave); } catch { return null; }
+}
+function gravar(chave: string, valor: string) {
+  try { localStorage.setItem(chave, valor); } catch { /* sem storage */ }
+}
 
 export default function OnboardingCard({ projetos }: Props) {
   const navigate = useNavigate();
-  const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem(STORAGE_KEY) === 'true'
-  );
-
-  if (dismissed) return null;
+  const [dismissed, setDismissed] = useState(() => ler(STORAGE_KEY) === 'true');
+  // "Tudo pronto" aparece só na primeira visita depois de concluir as 4 etapas
+  const [concluidoJaVisto] = useState(() => ler(CONCLUIDO_KEY) === 'true');
 
   const temProjeto = projetos.length > 0;
   const temUpload = projetos.some(p => p.status !== 'rascunho' || projetos.length > 0);
@@ -35,11 +41,34 @@ export default function OnboardingCard({ projetos }: Props) {
 
   const completedCount = steps.filter(s => s.done).length;
   const progress = Math.round((completedCount / steps.length) * 100);
+  const tudoPronto = completedCount === steps.length;
+
+  useEffect(() => {
+    if (tudoPronto && !concluidoJaVisto) gravar(CONCLUIDO_KEY, 'true');
+  }, [tudoPronto, concluidoJaVisto]);
 
   const handleDismiss = () => {
-    localStorage.setItem(STORAGE_KEY, 'true');
+    gravar(STORAGE_KEY, 'true');
     setDismissed(true);
   };
+
+  if (dismissed) return null;
+  if (tudoPronto && concluidoJaVisto) return null;
+
+  if (tudoPronto) {
+    return (
+      <div className="bg-gradient-to-r from-[#0B3D2E] to-[#16A34A] rounded-2xl px-5 py-4 mb-6 flex items-center gap-3 text-white">
+        <span className="text-2xl" aria-hidden="true">🎉</span>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold">Tudo pronto!</p>
+          <p className="text-white/75 text-sm">Você concluiu os primeiros passos do AMBISAFE.</p>
+        </div>
+        <button onClick={handleDismiss} className="text-white/60 hover:text-white p-1" title="Fechar" aria-label="Fechar">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gradient-to-r from-[#0B3D2E] to-[#16A34A] rounded-2xl p-6 mb-6 relative overflow-hidden">
