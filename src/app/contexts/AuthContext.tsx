@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 
@@ -104,114 +104,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState<string | null>(null);
 
-  // Avalia se a empresa deve estar bloqueada (trial expirado, ou já marcada como
-  // bloqueada pelo webhook/admin). `plan_type`/`is_blocked` só existem depois da
-  // migração SQL rodar — até lá ficam undefined e são tratados como "não bloqueado",
-  // usando o campo antigo `plan` como fallback pra decidir se ainda está em trial.
-  const avaliarBloqueio = async (empresaData: Empresa | null | undefined) => {
+  // Avalia se a empresa deve estar bloqueada. A decisão definitiva é do servidor
+  // (billing-scheduler bloqueia trials vencidos e o RLS impede gravações de empresas
+  // bloqueadas); aqui só refletimos isso na tela — o navegador não grava mais nada.
+  const avaliarBloqueio = (empresaData: Empresa | null | undefined) => {
     if (!empresaData) { setIsBlocked(false); setBlockReason(null); return; }
 
     const planEfetivo = empresaData.plan_type ?? empresaData.plan;
     const trialFim = empresaData.trial_ends_at ? new Date(empresaData.trial_ends_at) : null;
     const isTrialExpirado = !!trialFim && new Date() > trialFim && planEfetivo === 'trial';
 
-    let bloqueado = empresaData.is_blocked ?? false;
-    let motivo = empresaData.block_reason ?? null;
-
-    if (isTrialExpirado && !empresaData.is_blocked) {
-      bloqueado = true;
-      motivo = 'Trial expirado';
-      const { error } = await supabase
-        .from('empresas')
-        .update({ is_blocked: true, block_reason: 'Trial expirado', plan_type: 'bloqueado' })
-        .eq('id', empresaData.id);
-      if (error) {
-        // Esperado até a migração SQL rodar (colunas ainda não existem) — não deve
-        // impedir o resto do app de funcionar.
-        console.warn('[AuthContext] Não foi possível persistir bloqueio de trial:', error.message);
-      }
+    if (empresaData.is_blocked) {
+      setIsBlocked(true);
+      setBlockReason(empresaData.block_reason ?? 'Acesso bloqueado');
+    } else if (isTrialExpirado) {
+      setIsBlocked(true);
+      setBlockReason('Trial expirado');
+    } else {
+      setIsBlocked(false);
+      setBlockReason(null);
     }
-
-    setIsBlocked(bloqueado);
-    setBlockReason(motivo);
   };
 
-  const loadProfile = async (userId: string) => {
-    const { data, error: selectError } = await supabase
+  const fetchProfile = async (userId: string) => {
+    const { data, error } = await supabase
       .from('profiles')
       .select('*, empresa:empresas(*)')
       .eq('id', userId)
       .maybeSingle();
+    if (error) console.warn('[AuthContext] Erro ao carregar perfil:', error.message);
+    return data as Profile | null;
+  };
 
-    if (data) {
-      setProfile(data as Profile);
-      await avaliarBloqueio((data as Profile).empresa);
-      return;
-    }
-
-    // Log permission errors (broken admin SQL policies) but continue trying to provision.
-    if (selectError && selectError.code !== 'PGRST116') {
-      console.warn('[AuthContext] Profile query error:', selectError.message, '— tentando provisionar...');
-    }
-
-    // Auto-provision empresa + profile for users created before migration
-    // or when email confirmation is required (session comes after confirmation).
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    const meta = authUser?.user_metadata ?? {};
-    const emailBase = authUser?.email?.split('@')[0] ?? 'Empresa';
-    const companyName = (meta.company_name as string | undefined)
-      ?? (emailBase.charAt(0).toUpperCase() + emailBase.slice(1));
-
-    const empresaInsert: Record<string, string | null> = {
-      name: companyName,
-      owner_id: userId,
-    };
-    if (meta.telefone) empresaInsert.telefone = meta.telefone as string;
-    if (meta.cpf_cnpj && meta.tipo_usuario === 'empresa') empresaInsert.cnpj = meta.cpf_cnpj as string;
-    if (meta.cidade) empresaInsert.cidade = meta.cidade as string;
-    if (meta.estado_uf) empresaInsert.estado_uf = meta.estado_uf as string;
-
-    const { data: empresa, error: empresaError } = await supabase
-      .from('empresas')
-      .insert(empresaInsert)
-      .select()
-      .single();
-
-    if (empresaError) {
-      console.error('[AuthContext] Falha ao provisionar empresa:', empresaError.message,
-        '— Execute o SQL de correção das policies no Supabase.');
-      return;
-    }
-
-    if (empresa) {
-      const profileInsert: Record<string, string | null> = {
-        id: userId,
-        empresa_id: empresa.id,
-        name: (meta.name as string | undefined) ?? companyName,
-        role: 'admin',
-        tipo_usuario: (meta.tipo_usuario as string | undefined) ?? 'pessoa_fisica',
-      };
-      if (meta.telefone) profileInsert.telefone = meta.telefone as string;
-      if (meta.cpf_cnpj) profileInsert.cpf_cnpj = meta.cpf_cnpj as string;
-      if (meta.cidade) profileInsert.cidade = meta.cidade as string;
-      if (meta.estado_uf) profileInsert.estado_uf = meta.estado_uf as string;
-
-      const { error: profileError } = await supabase.from('profiles').insert(profileInsert);
-      if (profileError) {
-        console.error('[AuthContext] Falha ao provisionar profile:', profileError.message);
-        return;
+  // Empresa + perfil são criados pelo próprio banco no cadastro (trigger
+  // on_auth_user_created). Se o perfil ainda não apareceu, tenta de novo algumas vezes.
+  const loadingProfileFor = useRef<string | null>(null);
+  const loadProfile = async (userId: string) => {
+    if (loadingProfileFor.current === userId) return;
+    loadingProfileFor.current = userId;
+    try {
+      for (let tentativa = 0; tentativa < 4; tentativa++) {
+        const data = await fetchProfile(userId);
+        if (data) {
+          setProfile(data);
+          avaliarBloqueio(data.empresa);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 800));
       }
-
-      const { data: newProfile } = await supabase
-        .from('profiles')
-        .select('*, empresa:empresas(*)')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (newProfile) {
-        setProfile(newProfile as Profile);
-        await avaliarBloqueio((newProfile as Profile).empresa);
-      }
+      console.error('[AuthContext] Perfil não encontrado para o usuário', userId);
+    } finally {
+      loadingProfileFor.current = null;
     }
   };
 
@@ -256,8 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     companyName: string,
     extra?: ExtraSignUpData
   ) => {
-    // Store all data as user metadata. Empresa + profile records are created
-    // by loadProfile when the user first gets a valid session.
+    // Dados vão como metadata; empresa + perfil são criados pelo trigger
+    // on_auth_user_created no banco.
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,

@@ -11,3 +11,8 @@ dist/
 
 # Editor/OS
 .DS_Store
+
+# Arquivos temporários / locais
+tmp_extract/
+supabase/.temp/
+*.ps1

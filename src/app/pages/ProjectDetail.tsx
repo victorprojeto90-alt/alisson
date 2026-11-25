@@ -96,10 +96,10 @@ export default function ProjectDetail() {
       const [{ data: proj }, { data: arvs }, { data: parc }] = await Promise.all([
         supabase.from('projetos').select('*').eq('id', id!).single(),
         (async () => {
-          let all: any[] = [];
+          let all: Arvore[] = [];
           let from = 0;
           const batch = 1000;
-          while (true) {
+          for (;;) {
             const { data } = await supabase.from('arvores').select('*').eq('projeto_id', id!).order('parcela_numero').order('numero_arvore').range(from, from + batch - 1);
             if (!data || data.length === 0) break;
             all = all.concat(data);

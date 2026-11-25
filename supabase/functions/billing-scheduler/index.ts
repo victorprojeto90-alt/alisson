@@ -32,7 +32,17 @@ const PRECO_POR_PLANO: Record<string, number> = {
   anual: 229.90,
 };
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
+  // Chamado pelo pg_cron com o header x-cron-secret (guardado em private.app_secrets).
+  const secret = req.headers.get('x-cron-secret') ?? '';
+  const { data: autorizado } = await supabase.rpc('verificar_cron_secret', { p_secret: secret });
+  if (!autorizado) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const agora = new Date();
   const em10Dias = new Date(agora.getTime() + 10 * 24 * 60 * 60 * 1000);
 
@@ -103,9 +113,26 @@ Deno.serve(async (_req) => {
     }
   }
 
+  // 3. Trials expirados — o bloqueio agora é decidido no servidor, não no navegador.
+  const { data: trialsVencidos, error: errTrials } = await supabase
+    .from('empresas')
+    .update({ is_blocked: true, block_reason: 'Trial expirado', plan_type: 'bloqueado' })
+    .eq('plan_type', 'trial')
+    .eq('is_blocked', false)
+    .lt('trial_ends_at', agora.toISOString())
+    .select('id, name');
+
+  if (errTrials) {
+    console.error('Falha ao bloquear trials expirados:', errTrials.message);
+  }
+  for (const e of trialsVencidos ?? []) {
+    console.log(`Trial expirado — empresa ${e.name} bloqueada`);
+  }
+
   return new Response(JSON.stringify({
     alertasGerados,
     bloqueadas,
+    trialsBloqueados: trialsVencidos?.length ?? 0,
   }), {
     headers: { 'Content-Type': 'application/json' },
   });
