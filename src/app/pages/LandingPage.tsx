@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router';
 import logoFull from '../../assets/ambisafe-logo-full2.png';
 import alissonFoto from '../../assets/alisson-monteiro.jpg';
+import appCelular from '../../assets/app-celular.jpg';
 import { PLANOS } from '../lib/planos';
 
 // ─── Brand tokens ──────────────────────────────────────────────────────────
@@ -13,6 +14,11 @@ const C = {
   text: '#1a1a1a',
   muted: '#6b7280',
 };
+
+// ─── WhatsApp ──────────────────────────────────────────────────────────────
+const WHATSAPP = '5583991144456';
+const waLink = (msg: string) => `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
+const abrirWhats = (msg: string) => window.open(waLink(msg), '_blank', 'noopener');
 
 // ─── Scroll-reveal hook ────────────────────────────────────────────────────
 function useReveal(threshold = 0.15) {
@@ -33,6 +39,31 @@ function useReveal(threshold = 0.15) {
   return { ref, visible };
 }
 
+// ─── Número que conta quando aparece na tela ──────────────────────────────
+function AnimatedStat({ prefix = '', to, suffix = '', label }: { prefix?: string; to: number; suffix?: string; label: string }) {
+  const { ref, visible } = useReveal(0.4);
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!visible) return;
+    const reduz = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduz) { setN(to); return; }
+    const dur = 1200; const t0 = performance.now(); let raf = 0;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - t0) / dur);
+      setN(Math.round(to * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [visible, to]);
+  return (
+    <div ref={ref}>
+      <p className="text-2xl font-bold tabular-nums" style={{ color: C.lime }}>{prefix}{n}{suffix}</p>
+      <p className="text-white/50 text-xs mt-0.5 leading-snug">{label}</p>
+    </div>
+  );
+}
+
 // ─── SVG Dashboard Mockup ─────────────────────────────────────────────────
 function DashboardMockup() {
   return (
@@ -42,6 +73,15 @@ function DashboardMockup() {
       aria-hidden="true"
       style={{ borderRadius: 16 }}
     >
+      <style>{`
+        .mk-bar { transform-box: fill-box; transform-origin: bottom; animation: mk-grow .9s cubic-bezier(.2,.8,.2,1) both; }
+        .mk-prog { transform-box: fill-box; transform-origin: left; animation: mk-fill 1.1s cubic-bezier(.2,.8,.2,1) both; }
+        .mk-ring { animation: mk-ring 1.4s cubic-bezier(.2,.8,.2,1) .5s both; }
+        @keyframes mk-grow { from { transform: scaleY(0) } to { transform: scaleY(1) } }
+        @keyframes mk-fill { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+        @keyframes mk-ring { from { stroke-dashoffset: 175.9 } to { stroke-dashoffset: 23 } }
+        @media (prefers-reduced-motion: reduce) { .mk-bar, .mk-prog, .mk-ring { animation: none } }
+      `}</style>
       {/* Window chrome */}
       <rect width="600" height="380" rx="12" fill="#1a2e1a" />
       <rect width="600" height="36" rx="0" fill="#0d210d" />
@@ -105,6 +145,7 @@ function DashboardMockup() {
         <rect key={i}
           x={154 + i * 30} y={260 - h * 70} width="18" height={h * 70}
           rx="3" fill={i === 0 ? '#A8C800' : '#0A3D1F'} fillOpacity={0.7 + i * 0.05}
+          className="mk-bar" style={{ animationDelay: `${300 + i * 110}ms` }}
         />
       ))}
       <text x="150" y="283" fill={C.muted} fontSize="7" fontFamily="system-ui">5  10  15  20  25  30 cm</text>
@@ -139,7 +180,7 @@ function DashboardMockup() {
       <circle cx="170" cy="330" r="28" fill="none" stroke="#e5e7eb" strokeWidth="7" />
       <circle cx="170" cy="330" r="28" fill="none" stroke="#A8C800" strokeWidth="7"
         strokeDasharray="175.9" strokeDashoffset="23" strokeLinecap="round"
-        transform="rotate(-90 170 330)" />
+        transform="rotate(-90 170 330)" className="mk-ring" />
       <text x="170" y="326" fill="#1a2e1a" fontSize="12" fontWeight="700"
         textAnchor="middle" fontFamily="system-ui">87</text>
       <text x="170" y="338" fill={C.muted} fontSize="7" textAnchor="middle"
@@ -159,7 +200,8 @@ function DashboardMockup() {
             {item.label}
           </text>
           <rect x="460" y={310 + i * 16} width="110" height="7" rx="3" fill="#e5e7eb" />
-          <rect x="460" y={310 + i * 16} width={item.v * 1.1} height="7" rx="3" fill="#A8C800" />
+          <rect x="460" y={310 + i * 16} width={item.v * 1.1} height="7" rx="3" fill="#A8C800"
+            className="mk-prog" style={{ animationDelay: `${700 + i * 150}ms` }} />
         </g>
       ))}
     </svg>
@@ -226,9 +268,18 @@ export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [verTodasFunc, setVerTodasFunc] = useState(false);
+  const [bioAberta, setBioAberta] = useState(false);
+  const [planoSel, setPlanoSel] = useState(() => (PLANOS.find(p => p.destaque) ?? PLANOS[0]).id);
+  const [ctaFixo, setCtaFixo] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
+    const onScroll = () => {
+      setScrolled(window.scrollY > 40);
+      // Botão fixo no celular: aparece depois da abertura e some perto do fim da página
+      const fim = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+      setCtaFixo(window.scrollY > window.innerHeight * 0.8 && fim > 700);
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -370,16 +421,9 @@ export default function LandingPage() {
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-6 mb-10">
-                {[
-                  { value: '100%', label: 'Cálculos automáticos' },
-                  { value: '12+', label: 'Tabelas técnicas' },
-                  { value: '< 1 min', label: 'Processamento' },
-                ].map(s => (
-                  <div key={s.label}>
-                    <p className="text-2xl font-bold" style={{ color: C.lime }}>{s.value}</p>
-                    <p className="text-white/50 text-xs mt-0.5 leading-snug">{s.label}</p>
-                  </div>
-                ))}
+                <AnimatedStat to={100} suffix="%" label="Cálculos automáticos" />
+                <AnimatedStat to={12} suffix="+" label="Tabelas técnicas" />
+                <AnimatedStat prefix="< " to={1} suffix=" min" label="Processamento" />
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4">
@@ -392,7 +436,7 @@ export default function LandingPage() {
                   Começar grátis
                 </button>
                 <button
-                  onClick={() => window.open('https://wa.me/5583991144456', '_blank')}
+                  onClick={() => abrirWhats('Olá! Vim pelo site do AMBISAFE e quero saber mais.')}
                   className="px-8 py-3.5 rounded-full font-bold text-sm border-2 text-white hover:bg-white/10 transition-all"
                   style={{ borderColor: 'rgba(255,255,255,0.3)' }}
                 >
@@ -656,7 +700,7 @@ export default function LandingPage() {
               'Exportação em PDF, Word (.docx) editável e Excel',
               'Dados isolados por empresa com RLS — total privacidade',
             ].map((feat, i) => (
-              <Reveal key={feat} delay={(i % 6) * 60}>
+              <Reveal key={feat} delay={(i % 6) * 60} className={i >= 6 && !verTodasFunc ? 'hidden sm:block' : ''}>
                 <div className="flex items-start gap-3 bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
                   <div
                     className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5"
@@ -671,7 +715,65 @@ export default function LandingPage() {
               </Reveal>
             ))}
           </div>
+          <div className="sm:hidden text-center mt-6">
+            <button
+              onClick={() => setVerTodasFunc(v => !v)}
+              className="px-6 py-3 rounded-full text-sm font-bold border-2 text-white active:scale-95 transition-transform"
+              style={{ borderColor: `${C.lime}70` }}
+            >
+              {verTodasFunc ? 'Mostrar menos' : 'Ver todas as 12 funcionalidades'}
+            </button>
+          </div>
         </div>
+      </section>
+
+      {/* ── APP NO CELULAR ──────────────────────────────────────────────── */}
+      <section className="py-24 overflow-hidden" style={{ backgroundColor: C.gray }}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-2 gap-12 items-center">
+          <Reveal className="order-2 md:order-1">
+            <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: C.lime }}>Novo · App no celular</p>
+            <h2 className="text-4xl font-bold mb-4" style={{ color: C.dark }}>Use no campo, pelo celular</h2>
+            <p className="text-lg mb-8" style={{ color: C.muted }}>
+              Instale o AMBISAFE na tela inicial do celular ou tablet e acesse seus inventários como um aplicativo, sem baixar nada em loja.
+            </p>
+            <ul className="space-y-3 mb-8">
+              {[
+                'Ícone na tela inicial e abertura em tela cheia',
+                'Navegação rápida pensada para o toque',
+                'Mesmos dados do computador, sempre sincronizados',
+                'Funciona em Android, iPhone e tablets',
+              ].map(item => (
+                <li key={item} className="flex items-start gap-3 text-sm" style={{ color: C.text }}>
+                  <svg className="w-5 h-5 mt-0.5 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="7" fill={C.lime} />
+                    <path d="M5 8l2 2 4-4" stroke={C.dark} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={goAuth}
+              className="w-full sm:w-auto px-8 py-3.5 rounded-full font-bold text-sm transition-all hover:opacity-90 active:scale-95"
+              style={{ backgroundColor: C.dark, color: C.white }}
+            >
+              Começar grátis e instalar
+            </button>
+            <p className="text-xs mt-3" style={{ color: C.muted }}>
+              No iPhone: toque em Compartilhar → Adicionar à Tela de Início.
+            </p>
+          </Reveal>
+          <Reveal delay={150} className="order-1 md:order-2 flex justify-center">
+            <div className="relative">
+              <div className="absolute inset-0 -m-10 rounded-full blur-3xl opacity-30" style={{ backgroundColor: C.lime }} />
+              <div className="relative w-[250px] sm:w-[280px] rounded-[44px] p-3 shadow-2xl phone-float" style={{ backgroundColor: '#111' }}>
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-6 rounded-b-2xl z-10" style={{ backgroundColor: '#111' }} />
+                <img src={appCelular} alt="Tela do app AMBISAFE no celular" loading="lazy" className="w-full rounded-[34px] block" />
+              </div>
+            </div>
+          </Reveal>
+        </div>
+        <style>{`.phone-float { animation: phone-float 6s ease-in-out infinite } @keyframes phone-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } } @media (prefers-reduced-motion: reduce) { .phone-float { animation: none } }`}</style>
       </section>
 
       {/* ── PLANOS ──────────────────────────────────────────────────────── */}
@@ -687,11 +789,24 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal>
+            {/* Celular: seletor de plano (um cartão por vez) */}
+            <div className="md:hidden grid grid-cols-4 gap-1 p-1 rounded-full mb-6 max-w-md mx-auto" style={{ backgroundColor: `${C.dark}10` }}>
+              {PLANOS.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setPlanoSel(p.id)}
+                  className="py-2.5 rounded-full text-xs font-bold transition-all"
+                  style={planoSel === p.id ? { backgroundColor: C.dark, color: C.white } : { color: C.dark }}
+                >
+                  {p.nome}
+                </button>
+              ))}
+            </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
               {PLANOS.map(plano => {
                 const isMensal = plano.id === 'mensal';
                 return (
-                  <div key={plano.id} className="relative rounded-3xl overflow-hidden shadow-2xl flex flex-col"
+                  <div key={plano.id + (planoSel === plano.id ? '-sel' : '')} className={`relative rounded-3xl overflow-hidden shadow-2xl flex-col ${planoSel === plano.id ? 'flex animate-in fade-in zoom-in-95 duration-300 md:animate-none' : 'hidden md:flex'}`}
                     style={{
                       backgroundColor: C.dark,
                       outline: plano.destaque ? `2px solid ${C.lime}` : undefined,
@@ -745,14 +860,14 @@ export default function LandingPage() {
 
                         <div>
                           <button
-                            onClick={isMensal ? goAuth : () => window.open('https://wa.me/5583991144456', '_blank')}
+                            onClick={isMensal ? goAuth : () => abrirWhats(`Olá! Quero assinar o plano ${plano.nome} do AMBISAFE (${plano.precoFormatado}/${plano.periodo}).`)}
                             className="w-full py-4 rounded-full font-bold text-sm transition-all hover:opacity-90 hover:scale-[1.02] active:scale-95"
                             style={{ backgroundColor: C.lime, color: C.dark }}
                           >
-                            {isMensal ? 'Começar Teste Grátis — 14 dias' : 'Assinar Agora'}
+                            {isMensal ? 'Começar Teste Grátis — 14 dias' : 'Assinar pelo WhatsApp'}
                           </button>
                           <p className="text-white/30 text-xs text-center mt-3">
-                            {isMensal ? 'Sem cartão de crédito. Cancele quando quiser.' : 'Fale com a gente pelo WhatsApp para assinar.'}
+                            {isMensal ? 'Sem cartão de crédito. Cancele quando quiser.' : 'A mensagem já vai pronta — é só enviar.'}
                           </p>
                         </div>
                       </div>
@@ -806,13 +921,14 @@ export default function LandingPage() {
                     Alisson Monteiro
                   </h3>
                   <p className="text-white/50 text-sm mb-6">Engenheiro Florestal — UFCG</p>
-                  <div className="space-y-3 text-white/75 text-sm leading-relaxed overflow-y-auto max-h-[32rem] pr-1">
+                  <div className="space-y-3 text-white/75 text-sm leading-relaxed md:overflow-y-auto md:max-h-[32rem] pr-1">
                     <p>
                       <strong className="text-white">Sou Alisson Monteiro</strong>, Engenheiro Florestal formado pela Universidade Federal de Campina Grande (UFCG), movido pela paixão por inovação, tecnologia e soluções práticas para o setor florestal.
                     </p>
                     <p>
                       Minha trajetória profissional começou antes mesmo da conclusão da graduação. Cerca de um ano e meio antes de me formar, já estava inserido no mercado de trabalho, atuando diretamente na área e adquirindo experiência prática. Essa vivência antecipada me permitiu desenvolver uma visão mais realista das demandas do setor e entender, na prática, os desafios enfrentados pelos profissionais que atuam na área.
                     </p>
+                    <div className={bioAberta ? 'space-y-3' : 'hidden md:block space-y-3'}>
                     <p>
                       Concluí minha graduação em 2023 e, desde então, sigo atuando de forma ativa no mercado, sempre buscando aprimorar processos e trazer mais eficiência para as atividades da engenharia florestal.
                     </p>
@@ -828,6 +944,14 @@ export default function LandingPage() {
                     <p>
                       Mais do que uma ferramenta, o AMBISAFE é o reflexo do meu compromisso com a modernização do setor florestal, trazendo tecnologia, praticidade e eficiência para o dia a dia dos profissionais.
                     </p>
+                    </div>
+                    <button
+                      onClick={() => setBioAberta(v => !v)}
+                      className="md:hidden text-sm font-bold underline underline-offset-4"
+                      style={{ color: C.lime }}
+                    >
+                      {bioAberta ? 'Ler menos' : 'Ler mais'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -912,7 +1036,7 @@ export default function LandingPage() {
                 Criar conta grátis
               </button>
               <button
-                onClick={() => window.open('https://wa.me/5583991144456', '_blank')}
+                onClick={() => abrirWhats('Olá! Vim pelo site do AMBISAFE e quero saber mais.')}
                 className="px-10 py-4 rounded-full font-bold text-base border-2 text-white hover:bg-white/10 transition-all"
                 style={{ borderColor: 'rgba(255,255,255,0.25)' }}
               >
@@ -924,7 +1048,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FOOTER ──────────────────────────────────────────────────────── */}
-      <footer className="py-10 border-t border-white/10" style={{ backgroundColor: C.dark }}>
+      <footer className="py-10 pb-28 md:pb-10 border-t border-white/10" style={{ backgroundColor: C.dark }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <img src={logoFull} alt="AMBISAFE" className="h-8 w-auto" />
@@ -948,6 +1072,54 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* ── Celular: botão fixo "Começar grátis" ── */}
+      <div
+        className="md:hidden fixed left-0 right-0 bottom-0 z-40 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] transition-transform duration-300"
+        style={{
+          transform: ctaFixo ? 'translateY(0)' : 'translateY(110%)',
+          backgroundColor: 'rgba(10,61,31,0.96)',
+          backdropFilter: 'blur(8px)',
+          boxShadow: '0 -8px 30px rgba(0,0,0,0.25)',
+        }}
+        aria-hidden={!ctaFixo}
+      >
+        <div className="flex gap-3">
+          <button
+            onClick={goLogin}
+            tabIndex={ctaFixo ? 0 : -1}
+            className="px-5 h-12 rounded-full font-bold text-sm border-2 text-white"
+            style={{ borderColor: 'rgba(255,255,255,0.3)' }}
+          >
+            Entrar
+          </button>
+          <button
+            onClick={goAuth}
+            tabIndex={ctaFixo ? 0 : -1}
+            className="flex-1 h-12 rounded-full font-bold text-sm active:scale-[0.98] transition-transform"
+            style={{ backgroundColor: C.lime, color: C.dark }}
+          >
+            Começar grátis — 14 dias
+          </button>
+        </div>
+      </div>
+
+      {/* ── Botão flutuante do WhatsApp ── */}
+      <a
+        href={waLink('Olá! Vim pelo site do AMBISAFE e quero saber mais.')}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Falar no WhatsApp"
+        className="fixed right-4 md:right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 hover:scale-105 active:scale-95"
+        style={{
+          backgroundColor: '#25D366',
+          bottom: ctaFixo ? 'calc(5.5rem + env(safe-area-inset-bottom))' : 'calc(1.25rem + env(safe-area-inset-bottom))',
+        }}
+      >
+        <svg viewBox="0 0 32 32" className="w-7 h-7" fill="#fff" aria-hidden="true">
+          <path d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3zm0 23.4c-2.1 0-4.1-.6-5.9-1.7l-.4-.3-3.8 1.2 1.2-3.7-.3-.4c-1.2-1.8-1.8-3.8-1.8-5.9C5 10 9.9 5.3 16 5.3S27 10 27 15.8s-4.9 10.6-11 10.6zm6-7.9c-.3-.2-2-1-2.3-1.1-.3-.1-.5-.2-.8.2-.2.3-.9 1.1-1.1 1.3-.2.2-.4.3-.7.1-.3-.2-1.4-.5-2.7-1.6-1-.9-1.7-2-1.9-2.3-.2-.3 0-.5.1-.7l.5-.6c.2-.2.2-.4.3-.6.1-.2 0-.5 0-.6l-1-2.5c-.3-.7-.6-.6-.8-.6h-.7c-.2 0-.6.1-.9.4-.3.3-1.2 1.1-1.2 2.8s1.2 3.2 1.4 3.5c.2.2 2.4 3.6 5.8 5 .8.4 1.5.6 2 .7.8.3 1.6.2 2.2.1.7-.1 2-.8 2.3-1.6.3-.8.3-1.5.2-1.6-.1-.1-.3-.2-.6-.4z" />
+        </svg>
+      </a>
     </div>
   );
 }
