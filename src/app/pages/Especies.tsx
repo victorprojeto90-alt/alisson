@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { TableRowsSkeleton } from '../components/ui/skeletons';
 import { Search, Download, Leaf, Info, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -391,12 +392,7 @@ export default function Especies() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center text-gray-400">
-                      <Loader2 className="w-6 h-6 mx-auto mb-3 animate-spin" />
-                      <p className="text-sm">Buscando espécies...</p>
-                    </td>
-                  </tr>
+                  <TableRowsSkeleton rows={8} cols={5} />
                 ) : resultados.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-12 text-center text-gray-400">

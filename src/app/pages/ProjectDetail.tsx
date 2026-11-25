@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
+import { PageSkeleton } from '../components/ui/skeletons';
 import { useParams, useNavigate } from 'react-router';
 import { supabase } from '../lib/supabase';
 import { useCalculations } from '../hooks/useCalculations';
@@ -272,10 +273,7 @@ export default function ProjectDetail() {
 
   if (loading) {
     return (
-      <div className="p-8 text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#16A34A] mx-auto" />
-        <p className="text-gray-400 mt-3">Carregando projeto...</p>
-      </div>
+      <PageSkeleton />
     );
   }
 

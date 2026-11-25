@@ -17,12 +17,16 @@
 
     <style>
       /* Tela de abertura (aparece antes do app carregar) */
+      /* Só aparece no app instalado (tela cheia); no navegador fica escondida */
+      #splash { display: none; }
+      @media (display-mode: standalone), (display-mode: fullscreen) { #splash.app { display: flex; } }
+      html.ios-standalone #splash.app { display: flex; }
       #splash {
-        position: fixed; inset: 0; z-index: 9999;
-        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+        position: fixed; inset: 0; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
         background: radial-gradient(circle at 50% 40%, #0b5a1c 0%, #00420d 55%, #002a08 100%);
         transition: opacity .45s ease, visibility .45s ease;
       }
+      #splash.app { flex-direction: column; }
       #splash.hide { opacity: 0; visibility: hidden; }
       #splash .mark {
         width: 112px; height: 112px; border-radius: 28px; background: #00420d; overflow: hidden;
@@ -46,7 +50,11 @@
   </head>
 
   <body>
-    <div id="splash" aria-hidden="true">
+    <script>
+      // iPhone instalado na tela inicial
+      if (navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) document.documentElement.classList.add('ios-standalone');
+    </script>
+    <div id="splash" class="app" aria-hidden="true">
       <div class="mark"><img src="/icons/icon-192.png" alt="" /></div>
       <div class="name">AMBI<b>SAFE</b></div>
       <div class="bar"></div>

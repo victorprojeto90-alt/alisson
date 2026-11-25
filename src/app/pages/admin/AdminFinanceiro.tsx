@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, type CSSProperties } from 'react';
+import { PageSkeleton, StatsSkeleton } from '../../components/ui/skeletons';
 import { toast } from 'sonner';
 import {
   useEmpresasAdmin, EmpresaAdmin, PLANOS_PAGOS, PLANO_POR_ID, CORES_PIZZA,
@@ -178,9 +179,7 @@ export default function AdminFinanceiro() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <Loader2 className="animate-spin" size={32} color={cores.verde} />
-      </div>
+      <PageSkeleton />
     );
   }
 
@@ -210,9 +209,7 @@ export default function AdminFinanceiro() {
         {/* Cards reais */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
           {loadingAsaas ? (
-            <div style={{ ...cardStyle, gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', padding: 32 }}>
-              <Loader2 className="animate-spin" size={24} color={cores.verde} />
-            </div>
+            <div style={{ gridColumn: '1 / -1' }}><StatsSkeleton count={4} /></div>
           ) : (
             <>
               {statCard('Recebido', `R$ ${somaRecebidos.toFixed(2).replace('.', ',')}`, DollarSign, '#15803d', '#dcfce7', 'no período selecionado')}

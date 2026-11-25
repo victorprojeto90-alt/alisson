@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Bone, ListSkeleton } from '../components/ui/skeletons';
 import { useNavigate } from 'react-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,7 +16,6 @@ import {
   AlertTriangle,
   FileText,
   ChevronRight,
-  Loader2,
   RefreshCw,
 } from 'lucide-react';
 import OnboardingCard from '../components/help/OnboardingCard';
@@ -85,7 +85,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!empresa?.id) { setLoading(false); return; }
+    if (!empresa?.id) return; // perfil ainda carregando: mantém os blocos de carregamento
     loadProjetos();
   }, [empresa?.id, authLoading]);
 
@@ -247,7 +247,7 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
               <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center mb-3`}>
                 {stat.icon}
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              {loading ? <Bone className="h-7 w-16 mb-1" /> : <p className="text-2xl font-bold text-gray-900">{stat.value}</p>}
               <p className="text-xs text-gray-500 mt-0.5">{stat.title}</p>
               <p className="text-xs text-gray-400 mt-1">{stat.sub}</p>
             </CardContent>
@@ -267,10 +267,7 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="py-16 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-[#16A34A] mx-auto mb-3" />
-              <p className="text-gray-400 text-sm">Carregando projetos...</p>
-            </div>
+            <ListSkeleton rows={3} />
           ) : projetos.length === 0 ? (
             <div className="py-16 text-center border-2 border-dashed border-gray-200 rounded-xl">
               <Trees className="w-12 h-12 text-gray-300 mx-auto mb-4" />

@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
+import { PageSkeleton } from '../../components/ui/skeletons';
 import { supabase } from '../../lib/supabase';
 import {
   useEmpresasAdmin, PLANOS_PAGOS, PLANO_POR_ID, emTrialAtivo, cores, cardStyle,
 } from './adminShared';
 import {
   Building2, Crown, Clock, Ban, Trees, DollarSign, TrendingUp, XCircle,
-  AlertTriangle, MessageCircleQuestion, Loader2,
+  AlertTriangle, MessageCircleQuestion,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -89,9 +90,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <Loader2 className="animate-spin" size={32} color={cores.verde} />
-      </div>
+      <PageSkeleton />
     );
   }
 
