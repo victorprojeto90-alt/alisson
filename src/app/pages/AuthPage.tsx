@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { ArrowLeft, Eye, EyeOff, UserCheck, Briefcase, Mail, KeyRound } from 'lucide-react';
 import logoFull from '../../assets/ambisafe-logo-full2.png';
+import appCelular from '../../assets/app-celular.jpg';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { validarCpfCnpj, validarEmail } from '../lib/validators';
@@ -13,12 +14,58 @@ import { toast } from 'sonner';
 
 type TipoUsuario = 'pessoa_fisica' | 'empresa';
 
+// ─── Animação de entrada (após o login) — estilo aplicativo ─────────────────
+function EntradaOverlay({ origem, nome }: { origem: { x: number; y: number }; nome: string }) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6"
+      style={{ background: 'radial-gradient(circle at 50% 40%, #0b5a1c 0%, #00420d 55%, #002a08 100%)' }}
+      initial={{ clipPath: `circle(0px at ${origem.x}px ${origem.y}px)` }}
+      animate={{ clipPath: `circle(150vmax at ${origem.x}px ${origem.y}px)` }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.6, ease: [0.65, 0, 0.35, 1] }}
+    >
+      <motion.img
+        src="/icons/icon-192.png"
+        alt=""
+        className="w-24 h-24 rounded-[26px] shadow-2xl"
+        initial={{ scale: 0.4, opacity: 0, rotate: -8 }}
+        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+        transition={{ delay: 0.35, type: 'spring', stiffness: 260, damping: 18 }}
+      />
+      <motion.div
+        className="text-center"
+        initial={{ y: 14, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.55, duration: 0.4 }}
+      >
+        <p className="text-white text-xl font-bold">{nome ? `Olá, ${nome}!` : 'Bem-vindo!'}</p>
+        <p className="text-white/70 text-sm mt-1">Preparando seu painel…</p>
+      </motion.div>
+      <motion.div
+        className="w-32 h-1 rounded-full bg-white/15 overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.65 }}
+      >
+        <motion.div
+          className="h-full rounded-full bg-[#acd115]"
+          initial={{ width: '0%' }}
+          animate={{ width: '100%' }}
+          transition={{ delay: 0.7, duration: 0.9, ease: 'easeInOut' }}
+        />
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const {
     signIn, signUp, isPasswordRecovery, setIsPasswordRecovery,
     passwordRecoveryError, clearPasswordRecoveryError,
+    setEntrando,
   } = useAuth();
 
   const [isSignIn, setIsSignIn] = useState(searchParams.get('mode') !== 'register');
@@ -91,17 +138,33 @@ export default function AuthPage() {
     setTelefone(''); setCpfCnpj(''); setCidade(''); setEstadoUf('');
   };
 
+  const [entrada, setEntrada] = useState<{ x: number; y: number; nome: string } | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    // origem da animação: centro do botão de enviar
+    const btn = (e.currentTarget as HTMLFormElement).querySelector('button[type="submit"]');
+    const r = btn?.getBoundingClientRect();
+    const origem = r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 
     try {
       if (isSignIn) {
+        setEntrando(true);
         const { error } = await signIn(email, password);
         if (error) {
+          setEntrando(false);
           toast.error(error === 'Invalid login credentials' ? 'E-mail ou senha incorretos' : error);
         } else {
-          navigate('/app/dashboard');
+          const { data: { user: u } } = await supabase.auth.getUser();
+          const nome = String(u?.user_metadata?.name ?? '').split(' ')[0];
+          const destino = u?.email === 'admin@ambisafe.com.br' ? '/admin/dashboard' : '/app/dashboard';
+          const reduz = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+          setEntrada({ ...origem, nome });
+          setTimeout(() => {
+            navigate(destino, { replace: true });
+            setEntrando(false);
+          }, reduz ? 150 : 1650);
         }
       } else {
         if (!name.trim()) { toast.error('Informe seu nome'); return; }
@@ -174,16 +237,82 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#00420d] via-[#0B3D2E] to-[#16A34A]/80 flex flex-col md:items-center md:justify-center md:p-4 relative overflow-hidden">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#00420d] via-[#0B3D2E] to-[#16A34A]/80 flex flex-col md:flex-row relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/3 -right-1/3 w-[600px] h-[600px] rounded-full bg-[#16A34A]/10 blur-3xl" />
         <div className="absolute -bottom-1/3 -left-1/3 w-[500px] h-[500px] rounded-full bg-[#10B981]/10 blur-3xl" />
       </div>
 
-      <div className="relative w-full md:max-w-md flex-1 md:flex-none flex flex-col">
+      {/* Computador: painel da marca (esquerda) */}
+      <div className="hidden md:flex relative md:w-1/2 lg:w-[55%] flex-col justify-between p-10 lg:p-14 text-white">
+        <motion.button
+          onClick={() => navigate('/')}
+          className="self-start"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <img src={logoFull} alt="AMBISAFE" className="h-11 w-auto" />
+        </motion.button>
+
+        <div className="grid lg:grid-cols-[1fr_auto] gap-10 items-center">
+          <div>
+            <motion.h2
+              className="text-4xl lg:text-5xl font-bold leading-tight"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, duration: 0.6 }}
+            >
+              Seu inventário florestal calculado em <span className="text-[#acd115]">minutos</span>
+            </motion.h2>
+            <ul className="mt-8 space-y-4">
+              {[
+                'Fitossociologia e estatística 100% automáticas',
+                'Relatórios técnicos em PDF, Word e Excel',
+                'No escritório ou no campo, pelo celular',
+              ].map((item, idx) => (
+                <motion.li
+                  key={item}
+                  className="flex items-center gap-3 text-white/85"
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.35 + idx * 0.12, duration: 0.45 }}
+                >
+                  <span className="w-6 h-6 rounded-full bg-[#acd115] text-[#00420d] flex items-center justify-center text-xs font-black">✓</span>
+                  {item}
+                </motion.li>
+              ))}
+            </ul>
+          </div>
+          <motion.div
+            className="hidden lg:block relative"
+            initial={{ opacity: 0, y: 40, rotate: 4 }}
+            animate={{ opacity: 1, y: 0, rotate: 0 }}
+            transition={{ delay: 0.3, type: 'spring', stiffness: 120, damping: 16 }}
+          >
+            <div className="absolute inset-0 -m-8 rounded-full blur-3xl bg-[#acd115]/25" />
+            <div className="relative w-[230px] rounded-[40px] p-2.5 bg-[#111] shadow-2xl">
+              <img src={appCelular} alt="App AMBISAFE no celular" className="w-full rounded-[32px] block" />
+            </div>
+          </motion.div>
+        </div>
+
+        <motion.div
+          className="flex gap-3 text-xs text-white/70"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+        >
+          {['14 dias grátis', 'Sem cartão de crédito', 'Cancele quando quiser'].map(t => (
+            <span key={t} className="px-3 py-1.5 rounded-full bg-white/10">✓ {t}</span>
+          ))}
+        </motion.div>
+      </div>
+
+      <div className="relative w-full flex-1 flex flex-col md:w-1/2 lg:w-[45%] md:bg-white md:items-center md:justify-center md:px-10 md:py-10 md:min-h-[100dvh] md:overflow-y-auto">
         <button
           onClick={() => navigate('/')}
-          className="self-start flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm mb-2 md:mb-6 mx-5 md:mx-0 mt-[calc(env(safe-area-inset-top)+1rem)] md:mt-0"
+          className="self-start md:self-center md:w-full md:max-w-md flex items-center gap-2 text-white/70 hover:text-white md:text-gray-500 md:hover:text-gray-900 transition-colors text-sm mb-2 md:mb-8 mx-5 md:mx-0 mt-[calc(env(safe-area-inset-top)+1rem)] md:mt-0"
         >
           <ArrowLeft className="w-4 h-4" />
           Voltar para o início
@@ -191,7 +320,7 @@ export default function AuthPage() {
 
         {/* Logo fora do card, sobre o fundo verde */}
         <motion.div
-          className="flex flex-col items-center justify-center mb-6 md:mb-6 px-6 pt-6 pb-2 md:p-0"
+          className="md:hidden flex flex-col items-center justify-center mb-6 px-6 pt-6 pb-2"
           initial={{ opacity: 0, scale: 0.85, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.55, ease: [0.2, 0.9, 0.3, 1.1] }}
@@ -201,21 +330,21 @@ export default function AuthPage() {
         </motion.div>
 
         <motion.div
-          className="flex-1 md:flex-none flex flex-col"
+          className="flex-1 md:flex-none flex flex-col md:w-full md:max-w-md"
           initial={{ opacity: 0, y: 60 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 260, damping: 30, delay: 0.15 }}
         >
-        <Card className="shadow-2xl border-0 bg-white md:bg-white/95 backdrop-blur-sm flex-1 md:flex-none rounded-t-[28px] rounded-b-none md:rounded-xl pb-[env(safe-area-inset-bottom)]">
+        <Card className="auth-card shadow-2xl md:shadow-none border-0 bg-white flex-1 md:flex-none rounded-t-[28px] rounded-b-none md:rounded-none pb-[env(safe-area-inset-bottom)] md:p-0">
           <CardHeader className="space-y-4 pb-4">
-            <div className="text-center">
-              <CardTitle className="text-xl">
+            <div className="text-center md:text-left">
+              <CardTitle className="text-xl md:text-3xl md:font-bold">
                 {isPasswordRecovery ? 'Criar nova senha'
                   : isForgot ? 'Redefinir senha'
                   : isSignIn ? 'Bem-vindo de volta'
                   : 'Criar conta'}
               </CardTitle>
-              <CardDescription className="mt-1">
+              <CardDescription className="mt-1 md:mt-2 md:text-base">
                 {isPasswordRecovery ? 'Escolha uma senha segura para sua conta'
                   : isForgot ? 'Enviaremos um link para seu e-mail'
                   : isSignIn ? 'Entre com suas credenciais para acessar a plataforma'
@@ -271,7 +400,7 @@ export default function AuthPage() {
                 </div>
                 <Button
                   type="submit"
-                  className="w-full bg-[#00420d] hover:bg-[#0B3D2E] text-white h-12 md:h-auto md:py-2.5 rounded-xl md:rounded-md text-base md:text-sm font-semibold"
+                  className="w-full bg-[#00420d] hover:bg-[#0B3D2E] text-white h-12 rounded-xl text-base font-semibold"
                   disabled={loading}
                 >
                   {loading ? 'Salvando...' : 'Definir nova senha'}
@@ -304,7 +433,7 @@ export default function AuthPage() {
                 </div>
                 <Button
                   type="submit"
-                  className="w-full bg-[#00420d] hover:bg-[#0B3D2E] text-white h-12 md:h-auto md:py-2.5 rounded-xl md:rounded-md text-base md:text-sm font-semibold"
+                  className="w-full bg-[#00420d] hover:bg-[#0B3D2E] text-white h-12 rounded-xl text-base font-semibold"
                   disabled={loading}
                 >
                   {loading ? 'Enviando...' : 'Enviar link de redefinição'}
@@ -391,7 +520,7 @@ export default function AuthPage() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-2">
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-gray-700">
                         {tipoUsuario === 'empresa'
@@ -493,7 +622,7 @@ export default function AuthPage() {
 
               <Button
                 type="submit"
-                className="w-full bg-[#00420d] hover:bg-[#0B3D2E] text-white h-12 md:h-auto md:py-2.5 mt-2 md:mt-1 rounded-xl md:rounded-md text-base md:text-sm font-semibold active:scale-[0.98] transition-transform"
+                className="w-full bg-[#00420d] hover:bg-[#0B3D2E] text-white h-12 mt-2 rounded-xl text-base font-semibold active:scale-[0.98] transition-transform"
                 disabled={loading}
               >
                 {loading
@@ -527,16 +656,11 @@ export default function AuthPage() {
         </Card>
         </motion.div>
 
-        {!isSignIn && (
-          <div className="hidden md:grid mt-6 grid-cols-3 gap-2 text-center">
-            {['14 dias grátis', 'Sem cartão', 'Cancele quando quiser'].map((item) => (
-              <div key={item} className="bg-white/10 rounded-lg px-3 py-2">
-                <p className="text-white text-xs">✓ {item}</p>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
+
+      <AnimatePresence>
+        {entrada && <EntradaOverlay origem={entrada} nome={entrada.nome} />}
+      </AnimatePresence>
     </div>
   );
 }

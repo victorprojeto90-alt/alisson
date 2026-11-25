@@ -13,3 +13,6 @@ body { overscroll-behavior-y: none; }
   body { user-select: none; -webkit-user-select: none; }
   input, textarea, [contenteditable] { user-select: text; -webkit-user-select: text; }
 }
+
+/* Login/cadastro: campos estilo app também no computador */
+.auth-card input:not([type="checkbox"]):not([type="radio"]) { min-height: 46px; border-radius: 12px; }

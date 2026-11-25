@@ -78,6 +78,9 @@ interface AuthContextType {
   // true entre o clique no link de recuperação de senha (evento PASSWORD_RECOVERY) e a
   // troca de senha ser concluída — enquanto true, rotas públicas não devem redirecionar
   // o usuário para dentro do app só porque uma sessão (temporária, de recovery) existe.
+  // true durante a animação de entrada após o login (mantém a tela de login visível até terminar)
+  entrando: boolean;
+  setEntrando: (value: boolean) => void;
   isPasswordRecovery: boolean;
   setIsPasswordRecovery: (value: boolean) => void;
   // Preenchido quando o link de recuperação chega expirado/já utilizado (Supabase
@@ -102,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => readRecoveryStateFromUrl().isRecovery);
   const [passwordRecoveryError, setPasswordRecoveryError] = useState(() => readRecoveryStateFromUrl().error);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [entrando, setEntrando] = useState(false);
   const [blockReason, setBlockReason] = useState<string | null>(null);
 
   // Avalia se a empresa deve estar bloqueada. A decisão definitiva é do servidor
@@ -238,6 +242,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isPasswordRecovery,
       setIsPasswordRecovery,
+      entrando,
+      setEntrando,
       passwordRecoveryError,
       clearPasswordRecoveryError,
       isBlocked,

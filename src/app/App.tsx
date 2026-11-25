@@ -67,8 +67,10 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, isPasswordRecovery } = useAuth();
+  const { user, loading, isPasswordRecovery, entrando } = useAuth();
   if (loading) return null;
+  // Durante a animação de entrada a tela de login continua montada até a animação terminar.
+  if (entrando) return <>{children}</>;
   // Durante o fluxo de recuperação de senha o Supabase cria uma sessão temporária
   // (evento PASSWORD_RECOVERY) só para permitir a troca — não deve ser tratada como um
   // login normal, senão o usuário é redirecionado para o dashboard antes de conseguir
