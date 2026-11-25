@@ -700,7 +700,7 @@ export default function LandingPage() {
               'Exportação em PDF, Word (.docx) editável e Excel',
               'Dados isolados por empresa com RLS — total privacidade',
             ].map((feat, i) => (
-              <Reveal key={feat} delay={(i % 6) * 60} className={i >= 6 && !verTodasFunc ? 'hidden sm:block' : ''}>
+              <Reveal key={feat} delay={(i % 6) * 60} className={i >= 6 && !verTodasFunc ? 'hidden' : ''}>
                 <div className="flex items-start gap-3 bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
                   <div
                     className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5"
@@ -715,7 +715,7 @@ export default function LandingPage() {
               </Reveal>
             ))}
           </div>
-          <div className="sm:hidden text-center mt-6">
+          <div className="text-center mt-8">
             <button
               onClick={() => setVerTodasFunc(v => !v)}
               className="px-6 py-3 rounded-full text-sm font-bold border-2 text-white active:scale-95 transition-transform"
@@ -790,7 +790,7 @@ export default function LandingPage() {
 
           <Reveal>
             {/* Celular: seletor de plano (um cartão por vez) */}
-            <div className="md:hidden grid grid-cols-4 gap-1 p-1 rounded-full mb-6 max-w-md mx-auto" style={{ backgroundColor: `${C.dark}10` }}>
+            <div className="grid grid-cols-4 gap-1 p-1 rounded-full mb-8 max-w-md mx-auto" style={{ backgroundColor: `${C.dark}10` }}>
               {PLANOS.map(p => (
                 <button
                   key={p.id}
@@ -802,11 +802,11 @@ export default function LandingPage() {
                 </button>
               ))}
             </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
+            <div className="max-w-md mx-auto">
               {PLANOS.map(plano => {
                 const isMensal = plano.id === 'mensal';
                 return (
-                  <div key={plano.id + (planoSel === plano.id ? '-sel' : '')} className={`relative rounded-3xl overflow-hidden shadow-2xl flex-col ${planoSel === plano.id ? 'flex animate-in fade-in zoom-in-95 duration-300 md:animate-none' : 'hidden md:flex'}`}
+                  <div key={plano.id + (planoSel === plano.id ? '-sel' : '')} className={`relative rounded-3xl overflow-hidden shadow-2xl flex-col ${planoSel === plano.id ? 'flex animate-in fade-in zoom-in-95 duration-300' : 'hidden'}`}
                     style={{
                       backgroundColor: C.dark,
                       outline: plano.destaque ? `2px solid ${C.lime}` : undefined,
@@ -921,14 +921,14 @@ export default function LandingPage() {
                     Alisson Monteiro
                   </h3>
                   <p className="text-white/50 text-sm mb-6">Engenheiro Florestal — UFCG</p>
-                  <div className="space-y-3 text-white/75 text-sm leading-relaxed md:overflow-y-auto md:max-h-[32rem] pr-1">
+                  <div className="space-y-3 text-white/75 text-sm leading-relaxed pr-1">
                     <p>
                       <strong className="text-white">Sou Alisson Monteiro</strong>, Engenheiro Florestal formado pela Universidade Federal de Campina Grande (UFCG), movido pela paixão por inovação, tecnologia e soluções práticas para o setor florestal.
                     </p>
                     <p>
                       Minha trajetória profissional começou antes mesmo da conclusão da graduação. Cerca de um ano e meio antes de me formar, já estava inserido no mercado de trabalho, atuando diretamente na área e adquirindo experiência prática. Essa vivência antecipada me permitiu desenvolver uma visão mais realista das demandas do setor e entender, na prática, os desafios enfrentados pelos profissionais que atuam na área.
                     </p>
-                    <div className={bioAberta ? 'space-y-3' : 'hidden md:block space-y-3'}>
+                    <div className={bioAberta ? 'space-y-3' : 'hidden'}>
                     <p>
                       Concluí minha graduação em 2023 e, desde então, sigo atuando de forma ativa no mercado, sempre buscando aprimorar processos e trazer mais eficiência para as atividades da engenharia florestal.
                     </p>
@@ -947,7 +947,7 @@ export default function LandingPage() {
                     </div>
                     <button
                       onClick={() => setBioAberta(v => !v)}
-                      className="md:hidden text-sm font-bold underline underline-offset-4"
+                      className="self-start text-sm font-bold underline underline-offset-4"
                       style={{ color: C.lime }}
                     >
                       {bioAberta ? 'Ler menos' : 'Ler mais'}
