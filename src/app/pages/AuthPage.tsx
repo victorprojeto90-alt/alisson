@@ -108,15 +108,28 @@ export default function AuthPage() {
         if (tipoUsuario === 'empresa' && !companyName.trim()) {
           toast.error('Informe o nome da empresa'); return;
         }
-        // Todos os dados são obrigatórios (menos CPF/CNPJ) — servem para organizar os clientes.
+        // Todos os dados são obrigatórios — servem para organizar os clientes.
         if (telefone.replace(/\D/g, '').length < 10) { toast.error('Informe um telefone válido com DDD'); return; }
         if (!cidade.trim()) { toast.error('Informe sua cidade'); return; }
         if (!/^[A-Za-z]{2}$/.test(estadoUf.trim())) { toast.error('Informe a UF (ex: PB)'); return; }
         if (!validarEmail(email)) { toast.error('E-mail inválido.'); return; }
         if (password.length < 6) { toast.error('Senha deve ter pelo menos 6 caracteres'); return; }
-        // CPF/CNPJ é opcional — só valida o dígito verificador se algo foi digitado.
-        if (cpfCnpj.trim() && !validarCpfCnpj(cpfCnpj)) {
+        // CPF/CNPJ obrigatório e com dígito verificador válido.
+        if (!cpfCnpj.trim()) {
+          toast.error(`Informe o ${tipoUsuario === 'empresa' ? 'CNPJ' : 'CPF'}`);
+          return;
+        }
+        if (!validarCpfCnpj(cpfCnpj)) {
           toast.error(`${tipoUsuario === 'empresa' ? 'CNPJ' : 'CPF'} inválido. Verifique os dígitos.`);
+          return;
+        }
+
+        // Um CPF/CNPJ por conta: impede repetir o teste grátis e é usado na cobrança (Asaas)
+        const docLabel = tipoUsuario === 'empresa' ? 'CNPJ' : 'CPF';
+        const msgDocUsado = `Este ${docLabel} já possui cadastro. Entre com sua conta ou use "Esqueceu a senha?".`;
+        const { data: disponivel, error: erroDoc } = await supabase.rpc('documento_disponivel', { p_doc: cpfCnpj });
+        if (!erroDoc && disponivel === false) {
+          toast.error(msgDocUsado);
           return;
         }
 
@@ -126,7 +139,7 @@ export default function AuthPage() {
           { tipoUsuario, telefone, cpfCnpj, cidade, estadoUf }
         );
         if (error) {
-          toast.error(error);
+          toast.error(/database error|DOCUMENTO_JA_CADASTRADO/i.test(error) ? msgDocUsado : error);
         } else {
           toast.success('Conta criada! Faça login para continuar.');
           setIsSignIn(true);
@@ -382,12 +395,13 @@ export default function AuthPage() {
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-gray-700">
                         {tipoUsuario === 'empresa'
-                          ? <span>CNPJ <span className="text-gray-400 font-normal">(opcional)</span></span>
-                          : <span>CPF <span className="text-gray-400 font-normal">(opcional)</span></span>
+                          ? <span>CNPJ *</span>
+                          : <span>CPF *</span>
                         }
                       </label>
                       <Input
-                        placeholder={tipoUsuario === 'empresa' ? 'CNPJ (opcional)' : 'CPF (opcional)'}
+                        required
+                        placeholder={tipoUsuario === 'empresa' ? '00.000.000/0000-00' : '000.000.000-00'}
                         value={cpfCnpj}
                         onChange={e => setCpfCnpj(formatCpfCnpj(e.target.value))}
                         maxLength={tipoUsuario === 'empresa' ? 18 : 14}
