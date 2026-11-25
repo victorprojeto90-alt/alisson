@@ -1,19 +1,14 @@
 /* eslint-disable */
 // @ts-nocheck
-// This file runs on Deno (Supabase Edge Functions) — TS errors from the local
-// Node/browser checker are expected and can be safely ignored.
-//
-// Job agendado (NÃO roda sozinho): precisa de um cron externo chamando esta
-// função periodicamente — via pg_cron + pg_net (SQL, ver comentário no final
-// deste arquivo) ou pelo agendador de Edge Functions no painel do Supabase.
-// Faz duas coisas:
-//   1. Gera/atualiza um alerta em `billing_alerts` para assinantes pagantes
-//      cujo `plan_expires_at` cai nos próximos 10 dias.
-//   2. Bloqueia (`is_blocked = true`) assinantes pagantes cujo `plan_expires_at`
-//      já passou e o Asaas não confirmou pagamento (nenhum webhook atualizou
-//      isso antes) — rede de segurança, não o mecanismo principal de bloqueio
-//      (que é o webhook PAYMENT_OVERDUE em supabase/functions/asaas-webhook).
+// Job agendado diário (pg_cron 'billing-scheduler-daily', 11:00 UTC).
+// Autenticação: header x-cron-secret conferido contra private.app_secrets
+// via RPC public.verificar_cron_secret (só service_role executa).
+//   1. Alerta em billing_alerts para pagantes que vencem em até 10 dias.
+//   2. Bloqueia pagantes vencidos sem pagamento confirmado.
+//   3. Bloqueia trials expirados.
+//   4. Envia os e-mails de cobrança/recuperação (Resend), registrados em billing_emails.
 import { createClient } from 'npm:@supabase/supabase-js';
+import { conteudoEmail, enviarEmail, type TipoEmail } from './emails.ts';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -129,30 +124,119 @@ Deno.serve(async (req) => {
     console.log(`Trial expirado — empresa ${e.name} bloqueada`);
   }
 
+  // 4. E-mails de cobrança (só envia se RESEND_API_KEY estiver configurada)
+  const emailsEnviados = await processarEmails(agora);
+
   return new Response(JSON.stringify({
     alertasGerados,
     bloqueadas,
     trialsBloqueados: trialsVencidos?.length ?? 0,
+    emailsEnviados,
   }), {
     headers: { 'Content-Type': 'application/json' },
   });
 });
 
 // ============================================================================
-// Como agendar (rodar manualmente no SQL Editor do Supabase, depois de fazer
-// deploy desta função com `supabase functions deploy billing-scheduler`):
-//
-// select cron.schedule(
-//   'billing-scheduler-diario',
-//   '0 9 * * *', -- todo dia às 09:00 UTC
-//   $$
-//   select net.http_post(
-//     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/billing-scheduler',
-//     headers := jsonb_build_object('Authorization', 'Bearer <SERVICE_ROLE_KEY>')
-//   );
-//   $$
-// );
-//
-// Requer as extensões pg_cron e pg_net habilitadas no projeto (Database →
-// Extensions no painel do Supabase).
+// E-mails de cobrança
 // ============================================================================
+const DIA = 24 * 60 * 60 * 1000;
+const RECUPERACAO: { dias: number; tipo: TipoEmail }[] = [
+  { dias: 60, tipo: 'recuperacao_60d' },
+  { dias: 30, tipo: 'recuperacao_30d' },
+  { dias: 15, tipo: 'recuperacao_15d' },
+  { dias: 7, tipo: 'recuperacao_7d' },
+  { dias: 3, tipo: 'recuperacao_3d' },
+];
+
+async function processarEmails(agora: Date): Promise<number> {
+  if (!Deno.env.get('RESEND_API_KEY')) {
+    console.log('E-mails de cobrança: RESEND_API_KEY não configurada — nada enviado.');
+    return 0;
+  }
+
+  const { data: empresas, error } = await supabase
+    .from('empresas')
+    .select('id, name, owner_id, plan_type, trial_ends_at, plan_expires_at, is_blocked, block_reason');
+  if (error) {
+    console.error('E-mails: falha ao listar empresas:', error.message);
+    return 0;
+  }
+
+  let enviados = 0;
+  for (const e of empresas ?? []) {
+    try {
+      const diaDe = (iso: string | null) => (iso ? iso.slice(0, 10) : 'sem-data');
+      const diasAte = (iso: string) => Math.ceil((new Date(iso).getTime() - agora.getTime()) / DIA);
+
+      if (!e.is_blocked && e.plan_type === 'trial' && e.trial_ends_at) {
+        const dias = diasAte(e.trial_ends_at);
+        if (dias > 0 && dias <= 3 && await disparar(e, 'trial_3d', diaDe(e.trial_ends_at), { dias })) enviados++;
+      }
+
+      if (!e.is_blocked && PLANOS_PAGOS.includes(e.plan_type) && e.plan_expires_at) {
+        const dias = diasAte(e.plan_expires_at);
+        const valor = PRECO_POR_PLANO[e.plan_type] ?? null;
+        if (dias >= 4 && dias <= 10 && await disparar(e, 'venc_10d', diaDe(e.plan_expires_at), { dias, valor })) enviados++;
+        if (dias >= 1 && dias <= 3 && await disparar(e, 'venc_3d', diaDe(e.plan_expires_at), { dias, valor })) enviados++;
+      }
+
+      if (e.is_blocked) {
+        const trial = e.block_reason === 'Trial expirado';
+        const tipo: TipoEmail = trial ? 'trial_expirado' : 'bloqueio';
+        const ref = trial ? diaDe(e.trial_ends_at) : diaDe(e.plan_expires_at);
+        if (await disparar(e, tipo, ref)) enviados++;
+
+        // Sequência de recuperação (até 60 dias), contada a partir do e-mail de bloqueio mais recente
+        const { data: ancora } = await supabase
+          .from('billing_emails')
+          .select('id, created_at')
+          .eq('empresa_id', e.id)
+          .in('tipo', ['bloqueio', 'trial_expirado'])
+          .eq('status', 'enviado')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (ancora) {
+          const diasBloqueado = Math.floor((agora.getTime() - new Date(ancora.created_at).getTime()) / DIA);
+          const etapa = RECUPERACAO.find((r) => diasBloqueado >= r.dias);
+          if (etapa && await disparar(e, etapa.tipo, ancora.id)) enviados++;
+        }
+      }
+    } catch (err) {
+      console.error(`E-mails: erro na empresa ${e.name}:`, err);
+    }
+  }
+  return enviados;
+}
+
+async function disparar(
+  e: { id: string; name: string; owner_id: string },
+  tipo: TipoEmail,
+  referencia: string,
+  extra: { dias?: number; valor?: number | null } = {},
+): Promise<boolean> {
+  const { data: existente } = await supabase
+    .from('billing_emails')
+    .select('id')
+    .eq('empresa_id', e.id)
+    .eq('tipo', tipo)
+    .eq('referencia', referencia)
+    .maybeSingle();
+  if (existente) return false;
+
+  const { data: dono } = await supabase.auth.admin.getUserById(e.owner_id);
+  const email = dono?.user?.email;
+  if (!email) return false;
+
+  const resultado = await enviarEmail(email, conteudoEmail(tipo, e.name, extra));
+  if (!resultado.ok) {
+    // Não grava: tenta de novo na próxima execução.
+    console.error(`E-mail ${tipo} para ${e.name} falhou:`, resultado.erro);
+    return false;
+  }
+
+  await supabase.from('billing_emails').insert({ empresa_id: e.id, tipo, referencia, email, status: 'enviado' });
+  console.log(`E-mail ${tipo} enviado para ${e.name}`);
+  return true;
+}

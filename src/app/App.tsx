@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/sonner';
@@ -6,19 +7,29 @@ import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import AppLayout from './components/layout/AppLayout';
 import AdminLayout from './components/layout/AdminLayout';
-import Dashboard from './pages/Dashboard';
-import ProjectNew from './pages/ProjectNew';
-import ProjectDetail from './pages/ProjectDetail';
-import Configuracoes from './pages/Configuracoes';
-import Relatorios from './pages/Relatorios';
-import Projetos from './pages/Projetos';
-import Especies from './pages/Especies';
-import FAQ from './pages/FAQ';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminClientes from './pages/admin/AdminClientes';
-import AdminFinanceiro from './pages/admin/AdminFinanceiro';
-import TermosDeUso from './pages/TermosDeUso';
-import Privacidade from './pages/Privacidade';
+
+// Páginas internas carregadas sob demanda (app abre mais rápido no celular)
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const ProjectNew = lazy(() => import('./pages/ProjectNew'));
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
+const Configuracoes = lazy(() => import('./pages/Configuracoes'));
+const Relatorios = lazy(() => import('./pages/Relatorios'));
+const Projetos = lazy(() => import('./pages/Projetos'));
+const Especies = lazy(() => import('./pages/Especies'));
+const FAQ = lazy(() => import('./pages/FAQ'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminClientes = lazy(() => import('./pages/admin/AdminClientes'));
+const AdminFinanceiro = lazy(() => import('./pages/admin/AdminFinanceiro'));
+const TermosDeUso = lazy(() => import('./pages/TermosDeUso'));
+const Privacidade = lazy(() => import('./pages/Privacidade'));
+
+function PageLoader() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 // admin@ambisafe.com.br é o único superadmin — mesmo critério já usado em
 // Sidebar.tsx ("Admin Supremo") e no backend (supabase/functions/server/index.tsx,
@@ -77,6 +88,7 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/termos-de-uso" element={<TermosDeUso />} />
@@ -113,6 +125,7 @@ function AppRoutes() {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   );
 }
 
