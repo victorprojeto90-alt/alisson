@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -156,27 +157,39 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0B3D2E] via-[#0B3D2E]/95 to-[#16A34A]/80 flex items-center justify-center p-4">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#00420d] via-[#0B3D2E] to-[#16A34A]/80 flex flex-col md:items-center md:justify-center md:p-4 relative overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-1/3 -right-1/3 w-[600px] h-[600px] rounded-full bg-[#16A34A]/10 blur-3xl" />
         <div className="absolute -bottom-1/3 -left-1/3 w-[500px] h-[500px] rounded-full bg-[#10B981]/10 blur-3xl" />
       </div>
 
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full md:max-w-md flex-1 md:flex-none flex flex-col">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm mb-6"
+          className="self-start flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm mb-2 md:mb-6 mx-5 md:mx-0 mt-[calc(env(safe-area-inset-top)+1rem)] md:mt-0"
         >
           <ArrowLeft className="w-4 h-4" />
           Voltar para o início
         </button>
 
         {/* Logo fora do card, sobre o fundo verde */}
-        <div className="flex justify-center mb-6">
+        <motion.div
+          className="flex flex-col items-center justify-center mb-6 md:mb-6 px-6 pt-6 pb-2 md:p-0"
+          initial={{ opacity: 0, scale: 0.85, y: -10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.55, ease: [0.2, 0.9, 0.3, 1.1] }}
+        >
           <img src={logoFull} alt="AMBISAFE" style={{ height: '56px', width: 'auto', objectFit: 'contain' }} />
-        </div>
+          <p className="md:hidden text-white/75 text-sm mt-3 text-center">Inventário florestal inteligente</p>
+        </motion.div>
 
-        <Card className="shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
+        <motion.div
+          className="flex-1 md:flex-none flex flex-col"
+          initial={{ opacity: 0, y: 60 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 30, delay: 0.15 }}
+        >
+        <Card className="shadow-2xl border-0 bg-white md:bg-white/95 backdrop-blur-sm flex-1 md:flex-none rounded-t-[28px] rounded-b-none md:rounded-xl pb-[env(safe-area-inset-bottom)]">
           <CardHeader className="space-y-4 pb-4">
             <div className="text-center">
               <CardTitle className="text-xl">
@@ -241,7 +254,7 @@ export default function AuthPage() {
                 </div>
                 <Button
                   type="submit"
-                  className="w-full bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white h-auto py-2.5"
+                  className="w-full bg-[#00420d] hover:bg-[#0B3D2E] text-white h-12 md:h-auto md:py-2.5 rounded-xl md:rounded-md text-base md:text-sm font-semibold"
                   disabled={loading}
                 >
                   {loading ? 'Salvando...' : 'Definir nova senha'}
@@ -274,7 +287,7 @@ export default function AuthPage() {
                 </div>
                 <Button
                   type="submit"
-                  className="w-full bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white h-auto py-2.5"
+                  className="w-full bg-[#00420d] hover:bg-[#0B3D2E] text-white h-12 md:h-auto md:py-2.5 rounded-xl md:rounded-md text-base md:text-sm font-semibold"
                   disabled={loading}
                 >
                   {loading ? 'Enviando...' : 'Enviar link de redefinição'}
@@ -457,7 +470,7 @@ export default function AuthPage() {
 
               <Button
                 type="submit"
-                className="w-full bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white py-2.5 h-auto mt-1"
+                className="w-full bg-[#00420d] hover:bg-[#0B3D2E] text-white h-12 md:h-auto md:py-2.5 mt-2 md:mt-1 rounded-xl md:rounded-md text-base md:text-sm font-semibold active:scale-[0.98] transition-transform"
                 disabled={loading}
               >
                 {loading
@@ -489,9 +502,10 @@ export default function AuthPage() {
             )}
           </CardContent>
         </Card>
+        </motion.div>
 
         {!isSignIn && (
-          <div className="mt-6 grid grid-cols-3 gap-2 text-center">
+          <div className="hidden md:grid mt-6 grid-cols-3 gap-2 text-center">
             {['14 dias grátis', 'Sem cartão', 'Cancele quando quiser'].map((item) => (
               <div key={item} className="bg-white/10 rounded-lg px-3 py-2">
                 <p className="text-white text-xs">✓ {item}</p>

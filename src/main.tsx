@@ -5,6 +5,24 @@ import App from './app/App.tsx';
 import { ErrorBoundary } from './app/components/ErrorBoundary';
 import logoFull from './assets/ambisafe-logo-full2.png';
 import './styles/index.css';
+import { registerSW } from 'virtual:pwa-register';
+
+// Service worker do app instalável (atualiza sozinho quando há versão nova)
+if ('serviceWorker' in navigator) {
+  registerSW({ immediate: true });
+}
+
+// Esconde a tela de abertura depois que o app montou (mínimo de 900ms para a animação)
+const splashInicio = performance.now();
+function esconderSplash() {
+  const el = document.getElementById('splash');
+  if (!el) return;
+  const espera = Math.max(0, 900 - (performance.now() - splashInicio));
+  setTimeout(() => {
+    el.classList.add('hide');
+    setTimeout(() => el.remove(), 500);
+  }, espera);
+}
 
 // Tela de erro global (tela branca → tela de erro amigável)
 function GlobalFallback() {
@@ -55,3 +73,5 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>
 );
+
+requestAnimationFrame(() => esconderSplash());

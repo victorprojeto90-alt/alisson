@@ -316,7 +316,7 @@ export default function Projetos() {
             <h3 className="text-lg font-bold text-gray-900 text-center mb-2">Excluir Projeto</h3>
             <p className="text-gray-500 text-sm text-center mb-6">
               Tem certeza que deseja excluir o projeto{' '}
-              <strong className="text-gray-900">"{deleteTarget.nome}"</strong>?{' '}
+              <strong className="text-gray-900">&ldquo;{deleteTarget.nome}&rdquo;</strong>?{' '}
               Esta ação não pode ser desfeita.
             </p>
             <div className="flex gap-3">

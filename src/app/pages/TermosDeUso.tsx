@@ -73,7 +73,7 @@ export default function TermosDeUso() {
                 1. Aceitação dos Termos
               </h2>
               <p>
-                Ao acessar ou utilizar a plataforma AMBISAFE (doravante "Plataforma"), disponível
+                Ao acessar ou utilizar a plataforma AMBISAFE (doravante &ldquo;Plataforma&rdquo;), disponível
                 em <strong>meuambisafe.com.br</strong>, o usuário declara ter lido, compreendido e
                 aceito integralmente os presentes Termos de Uso, bem como nossa{' '}
                 <Link to="/privacidade" className="underline" style={{ color: C.dark }}>

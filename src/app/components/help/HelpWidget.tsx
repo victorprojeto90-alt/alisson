@@ -195,7 +195,7 @@ export default function HelpWidget() {
       {/* Floating Button */}
       <button
         onClick={toggleOpen}
-        className="fixed bottom-6 right-6 z-50 w-13 h-13 w-[52px] h-[52px] bg-[#16A34A] hover:bg-[#15803d] text-white rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6 z-30 md:z-50 w-[52px] h-[52px] bg-[#16A34A] hover:bg-[#15803d] text-white rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
         title="Central de Ajuda"
         aria-label="Abrir ajuda"
       >
@@ -208,7 +208,7 @@ export default function HelpWidget() {
       {/* Panel */}
       {open && (
         <div
-          className="fixed bottom-[76px] right-6 z-50 w-[380px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
+          className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-3 md:bottom-[76px] md:right-6 z-50 w-[380px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
           style={{ height: '540px' }}
         >
           {/* Header */}
