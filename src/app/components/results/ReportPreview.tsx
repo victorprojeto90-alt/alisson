@@ -202,7 +202,7 @@ export default function ReportPreview({ projetoId, projeto, resultado, onSalvo, 
               <div>
                 <h2 className="font-semibold text-gray-900">Texto do relatório técnico</h2>
                 <p className="text-sm text-gray-500">
-                  Gerado a partir dos resultados, para a finalidade <b className="text-gray-700">{FINALIDADES[projeto.motivo_inventario] ?? projeto.motivo_inventario}</b>.
+                  Gerado a partir dos resultados, para a finalidade <b className="text-gray-700">{FINALIDADES[projeto.motivo_inventario] ?? 'não informada'}</b>.
                   Edite o que quiser: o que você salvar vai para o PDF e o Word.
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2">

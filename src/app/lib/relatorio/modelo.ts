@@ -121,7 +121,7 @@ export function montarModelo(
   const dg = r.dados_gerais;
   const local = projeto.municipio ? `${projeto.municipio}${projeto.estado ? '/' + projeto.estado.toUpperCase() : ''}` : 'Não informado';
   const bioma = BIOMAS[projeto.bioma || ''] || projeto.bioma || 'Não informado';
-  const finalidade = FINALIDADES[projeto.motivo_inventario] || projeto.motivo_inventario;
+  const finalidade = FINALIDADES[projeto.motivo_inventario] || projeto.motivo_inventario || 'Finalidade não informada';
   const responsavel = ctx.responsavel?.trim() || 'Responsável técnico';
   const empresa = ctx.empresa?.trim() || '';
   const cidadeEmissao = ctx.cidade ? `${ctx.cidade}${ctx.uf ? '/' + ctx.uf.toUpperCase() : ''}` : local;

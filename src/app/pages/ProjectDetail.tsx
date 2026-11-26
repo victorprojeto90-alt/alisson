@@ -414,6 +414,14 @@ export default function ProjectDetail() {
         />
       </PageHeader>
 
+      {!projeto.motivo_inventario && (
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-800 flex-1">Este inventário está <b>sem finalidade</b> (licenciamento, supressão, manejo ou acadêmico). Ela define o objetivo e a conclusão do relatório.</p>
+          <Button size="sm" onClick={() => setShowEdit(true)} className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white">Definir finalidade</Button>
+        </div>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         {/* Abas fixas no topo durante a rolagem */}
         <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 -mx-4 px-4 md:-mx-8 md:px-8 py-2 bg-background/95 backdrop-blur mb-4">
@@ -785,11 +793,18 @@ export default function ProjectDetail() {
         <EditarProjetoModal
           projeto={projeto}
           onClose={() => setShowEdit(false)}
+          destacarFinalidade={!projeto.motivo_inventario}
           onSaved={(atualizado: ProjetoEditavel) => {
             setProjeto(prev => prev ? {
               ...prev,
               ...atualizado,
               area_total_ha: atualizado.area_total_ha ?? prev.area_total_ha,
+              tipo_inventario: atualizado.tipo_inventario ?? prev.tipo_inventario,
+              motivo_inventario: atualizado.motivo_inventario ?? prev.motivo_inventario,
+              tamanho_parcela_m2: atualizado.tamanho_parcela_m2 ?? prev.tamanho_parcela_m2,
+              fator_forma: atualizado.fator_forma ?? prev.fator_forma,
+              nivel_confianca: atualizado.nivel_confianca ?? prev.nivel_confianca,
+              precisao_requerida: atualizado.precisao_requerida ?? prev.precisao_requerida,
             } : prev);
             setShowEdit(false);
           }}

@@ -118,7 +118,7 @@ export async function exportarExcel(
     ['Localização', local || 'Não informada'],
     ['Bioma', projeto?.bioma ? BIOMAS[projeto.bioma] || projeto.bioma : 'Não informado'],
     ['Área total (ha)', projeto?.area_total_ha ?? 0],
-    ['Finalidade', projeto ? FINALIDADES[projeto.motivo_inventario] || projeto.motivo_inventario : ''],
+    ['Finalidade', projeto ? FINALIDADES[projeto.motivo_inventario] || 'Não informada' : ''],
     ['Tipo de amostragem', projeto ? AMOSTRAGEM[projeto.tipo_inventario] || projeto.tipo_inventario : ''],
     ['Tamanho da parcela (m²)', projeto?.tamanho_parcela_m2 ?? 0],
     ['Nível de confiança (%)', projeto?.nivel_confianca ?? 0],
