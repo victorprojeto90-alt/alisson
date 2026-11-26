@@ -52,7 +52,7 @@ export default function StatsSummary({ dados, precisaoRequerida, areaTotalHa }: 
   const erroOk = d.erro_rel_pct <= limiteErro;
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-sm">
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -72,7 +72,7 @@ export default function StatsSummary({ dados, precisaoRequerida, areaTotalHa }: 
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-[#0B3D2E] text-white">
+            <thead className="ui-thead">
               <tr>
                 <th className="py-3 px-4 text-left text-sm font-semibold">Parâmetro</th>
                 <th className="py-3 px-4 text-right text-sm font-semibold">Valor</th>
@@ -141,7 +141,7 @@ export default function StatsSummary({ dados, precisaoRequerida, areaTotalHa }: 
 
           {/* IC Section */}
           <table className="w-full mt-0">
-            <thead className="bg-[#0B3D2E]/80 text-white">
+            <thead className="ui-thead">
               <tr>
                 <th className="py-2.5 px-4 text-left text-xs font-semibold">
                   Intervalo de Confiança — IC = LI ≤ Média ≤ LS

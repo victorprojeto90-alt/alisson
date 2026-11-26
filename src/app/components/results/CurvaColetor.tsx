@@ -12,7 +12,7 @@ interface Props {
 export default function CurvaColetor({ pontos, totalParcelas }: Props) {
   if (!pontos || pontos.length === 0) {
     return (
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-sm">
         <CardContent className="py-8 text-center text-gray-400 text-sm">
           Dados insuficientes para gerar a curva do coletor.
         </CardContent>
@@ -32,7 +32,7 @@ export default function CurvaColetor({ pontos, totalParcelas }: Props) {
   const totalEspecies = ultimoPonto?.especies_acumuladas ?? 0;
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="text-base">Curva do Coletor de Espécies por Parcela</CardTitle>
         <p className="text-sm text-gray-400">Acumulação de espécies ao longo das parcelas amostradas</p>
@@ -102,7 +102,7 @@ export default function CurvaColetor({ pontos, totalParcelas }: Props) {
           </div>
           <div className="overflow-x-auto max-h-64 overflow-y-auto">
             <table className="w-full text-xs">
-              <thead className="bg-gray-50 sticky top-0">
+              <thead className="ui-thead sticky top-0">
                 <tr>
                   <th className="px-4 py-2 text-left font-semibold text-gray-500">Parcela</th>
                   <th className="px-4 py-2 text-right font-semibold text-gray-500">Espécies novas</th>

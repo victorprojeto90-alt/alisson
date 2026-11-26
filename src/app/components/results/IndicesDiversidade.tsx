@@ -36,7 +36,7 @@ export default function IndicesDiversidade({ indices }: Props) {
   const colorSimpson = simpson_c >= 0.7 ? '#16A34A' : simpson_c >= 0.5 ? '#d97706' : '#dc2626';
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="text-base">Índices de Diversidade Florística</CardTitle>
       </CardHeader>
@@ -93,7 +93,7 @@ export default function IndicesDiversidade({ indices }: Props) {
         {/* Table */}
         <div className="overflow-x-auto rounded-xl border border-gray-200">
           <table className="w-full text-sm">
-            <thead className="bg-[#0B3D2E] text-white">
+            <thead className="ui-thead">
               <tr>
                 <th className="py-2.5 px-4 text-left font-semibold">Índice</th>
                 <th className="py-2.5 px-4 text-center font-semibold">Valor</th>

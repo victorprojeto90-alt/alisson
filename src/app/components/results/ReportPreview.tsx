@@ -131,7 +131,7 @@ export default function ReportPreview({ projeto, resultado }: Props) {
 
   return (
     <div className="space-y-6">
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <FileText className="w-5 h-5 text-[#16A34A]" />

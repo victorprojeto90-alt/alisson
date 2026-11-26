@@ -92,7 +92,7 @@ export default function Relatorios() {
             {projetos.length} projeto{projetos.length !== 1 ? 's' : ''} disponíve{projetos.length !== 1 ? 'is' : 'l'}
           </p>
           {projetos.map(projeto => (
-            <Card key={projeto.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
+            <Card key={projeto.id} className="shadow-sm hover:shadow-md transition-shadow">
               <CardContent className="p-5">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-[#0B3D2E]/10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">

@@ -122,7 +122,7 @@ export default function Configuracoes() {
 
       <div className="space-y-6">
         {/* Perfil */}
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-[#00420d]/10 rounded-lg flex items-center justify-center">
@@ -211,7 +211,7 @@ export default function Configuracoes() {
         </Card>
 
         {/* Empresa */}
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-[#00420d]/10 rounded-lg flex items-center justify-center">
@@ -345,7 +345,7 @@ export default function Configuracoes() {
 
         {/* Meu Plano e Pagamentos */}
         {temAssinaturaAsaas && (
-          <Card className="border-0 shadow-sm">
+          <Card className="shadow-sm">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#00420d]/10 rounded-lg flex items-center justify-center">
@@ -371,7 +371,7 @@ export default function Configuracoes() {
                 ) : (
                   <div className="overflow-x-auto border border-gray-100 rounded-xl">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="ui-thead">
                         <tr>
                           <th className="px-3 py-2 text-left font-semibold text-gray-500 text-xs">Vencimento</th>
                           <th className="px-3 py-2 text-left font-semibold text-gray-500 text-xs">Valor</th>

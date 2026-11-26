@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { PageSkeleton } from '../components/ui/skeletons';
 import { useParams, useNavigate } from 'react-router';
 import { supabase } from '../lib/supabase';
@@ -25,8 +25,8 @@ import IndividuosPorParcela from '../components/results/IndividuosPorParcela';
 import ReportPreview from '../components/results/ReportPreview';
 import ExportPanel from '../components/results/ExportPanel';
 import ScoreCard from '../components/results/ScoreCard';
+import { PageHeader, HeaderButton, HeaderStats, HeaderBadge } from '../components/layout/PageHeader';
 import {
-  ArrowLeft,
   Upload,
   Play,
   FileText,
@@ -41,6 +41,11 @@ import {
   Save,
   Pencil,
   Sparkles,
+  MapPin,
+  Ruler,
+  Calendar,
+  RefreshCw,
+  Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -63,6 +68,64 @@ interface Projeto {
   created_at: string;
 }
 
+// Seções da aba Resultados (menu que acompanha a rolagem)
+const SECOES = [
+  { id: 'sec-score', label: 'Score' },
+  { id: 'sec-gerais', label: 'Dados gerais' },
+  { id: 'sec-diversidade', label: 'Diversidade' },
+  { id: 'sec-fito', label: 'Fitossociologia' },
+  { id: 'sec-diametrica', label: 'Diamétrica' },
+  { id: 'sec-vertical', label: 'Vertical' },
+  { id: 'sec-coletor', label: 'Curva do coletor' },
+  { id: 'sec-volume', label: 'Volume' },
+];
+
+function SecoesNav() {
+  const [ativa, setAtiva] = useState(SECOES[0].id);
+  const barra = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Seção ativa = a última cujo topo já passou da linha logo abaixo das abas fixas
+    const onScroll = () => {
+      const linha = window.innerWidth >= 768 ? 140 : 200;
+      let atual = SECOES[0].id;
+      for (const sec of SECOES) {
+        const el = document.getElementById(sec.id);
+        if (el && el.getBoundingClientRect().top - linha <= 0) atual = sec.id;
+      }
+      setAtiva(atual);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    barra.current?.querySelector<HTMLElement>(`[data-sec="${ativa}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }, [ativa]);
+
+  return (
+    <div ref={barra} className="ui-scroll-x flex gap-2 py-1">
+      {SECOES.map(sec => (
+        <button
+          key={sec.id}
+          data-sec={sec.id}
+          onClick={() => document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          className={`flex-none px-3.5 h-8 rounded-full text-xs font-semibold transition-colors border ${
+            ativa === sec.id
+              ? 'bg-[#acd115] border-[#acd115] text-[#00420d]'
+              : 'bg-white border-gray-200 text-gray-600 hover:border-[#00420d]/30'
+          }`}
+        >
+          {sec.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const TAB_TRIGGER = 'flex-none h-10 rounded-xl px-3.5 gap-1.5 text-sm font-semibold text-gray-600 data-[state=active]:bg-[#00420d] data-[state=active]:text-white data-[state=active]:shadow-sm disabled:opacity-40';
+
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -82,6 +145,7 @@ export default function ProjectDetail() {
   const [uploading, setUploading] = useState(false);
   const [showMapper, setShowMapper] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [mostrarUpload, setMostrarUpload] = useState(false);
   const [sugestoesIA, setSugestoesIA] = useState<Record<string, SugestaoIA>>({});
   // Nomes comuns (normalizados) cujo nome científico/família vieram da sugestão da IA
   // na última importação salva — usado só para marcar visualmente a pré-visualização.
@@ -230,6 +294,7 @@ export default function ProjectDetail() {
       if (newArvores.data) setArvores(newArvores.data);
       await loadProject();
       setShowMapper(false);
+      setMostrarUpload(false);
       setRawRows([]);
       setRawHeaders([]);
       setNomesPreenchidosPorIA(usadosPorIA);
@@ -301,94 +366,102 @@ export default function ProjectDetail() {
     arvores.map(a => a.numero_arvore != null ? `${a.parcela_numero}:${a.numero_arvore}` : a.id)
   ).size;
 
+  const nParcelas = new Set(arvores.map(a => a.parcela_numero)).size;
+  const nEspecies = new Set(arvores.map(a => a.nome_comum?.toLowerCase())).size;
+  const statusLabel = projeto.status === 'finalizado' ? 'Finalizado' : projeto.status === 'processado' ? 'Processado' : 'Rascunho';
+  const localTxt = [projeto.municipio, projeto.estado].filter(Boolean).join('/');
+
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start gap-4 mb-6">
-        <button
-          onClick={() => navigate('/app/dashboard')}
-          className="text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-3 flex-wrap">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">{projeto.nome}</h1>
-            <Badge variant="outline" className={
-              projeto.status === 'finalizado' ? 'bg-green-50 text-green-700 border-green-200' :
-              projeto.status === 'processado' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-              'bg-gray-100 text-gray-500 border-gray-200'
-            }>
-              {projeto.status === 'finalizado' ? 'Finalizado' :
-               projeto.status === 'processado' ? 'Processado' : 'Rascunho'}
-            </Badge>
-            <button
-              onClick={() => setShowEdit(true)}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-[#00420d] hover:bg-green-50 transition-colors flex-shrink-0"
-              title="Editar inventário"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-3 mt-1 text-sm text-gray-400">
-            {projeto.municipio && <span>{projeto.municipio}{projeto.estado ? `/${projeto.estado}` : ''}</span>}
-            <span>{projeto.area_total_ha.toLocaleString('pt-BR')} ha</span>
-            {hasData && <span>{nIndividuos.toLocaleString('pt-BR')} indivíduos</span>}
-          </div>
-        </div>
-
-        {/* Process button */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {hasResultado && (
-            <div className="hidden sm:flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
-              <CheckCircle2 className="w-4 h-4 text-green-600" />
-              <span className="text-sm font-semibold text-green-700">
-                Score: {resultado.score.total}/100
-              </span>
-            </div>
-          )}
-          <Button
-            onClick={handleProcessar}
-            disabled={!hasData || processing}
-            className="bg-[#16A34A] hover:bg-[#15803d] text-white gap-2"
-          >
-            {processing ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</>
-            ) : (
-              <><Play className="w-4 h-4" /> Processar Inventário</>
+      <PageHeader
+        onBack={() => navigate('/app/projetos')}
+        eyebrow="Inventário florestal"
+        title={projeto.nome}
+        badge={<HeaderBadge>{statusLabel}</HeaderBadge>}
+        subtitle={
+          <span className="flex items-center gap-x-4 gap-y-1 flex-wrap">
+            {localTxt && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{localTxt}</span>}
+            <span className="flex items-center gap-1"><Ruler className="w-3.5 h-3.5" />{projeto.area_total_ha.toLocaleString('pt-BR')} ha</span>
+            {projeto.data_inventario && (
+              <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{new Date(projeto.data_inventario + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
             )}
-          </Button>
-        </div>
-      </div>
+          </span>
+        }
+        actions={
+          <>
+            <HeaderButton variant="outline" onClick={() => setShowEdit(true)} className="flex-1 md:flex-none">
+              <Pencil className="w-4 h-4" /> Editar
+            </HeaderButton>
+            <HeaderButton onClick={handleProcessar} disabled={!hasData || processing} className="flex-[2] md:flex-none">
+              {processing
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</>
+                : hasResultado
+                  ? <><RefreshCw className="w-4 h-4" /> Reprocessar</>
+                  : <><Play className="w-4 h-4" /> Processar<span className="hidden sm:inline"> inventário</span></>}
+            </HeaderButton>
+          </>
+        }
+      >
+        <HeaderStats
+          items={[
+            { label: 'Indivíduos', value: hasData ? nIndividuos.toLocaleString('pt-BR') : '–' },
+            { label: 'Parcelas', value: hasData ? nParcelas : '–' },
+            { label: 'Espécies', value: hasData ? nEspecies : '–' },
+            { label: 'Score', value: hasResultado ? `${resultado.score.total}` : '–', active: hasResultado },
+          ]}
+        />
+      </PageHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-5 mb-6 bg-gray-100 p-1 rounded-xl h-auto">
-          <TabsTrigger value="dados" className="rounded-lg gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm py-2">
-            <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">Dados</span>
-            {hasData && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
-          </TabsTrigger>
-          <TabsTrigger value="resultados" className="rounded-lg gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm py-2" disabled={!hasResultado}>
-            <BarChart3 className="w-4 h-4" />
-            <span className="hidden sm:inline">Resultados</span>
-          </TabsTrigger>
-          <TabsTrigger value="individuos" className="rounded-lg gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm py-2" disabled={!hasResultado}>
-            <Trees className="w-4 h-4" />
-            <span className="hidden sm:inline">Indivíduos</span>
-          </TabsTrigger>
-          <TabsTrigger value="relatorio" className="rounded-lg gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm py-2" disabled={!hasResultado}>
-            <FileText className="w-4 h-4" />
-            <span className="hidden sm:inline">Relatório</span>
-          </TabsTrigger>
-          <TabsTrigger value="exportar" className="rounded-lg gap-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm py-2" disabled={!hasResultado}>
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Exportar</span>
-          </TabsTrigger>
-        </TabsList>
+        {/* Abas fixas no topo durante a rolagem */}
+        <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] md:top-0 z-20 -mx-4 px-4 md:-mx-8 md:px-8 py-2 bg-background/95 backdrop-blur mb-4">
+          <TabsList className="ui-scroll-x flex w-full justify-start gap-1 bg-white border border-gray-100 shadow-sm p-1 rounded-2xl h-auto">
+            <TabsTrigger value="dados" className={TAB_TRIGGER}>
+              <Upload className="w-4 h-4" /> Dados
+              {hasData && <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A] group-data-[state=active]:text-[#acd115]" />}
+            </TabsTrigger>
+            <TabsTrigger value="resultados" className={TAB_TRIGGER} disabled={!hasResultado}>
+              <BarChart3 className="w-4 h-4" /> Resultados
+            </TabsTrigger>
+            <TabsTrigger value="individuos" className={TAB_TRIGGER} disabled={!hasResultado}>
+              <Users className="w-4 h-4" /> Indivíduos
+            </TabsTrigger>
+            <TabsTrigger value="relatorio" className={TAB_TRIGGER} disabled={!hasResultado}>
+              <FileText className="w-4 h-4" /> Relatório
+            </TabsTrigger>
+            <TabsTrigger value="exportar" className={TAB_TRIGGER} disabled={!hasResultado}>
+              <Download className="w-4 h-4" /> Exportar
+            </TabsTrigger>
+          </TabsList>
+          {activeTab === 'resultados' && hasResultado && (
+            <div className="mt-2"><SecoesNav /></div>
+          )}
+        </div>
+
+        {!hasResultado && hasData && (
+          <div className="flex items-start gap-3 mb-4 rounded-2xl border border-[#acd115]/50 bg-[#acd115]/10 p-4 text-sm text-[#0B3D2E]">
+            <Play className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <p>Dados prontos. Toque em <strong>Processar inventário</strong> no topo para liberar Resultados, Indivíduos, Relatório e Exportar.</p>
+          </div>
+        )}
 
         {/* TAB: DADOS */}
-        <TabsContent value="dados" className="space-y-6">
-          <Card className="border-0 shadow-sm">
+        <TabsContent value="dados" className="space-y-5">
+          {hasData && !showMapper && !mostrarUpload ? (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-gray-100 bg-white shadow-sm p-4">
+              <div className="w-10 h-10 rounded-xl bg-[#00420d]/10 flex items-center justify-center flex-shrink-0">
+                <Upload className="w-5 h-5 text-[#00420d]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-900">Planilha de campo</p>
+                <p className="text-sm text-gray-500">Já carregada. Envie outra para substituir os dados.</p>
+              </div>
+              <Button variant="outline" onClick={() => setMostrarUpload(true)} className="h-11 rounded-xl gap-2">
+                <Upload className="w-4 h-4" /> Enviar nova planilha
+              </Button>
+            </div>
+          ) : (
+          <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Upload className="w-4 h-4 text-[#16A34A]" />
@@ -402,10 +475,11 @@ export default function ProjectDetail() {
               <DataUpload onDataLoaded={handleDataLoaded} />
             </CardContent>
           </Card>
+          )}
 
           {/* Column Mapper */}
           {showMapper && rawRows.length > 0 && (
-            <Card className="border-0 shadow-sm">
+            <Card className="shadow-sm">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -447,7 +521,7 @@ export default function ProjectDetail() {
 
           {/* Data summary */}
           {hasData && !showMapper && (
-            <Card className="border-0 shadow-sm">
+            <Card className="shadow-sm">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -484,7 +558,7 @@ export default function ProjectDetail() {
                 {/* Quick data preview */}
                 <div className="overflow-x-auto rounded-xl border border-gray-200">
                   <table className="text-xs w-full">
-                    <thead className="bg-gray-50">
+                    <thead className="ui-thead">
                       <tr>
                         {['Parcela', 'Nº', 'Nome Comum', 'CAP (cm)', 'HT (m)', 'Nome Científico'].map(h => (
                           <th key={h} className="px-3 py-2.5 text-left font-semibold text-gray-500 whitespace-nowrap">{h}</th>
@@ -554,7 +628,7 @@ export default function ProjectDetail() {
         </TabsContent>
 
         {/* TAB: RESULTADOS */}
-        <TabsContent value="resultados" className="space-y-6">
+        <TabsContent value="resultados" className="space-y-5">
           {hasResultado && (() => {
             // individuosAgrupados (calculado no nível do componente) já traz os fustes
             // agrupados por indivíduo — evita contar múltiplos fustes da mesma árvore
@@ -616,6 +690,7 @@ export default function ProjectDetail() {
 
             return (
               <>
+                <section id="sec-score" className="ui-section">
                 <ErrorBoundary section="Score">
                   <ScoreCard
                     score={resultado.score}
@@ -623,6 +698,8 @@ export default function ProjectDetail() {
                     erroRelPct={resultado.dados_gerais.erro_rel_pct}
                   />
                 </ErrorBoundary>
+                </section>
+                <section id="sec-gerais" className="ui-section">
                 <ErrorBoundary section="Dados Gerais">
                   <StatsSummary
                     dados={resultado.dados_gerais}
@@ -630,30 +707,43 @@ export default function ProjectDetail() {
                     areaTotalHa={projeto.area_total_ha}
                   />
                 </ErrorBoundary>
+                </section>
+                <section id="sec-diversidade" className="ui-section">
                 <ErrorBoundary section="Índices de Diversidade">
                   <IndicesDiversidade indices={resultado.indices_diversidade} />
                 </ErrorBoundary>
+                </section>
+                <section id="sec-fito" className="ui-section">
                 <ErrorBoundary section="Fitossociologia">
                   <FitossociologiaTable especies={resultado.especies} familias={resultado.familias} />
                 </ErrorBoundary>
+                </section>
+                <section id="sec-diametrica" className="ui-section">
                 <ErrorBoundary section="Estrutura Diamétrica">
                   <EstruturaDiametrica individuos={individuosParaDiametrica} />
                 </ErrorBoundary>
+                </section>
+                <section id="sec-vertical" className="ui-section">
                 <ErrorBoundary section="Estrutura Vertical">
                   <EstruturaVertical
                     estratos={resultado.estrutura_vertical}
                     especiesEstratos={especiesEstratos}
                   />
                 </ErrorBoundary>
+                </section>
+                <section id="sec-coletor" className="ui-section">
                 <ErrorBoundary section="Curva do Coletor">
                   <CurvaColetor
                     pontos={resultado.curva_coletor}
                     totalParcelas={resultado.dados_gerais.n_parcelas}
                   />
                 </ErrorBoundary>
+                </section>
+                <section id="sec-volume" className="ui-section">
                 <ErrorBoundary section="Volume por Parcela">
                   <VolumePorParcela parcelas={resultado.parcelas} />
                 </ErrorBoundary>
+                </section>
               </>
             );
           })()}

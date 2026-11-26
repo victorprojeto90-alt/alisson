@@ -186,7 +186,7 @@ export default function AdminClientes() {
     <div>
       <PageHeader />
       <div style={{ padding: '24px 32px' }}>
-        <Card className="border-0 shadow-sm">
+        <Card className="shadow-sm">
           <CardContent className="p-0">
             <div className="flex items-center justify-between flex-wrap gap-3 p-4 border-b border-gray-100">
               <span className="text-sm font-semibold text-gray-800">Clientes ({filtered.length})</span>
@@ -246,7 +246,7 @@ export default function AdminClientes() {
 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-100">
+                <thead className="ui-thead">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Empresa / Responsável</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Tipo</th>

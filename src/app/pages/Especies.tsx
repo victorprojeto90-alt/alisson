@@ -314,7 +314,7 @@ export default function Especies() {
       </div>
 
       {/* Filters */}
-      <Card className="border-0 shadow-sm mb-6">
+      <Card className="shadow-sm mb-6">
         <CardContent className="p-5">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 space-y-1.5">
@@ -367,7 +367,7 @@ export default function Especies() {
       </Card>
 
       {/* Results table */}
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center justify-between">
             <span>
@@ -381,7 +381,7 @@ export default function Especies() {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-[#00420d] text-white">
+              <thead className="ui-thead">
                 <tr>
                   <th className="py-3 px-4 text-left font-semibold">Nome Popular</th>
                   <th className="py-3 px-4 text-left font-semibold">Nome Científico</th>

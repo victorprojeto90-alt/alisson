@@ -32,7 +32,7 @@ export default function EstruturaVertical({ estratos, especiesEstratos = [] }: P
     }));
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="text-base">Estrutura Vertical (Estratificação)</CardTitle>
         <p className="text-sm text-gray-400 mt-0.5">Distribuição dos indivíduos nos estratos da floresta</p>
@@ -68,7 +68,7 @@ export default function EstruturaVertical({ estratos, especiesEstratos = [] }: P
           {/* Strata summary table */}
           <div className="overflow-x-auto rounded-xl border border-gray-200">
             <table className="w-full text-xs">
-              <thead className="bg-[#00420d] text-white">
+              <thead className="ui-thead">
                 <tr>
                   <th className="py-2.5 px-3 text-left font-semibold">Estrato</th>
                   <th className="py-2.5 px-3 text-left font-semibold">Amplitude</th>
@@ -135,7 +135,7 @@ export default function EstruturaVertical({ estratos, especiesEstratos = [] }: P
               </h4>
               <div className="overflow-x-auto rounded-xl border border-gray-200">
                 <table className="w-full text-xs">
-                  <thead className="bg-[#00420d]/80 text-white">
+                  <thead className="ui-thead">
                     <tr>
                       <th className="py-2.5 px-4 text-left font-semibold">Espécies</th>
                       <th className="py-2.5 px-4 text-center font-semibold">Parâmetro</th>

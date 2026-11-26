@@ -102,7 +102,7 @@ export default function EstruturaDiametrica({ individuos }: Props) {
   };
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-sm">
       <CardHeader>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -186,7 +186,7 @@ export default function EstruturaDiametrica({ individuos }: Props) {
         {/* Table */}
         <div className="overflow-x-auto rounded-xl border border-gray-200">
           <table className="w-full text-xs">
-            <thead className="bg-[#00420d] text-white">
+            <thead className="ui-thead">
               <tr>
                 <th className="py-2.5 px-4 text-left font-semibold">Classe DAP (cm)</th>
                 <th className="py-2.5 px-4 text-right font-semibold">Nº Indivíduos</th>
