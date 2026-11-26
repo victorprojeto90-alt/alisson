@@ -5,12 +5,14 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Badge } from '../components/ui/badge';
-import { Card, CardContent } from '../components/ui/card';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+} from '../components/ui/dropdown-menu';
 import EditarProjetoModal, { type ProjetoEditavel } from '../components/project/EditarProjetoModal';
 import {
   Plus, Trees, Search, Loader2, ChevronRight,
-  Clock, BarChart3, CheckCircle2, Filter, MapPin, Ruler, Trash2, Pencil,
+  Clock, BarChart3, CheckCircle2, MapPin, Ruler, Trash2, Pencil,
+  MoreVertical, ArrowUpDown, Calendar, Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -29,12 +31,6 @@ interface Projeto {
   created_at: string;
 }
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'Todos' },
-  { value: 'rascunho', label: 'Rascunho' },
-  { value: 'processado', label: 'Processado' },
-  { value: 'finalizado', label: 'Finalizado' },
-] as const;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   rascunho: {
@@ -54,6 +50,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   },
 };
 
+const TIPO_LABEL: Record<string, string> = {
+  casual_simples: 'Casual Simples',
+  censo: 'Censo 100%',
+};
+
+type Ordem = 'recentes' | 'nome' | 'area';
+
 const BIOMA_LABEL: Record<string, string> = {
   amazonia: 'Amazônia',
   cerrado: 'Cerrado',
@@ -70,6 +73,7 @@ export default function Projetos() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'rascunho' | 'processado' | 'finalizado'>('all');
+  const [ordem, setOrdem] = useState<Ordem>('recentes');
 
   // Delete modal state
   const [deleteTarget, setDeleteTarget] = useState<Projeto | null>(null);
@@ -123,87 +127,151 @@ export default function Projetos() {
   });
 
   const countByStatus = (status: string) => projetos.filter(p => p.status === status).length;
+  const areaTotal = projetos.reduce((soma, p) => soma + (p.area_total_ha ?? 0), 0);
+
+  const ordenados = [...filtered].sort((a, b) => {
+    if (ordem === 'nome') return a.nome.localeCompare(b.nome, 'pt-BR');
+    if (ordem === 'area') return (b.area_total_ha ?? 0) - (a.area_total_ha ?? 0);
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
+  const abrir = (id: string) => navigate(`/app/projetos/${id}`);
+  const local = (p: Projeto) => [p.municipio, p.estado].filter(Boolean).join('/');
+  const dataFmt = (p: Projeto) => new Date(p.data_inventario ?? p.created_at).toLocaleDateString('pt-BR');
+
+  const filtros = [
+    { value: 'all' as const, label: 'Todos', count: projetos.length },
+    { value: 'rascunho' as const, label: 'Rascunhos', count: countByStatus('rascunho') },
+    { value: 'processado' as const, label: 'Processados', count: countByStatus('processado') },
+    { value: 'finalizado' as const, label: 'Finalizados', count: countByStatus('finalizado') },
+  ];
+
+  const StatusBadge = ({ status }: { status: string }) => {
+    const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG['rascunho'];
+    return (
+      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-semibold whitespace-nowrap ${cfg.color}`}>
+        {cfg.icon}{cfg.label}
+      </span>
+    );
+  };
+
+  const MenuAcoes = ({ projeto }: { projeto: Projeto }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          onClick={e => e.stopPropagation()}
+          className="w-9 h-9 -mr-1 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 active:bg-gray-200"
+          aria-label="Ações do projeto"
+        >
+          <MoreVertical className="w-5 h-5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44" onClick={e => e.stopPropagation()}>
+        <DropdownMenuItem onClick={() => abrir(projeto.id)}>
+          <ChevronRight className="w-4 h-4" /> Abrir
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setEditTarget(projeto)}>
+          <Pencil className="w-4 h-4" /> Editar
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setDeleteTarget(projeto)} className="text-red-600 focus:text-red-600">
+          <Trash2 className="w-4 h-4" /> Excluir
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventários</h1>
-          <p className="text-gray-400 text-sm mt-0.5">
-            {loading ? <Bone className="h-4 w-28 mt-1 inline-block" /> : <>{projetos.length} projeto{projetos.length !== 1 ? 's' : ''} no total</>}
-          </p>
-        </div>
-        <Button
-          onClick={() => navigate('/app/projetos/novo')}
-          className="bg-[#00420d] hover:bg-[#00420d]/90 text-white gap-2 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Inventário
-        </Button>
-      </div>
-
-      {/* Status summary cards */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {[
-          { label: 'Rascunhos', count: countByStatus('rascunho'), color: 'text-gray-600', bg: 'bg-gray-50' },
-          { label: 'Processados', count: countByStatus('processado'), color: 'text-blue-700', bg: 'bg-blue-50' },
-          { label: 'Finalizados', count: countByStatus('finalizado'), color: 'text-green-700', bg: 'bg-green-50' },
-        ].map(s => (
-          <div key={s.label} className={`${s.bg} rounded-xl p-4 text-center`}>
-            {loading ? <Bone className="h-7 w-8 mx-auto mb-1" /> : <p className={`text-2xl font-bold ${s.color}`}>{s.count}</p>}
-            <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      {/* Cabeçalho verde com contadores que filtram a lista */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#00420d] via-[#0B5A1E] to-[#16A34A] text-white p-5 md:p-8 mb-5 md:mb-6 shadow-lg">
+        <div className="absolute -top-12 -right-12 w-44 h-44 md:w-72 md:h-72 rounded-full bg-white/10 pointer-events-none" />
+        <div className="relative md:flex md:items-start md:justify-between md:gap-6">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Inventários</h1>
+            <p className="text-white/75 text-sm mt-1">
+              {loading
+                ? <Bone className="h-4 w-40 inline-block bg-white/20" />
+                : <>{projetos.length} projeto{projetos.length !== 1 ? 's' : ''} · {areaTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ha inventariados</>}
+            </p>
           </div>
-        ))}
+          <button
+            onClick={() => navigate('/app/projetos/novo')}
+            className="mt-4 md:mt-0 w-full md:w-auto h-12 md:px-6 rounded-xl bg-white text-[#00420d] font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] transition-all flex-shrink-0"
+          >
+            <Plus className="w-5 h-5" /> Novo Inventário
+          </button>
+        </div>
+
+        <div className="relative grid grid-cols-4 gap-2 mt-5 md:mt-7 md:max-w-2xl">
+          {filtros.map(f => {
+            const ativo = statusFilter === f.value;
+            return (
+              <button
+                key={f.value}
+                onClick={() => setStatusFilter(f.value)}
+                className={`rounded-2xl py-2.5 md:py-3 px-1 text-center transition-all ${
+                  ativo ? 'bg-white text-[#00420d] shadow-md' : 'bg-white/10 text-white hover:bg-white/15'
+                }`}
+              >
+                {loading
+                  ? <Bone className={`h-6 w-6 mx-auto mb-1 ${ativo ? '' : 'bg-white/20'}`} />
+                  : <p className="text-xl md:text-2xl font-bold leading-none">{f.count}</p>}
+                <p className={`text-[11px] md:text-xs mt-1 ${ativo ? 'text-[#00420d]/80 font-semibold' : 'text-white/75'}`}>{f.label}</p>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Search + Filter */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      {/* Busca + ordenação */}
+      <div className="flex gap-2 md:gap-3 mb-4 md:mb-5">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <Input
-            placeholder="Buscar por nome, município ou estado..."
+            placeholder="Buscar por nome ou cidade..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-10 h-12 rounded-xl bg-white border-gray-200"
           />
         </div>
-        <div className="flex items-center gap-1 border rounded-lg overflow-hidden p-1 bg-gray-50 flex-shrink-0">
-          <Filter className="w-3.5 h-3.5 text-gray-400 ml-1" />
-          {STATUS_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setStatusFilter(opt.value)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                statusFilter === opt.value
-                  ? 'bg-[#00420d] text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-white'
-              }`}
-            >
-              {opt.label}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="h-12 px-3 md:px-4 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 flex items-center gap-2 hover:bg-gray-50 flex-shrink-0">
+              <ArrowUpDown className="w-4 h-4" />
+              <span className="hidden sm:inline">
+                {ordem === 'recentes' ? 'Mais recentes' : ordem === 'nome' ? 'Nome (A–Z)' : 'Maior área'}
+              </span>
             </button>
-          ))}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setOrdem('recentes')}>Mais recentes</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setOrdem('nome')}>Nome (A–Z)</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setOrdem('area')}>Maior área</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Project list */}
+      {/* Lista */}
       {loading ? (
         <ListSkeleton rows={4} />
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-gray-200 rounded-2xl">
-          <Trees className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-          <h3 className="text-gray-600 font-semibold mb-1">
+      ) : ordenados.length === 0 ? (
+        <div className="text-center py-16 md:py-20 border-2 border-dashed border-gray-200 rounded-3xl bg-white">
+          <div className="w-16 h-16 rounded-2xl bg-[#00420d]/10 flex items-center justify-center mx-auto mb-4">
+            <Trees className="w-8 h-8 text-[#00420d]" />
+          </div>
+          <h3 className="text-gray-800 font-semibold mb-1">
             {projetos.length === 0 ? 'Nenhum inventário criado' : 'Nenhum resultado encontrado'}
           </h3>
-          <p className="text-gray-400 text-sm mb-6">
+          <p className="text-gray-400 text-sm mb-6 px-6">
             {projetos.length === 0
               ? 'Crie seu primeiro projeto de inventário florestal'
-              : 'Tente ajustar os filtros de busca'}
+              : 'Tente ajustar a busca ou o filtro de status'}
           </p>
           {projetos.length === 0 && (
             <Button
               onClick={() => navigate('/app/projetos/novo')}
-              className="bg-[#00420d] hover:bg-[#00420d]/90 text-white gap-2"
+              className="bg-[#00420d] hover:bg-[#00420d]/90 text-white gap-2 h-11 rounded-xl"
             >
               <Plus className="w-4 h-4" />
               Criar Primeiro Inventário
@@ -211,85 +279,118 @@ export default function Projetos() {
           )}
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map(projeto => {
-            const statusCfg = STATUS_CONFIG[projeto.status] ?? STATUS_CONFIG['rascunho'];
-            return (
-              <Card
+        <>
+          {/* Celular: cartões */}
+          <div className="md:hidden space-y-3">
+            {ordenados.map(projeto => (
+              <div
                 key={projeto.id}
-                className="border-0 shadow-sm hover:shadow-md transition-all group"
+                onClick={() => abrir(projeto.id)}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 active:scale-[0.99] active:bg-gray-50 transition-all"
               >
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-start gap-4">
-                    <div
-                      className="w-11 h-11 bg-[#00420d]/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#00420d]/20 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/app/projetos/${projeto.id}`)}
-                    >
-                      <Trees className="w-5 h-5 text-[#00420d]" />
-                    </div>
-
-                    <div
-                      className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => navigate(`/app/projetos/${projeto.id}`)}
-                    >
-                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                        <h3 className="font-semibold text-gray-900 truncate">{projeto.nome}</h3>
-                        <Badge variant="outline" className={`flex-shrink-0 text-xs gap-1 ${statusCfg.color}`}>
-                          {statusCfg.icon}
-                          {statusCfg.label}
-                        </Badge>
-                      </div>
-
-                      <div className="flex flex-wrap gap-3 text-xs text-gray-500">
-                        {(projeto.municipio || projeto.estado) && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {projeto.municipio}{projeto.estado ? `/${projeto.estado}` : ''}
-                          </span>
-                        )}
-                        {projeto.area_total_ha && (
-                          <span className="flex items-center gap-1">
-                            <Ruler className="w-3 h-3" />
-                            {projeto.area_total_ha.toLocaleString('pt-BR')} ha
-                          </span>
-                        )}
-                        {projeto.bioma && (
-                          <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
-                            {BIOMA_LABEL[projeto.bioma] ?? projeto.bioma}
-                          </span>
-                        )}
-                        <span className="text-gray-400">
-                          {new Date(projeto.created_at).toLocaleDateString('pt-BR')}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={e => { e.stopPropagation(); setEditTarget(projeto); }}
-                        className="p-2 rounded-lg text-gray-300 hover:text-[#00420d] hover:bg-green-50 transition-colors"
-                        title="Editar projeto"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); setDeleteTarget(projeto); }}
-                        className="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                        title="Excluir projeto"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <ChevronRight
-                        className="w-5 h-5 text-gray-300 group-hover:text-[#00420d] transition-colors cursor-pointer"
-                        onClick={() => navigate(`/app/projetos/${projeto.id}`)}
-                      />
+                <div className="flex items-start gap-3">
+                  <div className="w-11 h-11 bg-[#00420d]/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Trees className="w-5 h-5 text-[#00420d]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 leading-snug line-clamp-2">{projeto.nome}</h3>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <StatusBadge status={projeto.status} />
+                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />{dataFmt(projeto)}
+                      </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  <MenuAcoes projeto={projeto} />
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100 text-xs">
+                  <div className="min-w-0">
+                    <p className="text-gray-400 flex items-center gap-1"><MapPin className="w-3 h-3" />Local</p>
+                    <p className="text-gray-800 font-medium truncate mt-0.5">{local(projeto) || '—'}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-gray-400 flex items-center gap-1"><Ruler className="w-3 h-3" />Área</p>
+                    <p className="text-gray-800 font-medium mt-0.5">{projeto.area_total_ha ? `${projeto.area_total_ha.toLocaleString('pt-BR')} ha` : '—'}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-gray-400 flex items-center gap-1"><Layers className="w-3 h-3" />Bioma</p>
+                    <p className="text-gray-800 font-medium truncate mt-0.5">{projeto.bioma ? (BIOMA_LABEL[projeto.bioma] ?? projeto.bioma) : '—'}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Computador: tabela */}
+          <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-gray-500 bg-gray-50/80 border-b border-gray-100">
+                  <th className="px-5 py-3.5 font-semibold">Projeto</th>
+                  <th className="px-4 py-3.5 font-semibold">Local</th>
+                  <th className="px-4 py-3.5 font-semibold text-right">Área</th>
+                  <th className="px-4 py-3.5 font-semibold">Bioma</th>
+                  <th className="px-4 py-3.5 font-semibold">Data</th>
+                  <th className="px-4 py-3.5 font-semibold">Status</th>
+                  <th className="px-4 py-3.5 font-semibold text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ordenados.map(projeto => (
+                  <tr
+                    key={projeto.id}
+                    onClick={() => abrir(projeto.id)}
+                    className="border-b border-gray-50 last:border-0 hover:bg-[#acd115]/[0.07] cursor-pointer transition-colors group"
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-[#00420d]/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-[#00420d] transition-colors">
+                          <Trees className="w-5 h-5 text-[#00420d] group-hover:text-[#acd115] transition-colors" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900">{projeto.nome}</p>
+                          {projeto.tipo_inventario && (
+                            <p className="text-xs text-gray-400 mt-0.5">{TIPO_LABEL[projeto.tipo_inventario] ?? projeto.tipo_inventario}</p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 text-gray-600">{local(projeto) || '—'}</td>
+                    <td className="px-4 py-4 text-gray-900 font-medium text-right tabular-nums">
+                      {projeto.area_total_ha ? `${projeto.area_total_ha.toLocaleString('pt-BR')} ha` : '—'}
+                    </td>
+                    <td className="px-4 py-4">
+                      {projeto.bioma
+                        ? <span className="bg-green-50 text-green-700 px-2.5 py-1 rounded-full text-xs font-medium">{BIOMA_LABEL[projeto.bioma] ?? projeto.bioma}</span>
+                        : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-4 text-gray-500 tabular-nums">{dataFmt(projeto)}</td>
+                    <td className="px-4 py-4"><StatusBadge status={projeto.status} /></td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={e => { e.stopPropagation(); setEditTarget(projeto); }}
+                          className="p-2 rounded-lg text-gray-500 hover:text-[#00420d] hover:bg-green-50 transition-colors"
+                          title="Editar projeto"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); setDeleteTarget(projeto); }}
+                          className="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          title="Excluir projeto"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#00420d] transition-colors ml-1" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Edit modal */}
