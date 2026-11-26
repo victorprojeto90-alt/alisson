@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { TableRowsSkeleton } from '../components/ui/skeletons';
-import { Search, Download, Leaf, Info, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TableRowsSkeleton, ListSkeleton } from '../components/ui/skeletons';
+import { PageHeader, HeaderButton, HeaderStats } from '../components/layout/PageHeader';
+import { Search, Download, Leaf, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -301,74 +302,62 @@ export default function Especies() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Leaf className="w-6 h-6 text-[#00420d]" />
-          Banco de Espécies
-        </h1>
-        <p className="text-gray-400 text-sm mt-1">
-          Consulte espécies florestais por estado e bioma — dados dos Inventários Florestais Nacionais
-        </p>
-      </div>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <PageHeader
+        title="Banco de Espécies"
+        subtitle="Espécies florestais por estado e bioma — dados dos Inventários Florestais Nacionais"
+        actions={
+          <HeaderButton
+            variant="outline"
+            onClick={handleDownload}
+            disabled={!estado || baixando}
+            className="w-full md:w-auto"
+          >
+            {baixando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            Baixar CSV
+          </HeaderButton>
+        }
+      >
+        <HeaderStats
+          className="md:max-w-xl"
+          items={[
+            { label: 'Espécies', value: loading ? '–' : total.toLocaleString('pt-BR'), active: true },
+            { label: 'Estado', value: estado || 'Todos' },
+            { label: 'Bioma', value: bioma ? (BIOMA_LABEL[bioma] ?? bioma) : 'Todos' },
+          ]}
+        />
+      </PageHeader>
 
-      {/* Filters */}
-      <Card className="shadow-sm mb-6">
-        <CardContent className="p-5">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Estado</label>
-              <Select value={estado} onValueChange={setEstado}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ESTADOS.map(uf => (
-                    <SelectItem key={uf} value={uf}>
-                      {uf} — {BIOMA_LABEL[ESTADOS_BIOMA[uf]] ?? ESTADOS_BIOMA[uf]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1 space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Buscar espécie</label>
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Ex: Aroeira, Angico, Ipê..."
-                  value={busca}
-                  onChange={e => setBusca(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                className="gap-2 border-[#00420d] text-[#00420d] hover:bg-[#00420d]/5"
-                onClick={handleDownload}
-                disabled={!estado || baixando}
-                title={!estado ? 'Selecione um estado primeiro' : ''}
-              >
-                {baixando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                Baixar CSV
-              </Button>
-            </div>
-          </div>
-          {bioma && (
-            <p className="text-xs text-gray-400 mt-3 flex items-center gap-1">
-              <Info className="w-3.5 h-3.5" />
-              Exibindo espécies do bioma <strong>{BIOMA_LABEL[bioma]}</strong> (Estado: {estado})
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Filtros */}
+      <div className="flex flex-col sm:flex-row gap-2 md:gap-3 mb-4 md:mb-5">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Buscar espécie: Aroeira, Angico, Ipê..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            className="pl-10 h-12 rounded-xl bg-white border-gray-200"
+          />
+        </div>
+        <div className="sm:w-72">
+          <Select value={estado} onValueChange={setEstado}>
+            <SelectTrigger className="!h-12 rounded-xl bg-white border-gray-200">
+              <SelectValue placeholder="Filtrar por estado (bioma)" />
+            </SelectTrigger>
+            <SelectContent>
+              {ESTADOS.map(uf => (
+                <SelectItem key={uf} value={uf}>
+                  {uf} — {BIOMA_LABEL[ESTADOS_BIOMA[uf]] ?? ESTADOS_BIOMA[uf]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {/* Results table */}
       <Card className="shadow-sm">
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center justify-between">
             <span>
               {loading ? 'Buscando...' : `${total} espécie${total !== 1 ? 's' : ''} encontrada${total !== 1 ? 's' : ''}`}
@@ -379,7 +368,35 @@ export default function Especies() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* Celular: cartões */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {loading ? (
+              <div className="p-4"><ListSkeleton rows={5} /></div>
+            ) : resultados.length === 0 ? (
+              <div className="py-12 text-center text-gray-400">
+                <Leaf className="w-10 h-10 mx-auto mb-3 opacity-20" />
+                <p className="text-sm">{busca ? 'Nenhuma espécie encontrada para esta busca.' : 'Nenhuma espécie cadastrada ainda.'}</p>
+              </div>
+            ) : resultados.map((esp, i) => (
+              <div key={esp.id ?? i} className="px-4 py-3.5">
+                <p className="font-semibold text-gray-900">{esp.nome_popular}</p>
+                <p className="text-sm italic text-gray-500">{esp.nome_cientifico}</p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className="text-xs text-gray-500">{esp.familia}</span>
+                  <span className="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">{BIOMA_LABEL[esp.bioma] ?? esp.bioma}</span>
+                  {esp.grupo_sucessional && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      esp.grupo_sucessional === 'Pioneira' ? 'bg-yellow-50 text-yellow-700'
+                        : esp.grupo_sucessional === 'Secundária Inicial' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
+                    }`}>{esp.grupo_sucessional}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Computador: tabela */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="ui-thead">
                 <tr>
@@ -404,7 +421,7 @@ export default function Especies() {
                   </tr>
                 ) : (
                   resultados.map((esp, i) => (
-                    <tr key={esp.id ?? i} className={i % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'}>
+                    <tr key={esp.id ?? i} className="border-b border-gray-50 last:border-0">
                       <td className="py-3 px-4 font-medium text-gray-900">{esp.nome_popular}</td>
                       <td className="py-3 px-4 italic text-gray-500">{esp.nome_cientifico}</td>
                       <td className="py-3 px-4 text-gray-600">{esp.familia}</td>

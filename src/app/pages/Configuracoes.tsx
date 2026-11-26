@@ -1,3 +1,4 @@
+import { PageHeader, HeaderStats } from '../components/layout/PageHeader';
 import { useState, useEffect } from 'react';
 import { ListSkeleton } from '../components/ui/skeletons';
 import { supabase } from '../lib/supabase';
@@ -114,13 +115,23 @@ export default function Configuracoes() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-2xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
-        <p className="text-gray-400 text-sm mt-1">Gerencie seu perfil e dados da empresa</p>
-      </div>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <PageHeader
+        eyebrow={empresa?.name}
+        title="Configurações"
+        subtitle="Gerencie seu perfil, os dados da empresa e sua assinatura"
+      >
+        <HeaderStats
+          className="md:max-w-xl"
+          items={[
+            { label: 'Plano', value: empresa?.plan_type === 'trial' || empresa?.plan === 'trial' ? 'Teste' : (empresa?.plan_type ? empresa.plan_type.charAt(0).toUpperCase() + empresa.plan_type.slice(1) : 'Profissional'), active: true },
+            { label: 'Situação', value: empresa?.is_blocked ? 'Pausada' : 'Ativa' },
+            { label: 'Cliente desde', value: empresa?.created_at ? new Date(empresa.created_at).toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' }) : '–' },
+          ]}
+        />
+      </PageHeader>
 
-      <div className="space-y-6">
+      <div className="grid lg:grid-cols-2 gap-5 md:gap-6 items-start">
         {/* Perfil */}
         <Card className="shadow-sm">
           <CardHeader className="pb-4">
@@ -345,7 +356,7 @@ export default function Configuracoes() {
 
         {/* Meu Plano e Pagamentos */}
         {temAssinaturaAsaas && (
-          <Card className="shadow-sm">
+          <Card className="shadow-sm lg:col-span-2">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#00420d]/10 rounded-lg flex items-center justify-center">

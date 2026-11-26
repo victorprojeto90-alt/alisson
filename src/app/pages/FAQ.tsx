@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, Search, HelpCircle, MessageCircle } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { PageHeader, HeaderButton, HeaderStats } from '../components/layout/PageHeader';
 
 const FAQS = [
   {
@@ -38,24 +40,18 @@ const FAQS = [
 
 function FaqItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden">
+    <div className={`rounded-2xl border bg-white shadow-sm overflow-hidden transition-colors ${open ? 'border-[#00420d]/25' : 'border-gray-100'}`}>
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-5 py-4 text-left gap-4 focus:outline-none hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between px-4 md:px-5 py-4 text-left gap-4 focus:outline-none hover:bg-gray-50 transition-colors"
       >
-        <span className="font-semibold text-sm" style={{ color: '#00420d' }}>{q}</span>
-        <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center border border-gray-200 bg-white">
-          {open
-            ? <Minus className="w-3.5 h-3.5 text-gray-500" />
-            : <Plus className="w-3.5 h-3.5 text-gray-500" />
-          }
+        <span className="font-semibold text-sm md:text-[15px] text-gray-900">{q}</span>
+        <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${open ? 'bg-[#00420d] text-[#acd115]' : 'bg-gray-100 text-gray-500'}`}>
+          {open ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
         </span>
       </button>
-      <div
-        className="overflow-hidden transition-all duration-300"
-        style={{ maxHeight: open ? '500px' : '0px' }}
-      >
-        <p className="px-5 pb-5 text-sm text-gray-600 leading-relaxed">{a}</p>
+      <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: open ? '600px' : '0px' }}>
+        <p className="px-4 md:px-5 pb-5 text-sm text-gray-600 leading-relaxed">{a}</p>
       </div>
     </div>
   );
@@ -63,38 +59,64 @@ function FaqItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean
 
 export default function FAQ() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
+  const [busca, setBusca] = useState('');
+  const termo = busca.trim().toLowerCase();
+  const lista = FAQS.map((f, i) => ({ ...f, i })).filter(f => !termo || f.q.toLowerCase().includes(termo) || f.a.toLowerCase().includes(termo));
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Perguntas Frequentes</h1>
-        <p className="text-gray-400 text-sm mt-1">Tudo o que você precisa saber sobre o AMBISAFE</p>
-      </div>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <PageHeader
+        title="Perguntas frequentes"
+        subtitle="Tudo o que você precisa saber sobre o AMBISAFE"
+        actions={
+          <HeaderButton onClick={() => window.dispatchEvent(new Event('ambisafe:ajuda'))} className="w-full md:w-auto">
+            <HelpCircle className="w-5 h-5" /> Perguntar à IA
+          </HeaderButton>
+        }
+      >
+        <HeaderStats items={[{ label: 'Perguntas', value: FAQS.length, active: true }, { label: 'Suporte', value: 'WhatsApp' }]} className="md:max-w-sm" />
+      </PageHeader>
 
-      <div className="space-y-3">
-        {FAQS.map((item, i) => (
-          <FaqItem
-            key={i}
-            q={item.q}
-            a={item.a}
-            open={openIdx === i}
-            onToggle={() => setOpenIdx(openIdx === i ? null : i)}
-          />
-        ))}
-      </div>
+      <div className="grid lg:grid-cols-3 gap-6 items-start">
+        <div className="lg:col-span-2 space-y-3">
+          <div className="relative mb-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Buscar uma dúvida..."
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              className="pl-10 h-12 rounded-xl bg-white border-gray-200"
+            />
+          </div>
+          {lista.length === 0 && (
+            <p className="text-center text-sm text-gray-400 py-10">Nenhuma pergunta encontrada. Tente outra palavra ou pergunte à IA.</p>
+          )}
+          {lista.map(item => (
+            <FaqItem
+              key={item.i}
+              q={item.q}
+              a={item.a}
+              open={openIdx === item.i || (!!termo && lista.length <= 3)}
+              onToggle={() => setOpenIdx(openIdx === item.i ? null : item.i)}
+            />
+          ))}
+        </div>
 
-      <div className="mt-10 bg-gray-50 rounded-2xl p-6 text-center border border-gray-100">
-        <p className="text-gray-600 text-sm mb-1">Ainda tem dúvidas?</p>
-        <p className="font-semibold text-gray-900 mb-3">Fale com nosso suporte via WhatsApp</p>
-        <a
-          href="https://wa.me/5583999999999"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-colors"
-          style={{ backgroundColor: '#00420d' }}
-        >
-          Abrir WhatsApp
-        </a>
+        <aside className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5 md:p-6 lg:sticky lg:top-6">
+          <div className="w-11 h-11 rounded-xl bg-[#00420d]/10 flex items-center justify-center mb-3">
+            <MessageCircle className="w-5 h-5 text-[#00420d]" />
+          </div>
+          <p className="font-semibold text-gray-900">Ainda tem dúvidas?</p>
+          <p className="text-sm text-gray-500 mt-1 mb-4">Fale com nosso suporte pelo WhatsApp ou pergunte à IA da Central de Ajuda.</p>
+          <a
+            href="https://wa.me/5583991144456?text=Ol%C3%A1!%20Preciso%20de%20ajuda%20com%20o%20AMBISAFE."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full h-11 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 bg-[#00420d] hover:bg-[#0B3D2E] transition-colors"
+          >
+            <MessageCircle className="w-4 h-4" /> Abrir WhatsApp
+          </a>
+        </aside>
       </div>
     </div>
   );
