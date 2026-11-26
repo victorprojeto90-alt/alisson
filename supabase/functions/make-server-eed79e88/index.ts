@@ -75,8 +75,82 @@ async function chamarGemini(apiKey: string, body: unknown): Promise<{ ok: true; 
   return { ok: false, status: ultimoStatus || 503, motivo: ultimoMotivo };
 }
 
-// A IA às vezes devolve o JSON dentro de ```json ... ```
-const lerJson = (t: string) => JSON.parse(t.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''));
+// =========================================================
+// Claude (Anthropic) — provedor principal da IA.
+// Usa ANTHROPIC_API_KEY; se ela não existir, cai no Gemini acima.
+// =========================================================
+const MODELOS_CLAUDE = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-haiku-4-5'];
+
+type RespostaIA = { ok: true; texto: string; modelo: string } | { ok: false; status: number; motivo: string };
+
+async function chamarClaude(apiKey: string, prompt: string, cfg: { temperatura: number; maxTokens: number; json?: boolean }): Promise<RespostaIA> {
+  let ultimoStatus = 0;
+  let ultimoMotivo = '';
+  const limite = Date.now() + 100000;
+  const system = cfg.json
+    ? 'Responda somente com JSON válido, sem texto antes ou depois e sem blocos de código.'
+    : undefined;
+  for (const modelo of MODELOS_CLAUDE) {
+    for (let tentativa = 0; tentativa < 2; tentativa++) {
+      if (Date.now() > limite) return { ok: false, status: 504, motivo: 'tempo total esgotado' };
+      try {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model: modelo,
+            max_tokens: cfg.maxTokens,
+            temperature: cfg.temperatura,
+            ...(system ? { system } : {}),
+            messages: [{ role: 'user', content: prompt }],
+          }),
+          signal: AbortSignal.timeout(45000),
+        });
+        if (resp.ok) {
+          const json = await resp.json();
+          const texto = (json?.content ?? []).filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('');
+          if (texto.trim()) return { ok: true, texto, modelo };
+          ultimoStatus = 502; ultimoMotivo = 'resposta vazia';
+          break;
+        }
+        ultimoStatus = resp.status;
+        ultimoMotivo = (await resp.text()).slice(0, 300);
+        console.error(`Claude ${modelo} respondeu ${resp.status}: ${ultimoMotivo}`);
+        if (resp.status === 404 || resp.status === 400) break; // modelo indisponível: próximo
+        if (resp.status === 401 || resp.status === 403) return { ok: false, status: resp.status, motivo: 'chave da Anthropic inválida ou sem crédito' };
+        await esperar(1000 * (tentativa + 1)); // 429/500/529: espera e tenta de novo
+      } catch (e) {
+        ultimoStatus = 504;
+        ultimoMotivo = e instanceof Error ? e.message : 'tempo esgotado';
+        console.error(`Claude ${modelo} falhou: ${ultimoMotivo}`);
+      }
+    }
+  }
+  return { ok: false, status: ultimoStatus || 503, motivo: ultimoMotivo };
+}
+
+const temChaveIA = () => Boolean(Deno.env.get('ANTHROPIC_API_KEY') || Deno.env.get('GEMINI_API_KEY'));
+
+async function chamarIA(prompt: string, cfg: { temperatura: number; maxTokens: number; json?: boolean }): Promise<RespostaIA> {
+  const chaveClaude = Deno.env.get('ANTHROPIC_API_KEY');
+  if (chaveClaude) return chamarClaude(chaveClaude, prompt, cfg);
+  const chaveGemini = Deno.env.get('GEMINI_API_KEY');
+  if (!chaveGemini) return { ok: false, status: 500, motivo: 'nenhuma chave de IA configurada' };
+  return chamarGemini(chaveGemini, {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: cfg.temperatura, maxOutputTokens: cfg.maxTokens, ...(cfg.json ? { responseMimeType: 'application/json' } : {}) },
+  });
+}
+
+// A IA às vezes devolve o JSON dentro de ```json ... ``` ou com texto em volta
+const lerJson = (t: string) => {
+  const limpo = t.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  try { return JSON.parse(limpo); } catch {
+    const i = Math.min(...['{', '['].map(c => { const k = limpo.indexOf(c); return k < 0 ? Infinity : k; }));
+    const f = Math.max(limpo.lastIndexOf('}'), limpo.lastIndexOf(']'));
+    return JSON.parse(limpo.slice(i, f + 1));
+  }
+};
 
 const MSG_IA_OCUPADA = 'A IA está ocupada agora. Tente de novo em um minuto.';
 
@@ -88,18 +162,14 @@ app.post("/make-server-eed79e88/ai/diagnostico", async (c) => {
   const segredo = c.req.header('x-cron-secret') ?? '';
   const { data: valido } = await supabase.rpc('verificar_cron_secret', { p_secret: segredo });
   if (!valido) return c.json({ error: 'Forbidden' }, 403);
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  if (!GEMINI_API_KEY) return c.json({ ok: false, motivo: 'GEMINI_API_KEY não configurada' });
+  if (!temChaveIA()) return c.json({ ok: false, motivo: 'nenhuma chave de IA configurada' });
   const inicio = Date.now();
-  const ia = await chamarGemini(GEMINI_API_KEY, {
-    contents: [{ role: 'user', parts: [{ text: 'Responda apenas: OK' }] }],
-    generationConfig: { temperature: 0, maxOutputTokens: 256 },
-  });
+  const ia = await chamarIA('Responda apenas: OK', { temperatura: 0, maxTokens: 64 });
   return c.json({ ...ia, ms: Date.now() - inicio, texto: ia.ok ? ia.texto.slice(0, 40) : undefined });
 });
 
 // =========================================================
-// POST /ai/aprimorar — Enhances report sections with Gemini
+// POST /ai/aprimorar — Enhances report sections with AI
 // Body: { projeto, secoes: [{ titulo, conteudo }] }
 // Returns: { secoes: [{ titulo, conteudo }] }
 // =========================================================
@@ -107,8 +177,7 @@ app.post("/make-server-eed79e88/ai/aprimorar", async (c) => {
   const user = await getUser(c);
   if (!user) return c.json({ error: "Unauthorized" }, 401);
 
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  if (!GEMINI_API_KEY) return c.json({ error: "GEMINI_API_KEY não configurada" }, 500);
+  if (!temChaveIA()) return c.json({ error: "Chave da IA não configurada" }, 500);
 
   const { projeto, secoes } = await c.req.json() as {
     projeto: {
@@ -163,10 +232,7 @@ Retorne um JSON com o formato exato:
   ]
 }`;
 
-  const ia = await chamarGemini(GEMINI_API_KEY, {
-    contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 8192, responseMimeType: 'application/json' },
-  });
+  const ia = await chamarIA(systemPrompt + '\n\n' + userPrompt, { temperatura: 0.4, maxTokens: 8192, json: true });
   if (!ia.ok) return c.json({ error: MSG_IA_OCUPADA }, 503);
   const rawText = ia.texto;
 
@@ -194,8 +260,7 @@ app.post("/make-server-eed79e88/ai/identificar-especie", async (c) => {
   const user = await getUser(c);
   if (!user) return c.json({ error: "Unauthorized" }, 401);
 
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  if (!GEMINI_API_KEY) return c.json({ error: "GEMINI_API_KEY não configurada" }, 500);
+  if (!temChaveIA()) return c.json({ error: "Chave da IA não configurada" }, 500);
 
   const { nome_comum, bioma } = await c.req.json() as { nome_comum: string; bioma?: string };
 
@@ -212,10 +277,7 @@ Retorne APENAS um JSON válido com o formato:
 
 Se não souber com certeza, retorne certeza "baixa" e uma sugestão.`;
 
-  const ia = await chamarGemini(GEMINI_API_KEY, {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.3, maxOutputTokens: 2048, responseMimeType: 'application/json' },
-  });
+  const ia = await chamarIA(prompt, { temperatura: 0.3, maxTokens: 2048, json: true });
   if (!ia.ok) return c.json({ error: MSG_IA_OCUPADA }, 503);
   const rawText = ia.texto;
 
@@ -227,7 +289,7 @@ Se não souber com certeza, retorne certeza "baixa" e uma sugestão.`;
 });
 
 // =========================================================
-// POST /ai/ajuda — Help chat with Gemini (RAG from help articles)
+// POST /ai/ajuda — Help chat with AI (RAG from help articles)
 // Body: { question, page, articles: [{title, content}] }
 // Returns: { answer }
 // =========================================================
@@ -235,8 +297,7 @@ app.post("/make-server-eed79e88/ai/ajuda", async (c) => {
   const user = await getUser(c);
   if (!user) return c.json({ error: "Unauthorized" }, 401);
 
-  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  if (!GEMINI_API_KEY) return c.json({ error: "GEMINI_API_KEY não configurada" }, 500);
+  if (!temChaveIA()) return c.json({ error: "Chave da IA não configurada" }, 500);
 
   const { question, page, articles } = await c.req.json() as {
     question: string;
@@ -259,10 +320,7 @@ Pergunta: ${question}
 
 Responda de forma direta e útil em até 3 parágrafos. Se a pergunta for completamente fora do contexto da plataforma, oriente o usuário a falar com o suporte pelo WhatsApp (83) 99114-4456.`;
 
-  const ia = await chamarGemini(GEMINI_API_KEY, {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
-  });
+  const ia = await chamarIA(prompt, { temperatura: 0.3, maxTokens: 2048 });
   if (!ia.ok) return c.json({ error: MSG_IA_OCUPADA }, 503);
   const answer = ia.texto;
 
