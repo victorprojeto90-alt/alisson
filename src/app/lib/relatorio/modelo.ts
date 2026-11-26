@@ -60,6 +60,8 @@ export interface ContextoEmissao {
   cidade?: string | null;
   uf?: string | null;
   dataInventario?: string | null;
+  registro?: string | null;
+  marca?: import('./tema').MarcaEmpresa | null;
 }
 
 // ---------- Formatação brasileira ----------
@@ -354,7 +356,7 @@ export function montarModelo(
     tipo: 'assinatura',
     local: `${cidadeEmissao !== 'Não informado' ? cidadeEmissao + ', ' : ''}${dataPorExtenso(hoje)}.`,
     nome: responsavel,
-    funcao: 'Responsável técnico — CREA nº ____________',
+    funcao: `Responsável técnico — ${ctx.registro?.trim() || 'CREA nº ____________'}`,
     empresa,
   });
 

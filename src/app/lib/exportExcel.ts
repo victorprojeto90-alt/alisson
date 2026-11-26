@@ -3,17 +3,20 @@ import type { ResultadoInventario } from './calculations';
 import type { ProjetoParaRelatorio } from './reportText';
 import { BIOMAS, FINALIDADES, AMOSTRAGEM, type ContextoEmissao } from './relatorio/modelo';
 import { saveAs } from './fileSaver';
+import { temaCores, hexValido, CORES_PADRAO } from './relatorio/tema';
 
-const VERDE = 'FF00420D';
-const VERDE_MEDIO = 'FF0B5A1E';
-const LIMA = 'FFACD115';
-const ZEBRA = 'FFF4F8F3';
-const GRUPO = 'FFE2ECDF';
-const LINHA = 'FFD6DED3';
+// Cores do tema (marca do cliente ou AMBISAFE), definidas a cada exportação
+let VERDE = 'FF00420D';
+let VERDE_MEDIO = 'FF0B5A1E';
+let LIMA = 'FFACD115';
+let ZEBRA = 'FFF4F8F3';
+let GRUPO = 'FFE2ECDF';
+let LINHA = 'FFD6DED3';
+let SOBRE = 'FFFFFFFF';
 const CINZA = 'FF6B7280';
 
 const fill = (argb: string): Fill => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
-const bordaInf: Partial<Borders> = { bottom: { style: 'thin', color: { argb: LINHA } } };
+let bordaInf: Partial<Borders> = { bottom: { style: 'thin', color: { argb: LINHA } } };
 
 type Fmt = string | undefined;
 interface Col { titulo: string; largura: number; fmt?: Fmt; italico?: boolean }
@@ -22,7 +25,7 @@ function cabecalhoAba(ws: Worksheet, titulo: string, subtitulo: string, nCols: n
   ws.mergeCells(1, 1, 1, nCols);
   const c1 = ws.getCell(1, 1);
   c1.value = titulo;
-  c1.font = { name: 'Calibri', size: 15, bold: true, color: { argb: 'FFFFFFFF' } };
+  c1.font = { name: 'Calibri', size: 15, bold: true, color: { argb: SOBRE } };
   c1.fill = fill(VERDE);
   c1.alignment = { vertical: 'middle', indent: 1 };
   ws.getRow(1).height = 30;
@@ -44,7 +47,7 @@ function tabela(ws: Worksheet, titulo: string, subtitulo: string, cols: Col[], l
   cols.forEach((c, i) => {
     const cell = hr.getCell(i + 1);
     cell.value = c.titulo;
-    cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: SOBRE } };
     cell.fill = fill(VERDE_MEDIO);
     cell.alignment = { vertical: 'middle', horizontal: i === 0 ? 'left' : 'center', wrapText: true };
   });
@@ -90,6 +93,13 @@ export async function exportarExcel(
   ctx: ContextoEmissao = {}
 ) {
   const ExcelJS = (await import('exceljs')).default;
+  const marca = ctx.marca?.ativa ? ctx.marca : null;
+  const tc = temaCores(marca && hexValido(marca.corPrimaria) ? marca.corPrimaria! : CORES_PADRAO.primaria, marca ? marca.corSecundaria : CORES_PADRAO.secundaria);
+  VERDE = 'FF' + tc.escura; VERDE_MEDIO = 'FF' + (marca ? tc.primaria : '0B5A1E'); LIMA = 'FF' + tc.destaque;
+  ZEBRA = 'FF' + tc.zebra; GRUPO = 'FF' + tc.grupo; LINHA = 'FF' + tc.linha; SOBRE = 'FF' + tc.sobrePrimaria;
+  if (!marca) { VERDE = 'FF00420D'; }
+  bordaInf = { bottom: { style: 'thin', color: { argb: LINHA } } };
+  const nomeMarca = marca ? (marca.nome?.trim() || ctx.empresa?.trim() || 'Inventário Florestal') : 'AMBISAFE';
   const wb: Workbook = new ExcelJS.Workbook();
   wb.creator = 'AMBISAFE';
   wb.created = new Date();
@@ -102,7 +112,7 @@ export async function exportarExcel(
   // ---------- Resumo ----------
   const ws = wb.addWorksheet('Resumo', { properties: { tabColor: { argb: VERDE } } });
   ws.columns = [{ width: 38 }, { width: 34 }, { width: 4 }, { width: 30 }, { width: 22 }];
-  cabecalhoAba(ws, 'AMBISAFE — Inventário Florestal', `Emitido em ${new Date().toLocaleDateString('pt-BR')}`, 5);
+  cabecalhoAba(ws, `${nomeMarca} — Inventário Florestal`, `Emitido em ${new Date().toLocaleDateString('pt-BR')}${marca ? '  ·  Gerado pelo sistema AMBISAFE' : ''}`, 5);
   const ident: [string, string | number][] = [
     ['Projeto', nome],
     ['Localização', local || 'Não informada'],
@@ -202,7 +212,7 @@ export async function exportarExcel(
   ['Parâmetro', 'Valor'].forEach((txt, i) => {
     const c = hP.getCell(i + 1);
     c.value = txt;
-    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: SOBRE } };
     c.fill = fill(VERDE_MEDIO);
     c.alignment = { horizontal: i ? 'right' : 'left', vertical: 'middle' };
   });

@@ -7,17 +7,21 @@ import {
 import type { ResultadoInventario } from './calculations';
 import type { ProjetoParaRelatorio } from './reportText';
 import { montarModelo, type Bloco, type ContextoEmissao, type Alinhamento } from './relatorio/modelo';
-import { carregarLogos, desenharGrafico, prepararFonteCanvas } from './relatorio/recursos';
+import { desenharGrafico, prepararFonteCanvas } from './relatorio/recursos';
+import { carregarTema } from './relatorio/tema';
 import { saveAs } from './fileSaver';
 
-const VERDE = '00420D';
-const VERDE_MEDIO = '0B5A1E';
-const LIMA = 'ACD115';
+// Cores do tema (definidas a cada exportação: marca do cliente ou AMBISAFE)
+let VERDE = '00420D';
+let PRIMARIA = '00420D';
+let SOBRE = 'FFFFFF';
+let VERDE_MEDIO = '0B5A1E';
+let LIMA = 'ACD115';
+let LINHA = 'D6DED3';
+let ZEBRA = 'F4F8F3';
+let GRUPO = 'E2ECDF';
 const TEXTO = '212529';
 const CINZA = '6B7280';
-const LINHA = 'D6DED3';
-const ZEBRA = 'F4F8F3';
-const GRUPO = 'E2ECDF';
 const FONTE = 'Calibri';
 
 // Largura útil: A4 (210 mm) − 30 mm − 20 mm = 160 mm
@@ -26,7 +30,7 @@ const LARG_TW = convertMillimetersToTwip(LARG_MM);
 const MM_PX = 3.7795; // 96 dpi
 
 const SEM: IBorderOptions = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
-const linhaFina: IBorderOptions = { style: BorderStyle.SINGLE, size: 4, color: LINHA };
+const linhaFina = (): IBorderOptions => ({ style: BorderStyle.SINGLE, size: 4, color: LINHA });
 
 const alin = (a?: Alinhamento) => a === 'right' ? AlignmentType.RIGHT : a === 'center' ? AlignmentType.CENTER : AlignmentType.LEFT;
 
@@ -44,7 +48,7 @@ function celula(texto: string, o: {
     verticalAlign: VerticalAlign.CENTER,
     shading: o.fundo ? { type: ShadingType.CLEAR, color: 'auto', fill: o.fundo } : undefined,
     margins: { top: 50, bottom: 50, left: 90, right: 90 },
-    borders: { top: o.bordaSup ?? SEM, bottom: o.bordaInf ?? linhaFina, left: SEM, right: SEM },
+    borders: { top: o.bordaSup ?? SEM, bottom: o.bordaInf ?? linhaFina(), left: SEM, right: SEM },
     children: [new Paragraph({ alignment: alin(o.alinhar), spacing: { before: 0, after: 0, line: 240 }, children: [t(texto, { b: o.b, i: o.i, size: o.size ?? 18, color: o.cor })] })],
   });
 }
@@ -55,13 +59,25 @@ export async function exportarWord(
   resultado: ResultadoInventario,
   ctx: ContextoEmissao = {}
 ) {
-  const [logos] = await Promise.all([carregarLogos(), prepararFonteCanvas()]);
+  const [tema] = await Promise.all([carregarTema(ctx.marca, ctx.empresa), prepararFonteCanvas()]);
+  VERDE = tema.escura; PRIMARIA = tema.primaria; SOBRE = tema.sobrePrimaria; VERDE_MEDIO = tema.media;
+  LIMA = tema.destaque; LINHA = tema.linha; ZEBRA = tema.zebra; GRUPO = tema.grupo;
+  const coresGrafico = { forte: '#' + tema.media, suave: '#' + tema.suave };
   const modelo = montarModelo(projeto, resultado, ctx);
   const c = modelo.capa;
+  const dims = (img: { largura: number; altura: number }, maxW: number, maxH: number) => {
+    const e = Math.min(maxW / img.largura, maxH / img.altura);
+    return { width: Math.round(img.largura * e), height: Math.round(img.altura * e) };
+  };
 
   // ================= CAPA =================
-  const logoCapaW = 300;
+  const topoCapa: Paragraph[] = tema.logoCapaNoBranco
+    ? [tema.logoCapa
+        ? new Paragraph({ spacing: { after: 300 }, children: [new ImageRun({ type: 'png', data: tema.logoCapa.bytes, transformation: dims(tema.logoCapa, 300, 90) })] })
+        : new Paragraph({ spacing: { after: 300 }, children: [t(tema.nome, { b: true, size: 44, color: VERDE })] })]
+    : [];
   const capa: (Paragraph | Table)[] = [
+    ...topoCapa,
     new Table({
       width: { size: LARG_TW, type: WidthType.DXA },
       columnWidths: [LARG_TW],
@@ -70,14 +86,14 @@ export async function exportarWord(
       rows: [new TableRow({
         children: [new TableCell({
           width: { size: LARG_TW, type: WidthType.DXA },
-          shading: { type: ShadingType.CLEAR, color: 'auto', fill: VERDE },
+          shading: { type: ShadingType.CLEAR, color: 'auto', fill: PRIMARIA },
           borders: { top: SEM, left: SEM, right: SEM, bottom: { style: BorderStyle.SINGLE, size: 36, color: LIMA } },
-          margins: { top: 700, bottom: 600, left: 500, right: 500 },
+          margins: { top: tema.logoCapaNoBranco ? 500 : 700, bottom: 600, left: 500, right: 500 },
           children: [
-            new Paragraph({ children: [new ImageRun({ type: 'png', data: logos.claro.bytes, transformation: { width: logoCapaW, height: Math.round((logoCapaW * logos.claro.altura) / logos.claro.largura) } })] }),
-            new Paragraph({ spacing: { before: 500 }, children: [t('RELATÓRIO TÉCNICO DE', { b: true, size: 22, color: 'FFFFFF' })] }),
-            new Paragraph({ children: [t('INVENTÁRIO FLORESTAL', { b: true, size: 40, color: 'FFFFFF' })] }),
-            new Paragraph({ spacing: { before: 120 }, children: [t(c.finalidade, { size: 20, color: LIMA })] }),
+            ...(!tema.logoCapaNoBranco && tema.logoCapa ? [new Paragraph({ spacing: { after: 500 }, children: [new ImageRun({ type: 'png', data: tema.logoCapa.bytes, transformation: dims(tema.logoCapa, 300, 80) })] })] : []),
+            new Paragraph({ children: [t('RELATÓRIO TÉCNICO DE', { b: true, size: 22, color: SOBRE })] }),
+            new Paragraph({ children: [t('INVENTÁRIO FLORESTAL', { b: true, size: 40, color: SOBRE })] }),
+            new Paragraph({ spacing: { before: 120 }, children: [t(c.finalidade, { size: 20, color: tema.proprio ? SOBRE : LIMA })] }),
           ],
         })],
       })],
@@ -115,7 +131,7 @@ export async function exportarWord(
       new TableRow({
         tableHeader: true,
         cantSplit: true,
-        children: b.colunas.map((col, i) => celula(col.titulo, { largura: larguras[i], alinhar: col.alinhar ?? 'left', b: true, cor: 'FFFFFF', fundo: VERDE, size: tam, bordaInf: SEM })),
+        children: b.colunas.map((col, i) => celula(col.titulo, { largura: larguras[i], alinhar: col.alinhar ?? 'left', b: true, cor: SOBRE, fundo: PRIMARIA, size: tam, bordaInf: SEM })),
       }),
     ];
     let z = 0;
@@ -176,7 +192,7 @@ export async function exportarWord(
         tabela(b);
         break;
       case 'figura': {
-        const img = desenharGrafico(b.grafico);
+        const img = desenharGrafico({ ...b.grafico, cores: coresGrafico });
         const wpx = Math.round(LARG_MM * MM_PX);
         corpo.push(legenda(`Figura ${b.numero} – ${b.titulo}`));
         corpo.push(new Paragraph({ keepNext: true, alignment: AlignmentType.CENTER, children: [new ImageRun({ type: 'png', data: img.bytes, transformation: { width: wpx, height: Math.round((wpx * img.altura) / img.largura) } })] }));
@@ -237,19 +253,22 @@ export async function exportarWord(
   }
 
   // ================= CABEÇALHO E RODAPÉ =================
-  const logoHpx = 20;
+  const logoCab = tema.logoCabecalho ? dims(tema.logoCabecalho, 170, tema.proprio ? 30 : 20) : null;
   const cabecalho = new Header({
     children: [
       new Paragraph({
         tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
         border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: LINHA, space: 4 } },
         children: [
-          new ImageRun({ type: 'png', data: logos.escuro.bytes, transformation: { width: Math.round((logoHpx * logos.escuro.largura) / logos.escuro.altura), height: logoHpx } }),
+          tema.logoCabecalho && logoCab
+            ? new ImageRun({ type: 'png', data: tema.logoCabecalho.bytes, transformation: logoCab })
+            : new TextRun({ text: tema.nome, bold: true, size: 20, color: VERDE, font: FONTE }),
           new TextRun({ text: '\tRelatório Técnico de Inventário Florestal', size: 17, color: CINZA, font: FONTE }),
         ],
       }),
     ],
   });
+  const linha2 = [tema.contato, tema.proprio ? 'Gerado pelo sistema AMBISAFE' : ''].filter(Boolean).join('  ·  ');
   const rodape = new Footer({
     children: [
       new Paragraph({
@@ -263,6 +282,7 @@ export async function exportarWord(
           new TextRun({ children: [PageNumber.TOTAL_PAGES], bold: true, size: 17, color: VERDE, font: FONTE }),
         ],
       }),
+      ...(linha2 ? [new Paragraph({ children: [new TextRun({ text: linha2, size: 14, color: '969CA3', font: FONTE })] })] : []),
     ],
   });
 
