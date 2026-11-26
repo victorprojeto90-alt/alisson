@@ -7,7 +7,7 @@ import {
   gerarTextoIntroducao, gerarTextoObjetivo, gerarTextoMetodologia,
   gerarTextoResultadosGerais, gerarTextoEstruturaHorizontal, gerarTextoEstruturaDiametrica,
   gerarTextoEstruturaVertical, gerarTextoIndicesDiversidade, gerarTextoConclusao,
-  type ProjetoParaRelatorio,
+  type ProjetoParaRelatorio, type ChaveSecao, type TextosSalvos, textosValidos,
 } from '../reportText';
 import type { DadosGrafico } from './recursos';
 
@@ -62,6 +62,7 @@ export interface ContextoEmissao {
   dataInventario?: string | null;
   registro?: string | null;
   marca?: import('./tema').MarcaEmpresa | null;
+  textos?: TextosSalvos | null;
 }
 
 // ---------- Formatação brasileira ----------
@@ -138,6 +139,10 @@ export function montarModelo(
     emissao: hoje.toLocaleDateString('pt-BR'),
   };
 
+  // Texto editado pelo usuário (ou pela IA) substitui o automático, se for do mesmo processamento
+  const salvos = textosValidos(ctx.textos, r) ? ctx.textos!.secoes : {};
+  const txt = (chave: ChaveSecao, automatico: string) => paragrafos(salvos[chave]?.texto?.trim() ? salvos[chave]!.texto : automatico);
+
   let nTab = 0;
   let nFig = 0;
   const tab = () => ++nTab;
@@ -178,18 +183,18 @@ export function montarModelo(
 
   // ---------- Texto ----------
   B.push({ tipo: 'titulo', nivel: 1, texto: '1 INTRODUÇÃO', novaPagina: true });
-  B.push(...paragrafos(gerarTextoIntroducao(projeto)));
+  B.push(...txt('introducao', gerarTextoIntroducao(projeto)));
   B.push({ tipo: 'titulo', nivel: 1, texto: '2 OBJETIVO' });
-  B.push(...paragrafos(gerarTextoObjetivo(projeto)));
+  B.push(...txt('objetivo', gerarTextoObjetivo(projeto)));
   B.push({ tipo: 'titulo', nivel: 1, texto: '3 MATERIAL E MÉTODOS' });
-  B.push(...paragrafos(gerarTextoMetodologia(projeto, r)));
+  B.push(...txt('metodologia', gerarTextoMetodologia(projeto, r)));
 
   B.push({ tipo: 'titulo', nivel: 1, texto: '4 RESULTADOS E DISCUSSÃO' });
-  B.push({ tipo: 'paragrafo', texto: 'A seguir são apresentados os resultados obtidos no inventário florestal e a discussão técnica dos parâmetros calculados.' });
+  B.push(...txt('resultados_intro', 'A seguir são apresentados os resultados obtidos no inventário florestal e a discussão técnica dos parâmetros calculados.'));
 
   // 4.1
   B.push({ tipo: 'titulo', nivel: 2, texto: '4.1 Parâmetros gerais e estatísticos' });
-  B.push(...paragrafos(gerarTextoResultadosGerais(projeto, r)));
+  B.push(...txt('resultados_gerais', gerarTextoResultadosGerais(projeto, r)));
   B.push({
     tipo: 'tabela', numero: tab(), titulo: 'Parâmetros gerais e estatísticos do inventário',
     colunas: [{ titulo: 'Parâmetro', largura: 0.62 }, { titulo: 'Valor', largura: 0.38, alinhar: 'right' }],
@@ -225,7 +230,7 @@ export function montarModelo(
 
   // 4.2
   B.push({ tipo: 'titulo', nivel: 2, texto: '4.2 Análise fitossociológica' });
-  B.push(...paragrafos(gerarTextoEstruturaHorizontal(r)));
+  B.push(...txt('horizontal', gerarTextoEstruturaHorizontal(r)));
   const topVI = r.especies.slice(0, 10);
   if (topVI.length > 0) {
     B.push({
@@ -278,7 +283,7 @@ export function montarModelo(
 
   // 4.3
   B.push({ tipo: 'titulo', nivel: 2, texto: '4.3 Estrutura diamétrica' });
-  B.push(...paragrafos(gerarTextoEstruturaDiametrica(r)));
+  B.push(...txt('diametrica', gerarTextoEstruturaDiametrica(r)));
   const classes = r.classes_diametricas.filter(c => c.n_individuos > 0 || r.classes_diametricas.length <= 12);
   if (classes.length > 0) {
     B.push({
@@ -300,7 +305,7 @@ export function montarModelo(
 
   // 4.4
   B.push({ tipo: 'titulo', nivel: 2, texto: '4.4 Estrutura vertical' });
-  B.push(...paragrafos(gerarTextoEstruturaVertical(r)));
+  B.push(...txt('vertical', gerarTextoEstruturaVertical(r)));
   if (r.estrutura_vertical?.length) {
     B.push({
       tipo: 'tabela', numero: tab(), titulo: 'Estratificação vertical da vegetação',
@@ -319,7 +324,7 @@ export function montarModelo(
   // 4.5
   const id = r.indices_diversidade;
   B.push({ tipo: 'titulo', nivel: 2, texto: '4.5 Índices de diversidade' });
-  B.push(...paragrafos(gerarTextoIndicesDiversidade(r)));
+  B.push(...txt('diversidade', gerarTextoIndicesDiversidade(r)));
   B.push({
     tipo: 'tabela', numero: tab(), titulo: 'Índices de diversidade florística',
     colunas: [{ titulo: 'Índice', largura: 0.44 }, { titulo: 'Valor', largura: 0.2, alinhar: 'right' }, { titulo: 'Interpretação', largura: 0.36 }],
@@ -350,7 +355,7 @@ export function montarModelo(
 
   // 5
   B.push({ tipo: 'titulo', nivel: 1, texto: '5 CONCLUSÃO' });
-  B.push(...paragrafos(gerarTextoConclusao(projeto, r)));
+  B.push(...txt('conclusao', gerarTextoConclusao(projeto, r)));
 
   B.push({
     tipo: 'assinatura',

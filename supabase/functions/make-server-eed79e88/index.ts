@@ -56,8 +56,11 @@ app.post("/make-server-eed79e88/ai/aprimorar", async (c) => {
       tipo_inventario: string;
       motivo_inventario: string;
     };
-    secoes: { titulo: string; conteudo: string }[];
+    secoes: { chave?: string; titulo: string; conteudo: string }[];
   };
+  if (!Array.isArray(secoes) || secoes.length === 0 || secoes.length > 15) {
+    return c.json({ error: 'Seções inválidas' }, 400);
+  }
 
   const motivoLabel: Record<string, string> = {
     licenciamento: 'Licenciamento Ambiental',
@@ -81,7 +84,9 @@ Finalidade: ${motivoLabel[projeto.motivo_inventario] ?? projeto.motivo_inventari
 
 Aprimore cada seção abaixo, tornando o texto mais técnico, detalhado e profissional.
 Adicione informações contextuais relevantes sobre o bioma e metodologia quando pertinente.
-Não altere nenhum valor numérico.
+Não altere nenhum valor numérico, nome de espécie ou unidade. Não invente dados que não estejam no texto.
+Mantenha o campo "chave" e o "titulo" de cada seção exatamente como recebidos, na mesma ordem.
+Separe parágrafos com uma linha em branco (\n\n). Não use markdown, listas ou negrito.
 
 Seções para aprimorar:
 ${JSON.stringify(secoes, null, 2)}
@@ -89,7 +94,7 @@ ${JSON.stringify(secoes, null, 2)}
 Retorne um JSON com o formato exato:
 {
   "secoes": [
-    { "titulo": "...", "conteudo": "texto aprimorado aqui..." },
+    { "chave": "...", "titulo": "...", "conteudo": "texto aprimorado aqui..." },
     ...
   ]
 }`;
@@ -104,7 +109,7 @@ Retorne um JSON com o formato exato:
           { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] },
         ],
         generationConfig: {
-          temperature: 0.7,
+          temperature: 0.4,
           maxOutputTokens: 8192,
           responseMimeType: 'application/json',
         },
@@ -125,7 +130,14 @@ Retorne um JSON com o formato exato:
 
   try {
     const parsed = JSON.parse(rawText);
-    return c.json({ secoes: parsed.secoes ?? secoes });
+    const vindas = Array.isArray(parsed?.secoes) ? parsed.secoes : [];
+    // Devolve sempre as mesmas seções, na mesma ordem; o que a IA não devolver fica como estava
+    const saida = secoes.map((orig, i) => {
+      const nova = vindas.find((v) => v?.chave && v.chave === orig.chave) ?? (vindas.length === secoes.length ? vindas[i] : null);
+      const conteudo = typeof nova?.conteudo === 'string' && nova.conteudo.trim().length > 20 ? nova.conteudo.trim() : orig.conteudo;
+      return { chave: orig.chave, titulo: orig.titulo, conteudo };
+    });
+    return c.json({ secoes: saida });
   } catch {
     return c.json({ error: 'Resposta da IA em formato inválido' }, 502);
   }
