@@ -1,34 +1,52 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { PageSkeleton } from '../../components/ui/skeletons';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { useApi } from '../../hooks/useApi';
 import {
   useEmpresasAdmin, EmpresaAdmin, PLANOS_PAGOS, PLANO_POR_ID, maskCpfCnpj,
-  abrirWhatsApp, baixarCSV, cores,
+  abrirWhatsApp, baixarCSV,
 } from './adminShared';
+import { Etiqueta, Vazio, dataBR } from './adminUi';
+import { PageHeader, HeaderStats, HeaderButton } from '../../components/layout/PageHeader';
 import { PLANOS } from '../../lib/planos';
-import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import {
-  Building2, Search, ArrowUpDown, Download, Eye, Briefcase, UserCheck,
-  Crown, Ban, ShieldOff, CheckCircle2, MessageCircle, ExternalLink,
-  Loader2, X, Trash2,
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+} from '../../components/ui/dropdown-menu';
+import {
+  Search, ArrowUpDown, Download, Eye, Briefcase, UserCheck, Crown, Ban, ShieldOff,
+  CheckCircle2, MessageCircle, ExternalLink, Loader2, X, Trash2, MoreHorizontal, CalendarPlus, ArrowDownCircle, Trees,
 } from 'lucide-react';
 
-type FiltroPlano = 'all' | 'trial' | 'trial_expirando' | 'profissional' | 'pagante' | 'bloqueado';
+type FiltroPlano = 'all' | 'trial' | 'trial_expirando' | 'pagante' | 'bloqueado';
 type OrdenarPor = 'cadastro' | 'nome' | 'vencimento' | 'plano';
 
-function PageHeader() {
-  return (
-    <div style={{ background: 'white', borderBottom: `1px solid ${cores.borda}`, padding: '24px 32px' }}>
-      <h1 style={{ fontSize: '22px', fontWeight: 700, color: cores.texto }}>Clientes</h1>
-      <p style={{ color: cores.textoSecundario, marginTop: '2px', fontSize: '14px' }}>Contas cadastradas na plataforma</p>
-    </div>
-  );
+const DIA = 86400000;
+function situacao(emp: EmpresaAdmin) {
+  const fim = emp.trial_ends_at ? new Date(emp.trial_ends_at) : null;
+  const expirado = fim ? fim < new Date() : false;
+  const dias = fim ? Math.max(0, Math.ceil((fim.getTime() - Date.now()) / DIA)) : 0;
+  const pago = !!emp.plan_type && PLANOS_PAGOS.includes(emp.plan_type);
+  const pro = emp.plan === 'profissional';
+  return { fim, expirado, dias, pago, pro, emTeste: !pago && !pro };
+}
+
+function EtiquetaPlano({ emp }: { emp: EmpresaAdmin }) {
+  const s = situacao(emp);
+  if (emp.is_blocked) return <Etiqueta tom="vermelho" icone={<Ban className="w-3 h-3" />}>Bloqueada</Etiqueta>;
+  if (s.pago) return <Etiqueta tom="verde" icone={<Crown className="w-3 h-3" />}>{PLANO_POR_ID[emp.plan_type!]?.nome ?? emp.plan_type}</Etiqueta>;
+  if (s.pro) return <Etiqueta tom="verde" icone={<Crown className="w-3 h-3" />}>Pro (manual)</Etiqueta>;
+  return s.expirado ? <Etiqueta tom="vermelho">Teste expirado</Etiqueta> : <Etiqueta tom="amarelo">Teste · {s.dias}d</Etiqueta>;
+}
+
+function textoVencimento(emp: EmpresaAdmin) {
+  const s = situacao(emp);
+  if (s.emTeste && s.fim) return s.expirado ? { t: 'Expirado', c: 'text-red-600' } : { t: `${s.dias} dias restantes`, c: 'text-green-700' };
+  if (emp.plan_expires_at) return { t: dataBR(emp.plan_expires_at), c: 'text-gray-600' };
+  return { t: '—', c: 'text-gray-300' };
 }
 
 export default function AdminClientes() {
@@ -95,7 +113,7 @@ export default function AdminClientes() {
   // no próximo login se a conta de autenticação continuar existindo, "ressuscitando"
   // o cliente excluído.
   const excluirCliente = async (empresa: EmpresaAdmin) => {
-    if (!confirm(`Tem certeza que deseja excluir "${empresa.name}"?\n\nIsso remove permanentemente a empresa, os projetos, os perfis e o acesso de login de todos os usuários vinculados. Esta ação é irreversível.`)) {
+    if (!window.confirm(`Tem certeza que deseja excluir "${empresa.name}"?\n\nIsso remove permanentemente a empresa, os projetos, os perfis e o acesso de login de todos os usuários vinculados. Esta ação é irreversível.`)) {
       return;
     }
     setExcluindoId(empresa.id);
@@ -121,10 +139,10 @@ export default function AdminClientes() {
       const em3dias = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
       return venc >= new Date() && venc <= em3dias;
     })();
-    const matchPlan = filterPlan === 'all' || e.plan === filterPlan ||
-      (filterPlan === 'trial' && e.plan !== 'profissional') ||
+    const matchPlan = filterPlan === 'all' ||
+      (filterPlan === 'trial' && e.plan !== 'profissional' && !(e.plan_type && PLANOS_PAGOS.includes(e.plan_type)) && !e.is_blocked) ||
       (filterPlan === 'trial_expirando' && trialExpirandoLogo) ||
-      (filterPlan === 'pagante' && !!e.plan_type && PLANOS_PAGOS.includes(e.plan_type)) ||
+      (filterPlan === 'pagante' && ((!!e.plan_type && PLANOS_PAGOS.includes(e.plan_type)) || e.plan === 'profissional') && !e.is_blocked) ||
       (filterPlan === 'bloqueado' && !!e.is_blocked);
     if (!matchSearch || !matchPlan) return false;
 
@@ -177,281 +195,263 @@ export default function AdminClientes() {
   };
 
   if (loading) {
-    return (
-      <PageSkeleton />
-    );
+    return <PageSkeleton />;
   }
 
+  const contar = (f: FiltroPlano) => empresas.filter(e => {
+    const s = situacao(e);
+    if (f === 'all') return true;
+    if (f === 'bloqueado') return !!e.is_blocked;
+    if (f === 'pagante') return (s.pago || s.pro) && !e.is_blocked;
+    if (f === 'trial') return s.emTeste && !e.is_blocked;
+    if (f === 'trial_expirando') return !e.is_blocked && !!s.fim && !s.expirado && s.dias <= 3;
+    return false;
+  }).length;
+
+  const MenuAcoes = ({ emp }: { emp: EmpresaAdmin }) => {
+    const s = situacao(emp);
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100" aria-label="Mais ações">
+            <MoreHorizontal className="w-5 h-5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={() => setDetalheEmpresa(emp)}><Eye className="w-4 h-4 mr-2" /> Ver detalhes</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => abrirWhatsApp(emp)}><MessageCircle className="w-4 h-4 mr-2" /> Falar no WhatsApp</DropdownMenuItem>
+          {s.emTeste && <DropdownMenuItem onClick={() => extendTrial(emp.id)}><CalendarPlus className="w-4 h-4 mr-2" /> Estender teste (+30 dias)</DropdownMenuItem>}
+          {s.pro && <DropdownMenuItem onClick={() => changePlan(emp.id, 'trial')}><ArrowDownCircle className="w-4 h-4 mr-2" /> Voltar para teste</DropdownMenuItem>}
+          {emp.asaas_customer_id && (
+            <DropdownMenuItem asChild>
+              <a href={`https://app.asaas.com/customer/${emp.asaas_customer_id}`} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4 mr-2" /> Ver no Asaas</a>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => toggleBloqueio(emp)} className={emp.is_blocked ? 'text-green-700' : 'text-red-600'}>
+            {emp.is_blocked ? <><ShieldOff className="w-4 h-4 mr-2" /> Desbloquear acesso</> : <><Ban className="w-4 h-4 mr-2" /> Bloquear acesso</>}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => excluirCliente(emp)} className="text-red-600"><Trash2 className="w-4 h-4 mr-2" /> Excluir cliente</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
+  const AcaoPrincipal = ({ emp, cheio }: { emp: EmpresaAdmin; cheio?: boolean }) => {
+    const s = situacao(emp);
+    if (updatingId === emp.id || excluindoId === emp.id) return <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-2" />;
+    if (s.emTeste && !emp.is_blocked) {
+      return (
+        <Button size="sm" onClick={() => changePlan(emp.id, 'profissional')} className={`h-9 gap-1.5 rounded-xl bg-[#acd115] text-[#00420d] hover:bg-[#acd115]/85 ${cheio ? 'flex-1' : ''}`}>
+          <CheckCircle2 className="w-4 h-4" /> Ativar Pro
+        </Button>
+      );
+    }
+    return (
+      <Button size="sm" variant="outline" onClick={() => abrirWhatsApp(emp)} className={`h-9 gap-1.5 rounded-xl text-green-700 border-green-200 hover:bg-green-50 ${cheio ? 'flex-1' : ''}`}>
+        <MessageCircle className="w-4 h-4" /> WhatsApp
+      </Button>
+    );
+  };
+
   return (
-    <div>
-      <PageHeader />
-      <div style={{ padding: '24px 32px' }}>
-        <Card className="shadow-sm">
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between flex-wrap gap-3 p-4 border-b border-gray-100">
-              <span className="text-sm font-semibold text-gray-800">Clientes ({filtered.length})</span>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <Input
-                    placeholder="Buscar empresa ou usuário..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="pl-9 h-8 text-sm w-52"
-                  />
-                </div>
-                <Select value={ordenarPor} onValueChange={v => setOrdenarPor(v as OrdenarPor)}>
-                  <SelectTrigger className="h-8 text-xs w-40 gap-1">
-                    <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cadastro">Mais recentes</SelectItem>
-                    <SelectItem value="nome">Nome (A-Z)</SelectItem>
-                    <SelectItem value="vencimento">Vencimento</SelectItem>
-                    <SelectItem value="plano">Plano</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex border rounded-lg overflow-hidden text-xs flex-wrap">
-                  {(['all', 'profissional', 'pagante', 'trial', 'trial_expirando', 'bloqueado'] as const).map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setFilterPlan(p)}
-                      className={`px-3 py-1.5 font-medium transition-colors ${
-                        filterPlan === p ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
-                      }`}
-                      style={filterPlan === p ? { background: cores.verde } : undefined}
-                    >
-                      {p === 'all' ? 'Todos' : p === 'profissional' ? 'Pro' : p === 'pagante' ? 'Pagantes' : p === 'trial' ? 'Trial' : p === 'trial_expirando' ? 'Expirando' : 'Bloqueados'}
-                    </button>
-                  ))}
-                </div>
-                <Select value={periodoFiltro} onValueChange={v => setPeriodoFiltro(v as typeof periodoFiltro)}>
-                  <SelectTrigger className="h-8 text-xs w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Cadastro: todos</SelectItem>
-                    <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                    <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                    <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportarCSV}>
-                  <Download className="w-3.5 h-3.5" />
-                  CSV
-                </Button>
-              </div>
-            </div>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <PageHeader
+        eyebrow="Painel administrativo"
+        title="Clientes"
+        subtitle="Contas cadastradas na plataforma"
+        actions={<HeaderButton variant="outline" onClick={exportarCSV}><Download className="w-4 h-4" /> Baixar CSV</HeaderButton>}
+      >
+        <HeaderStats
+          items={([
+            ['all', 'Todos'], ['pagante', 'Pagantes'], ['trial', 'Em teste'], ['trial_expirando', 'Expirando'], ['bloqueado', 'Bloqueadas'],
+          ] as [FiltroPlano, string][]).map(([f, label]) => ({ label, value: contar(f), active: filterPlan === f, onClick: () => setFilterPlan(f) }))}
+        />
+      </PageHeader>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="ui-thead">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Empresa / Responsável</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Tipo</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">CPF/CNPJ</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Projetos</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Plano</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Trial/Venc.</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Cadastro</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 text-xs">Ações</th>
+      {/* barra de busca e ordenação */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Input placeholder="Buscar empresa ou responsável..." value={search} onChange={e => setSearch(e.target.value)} className="pl-11 h-12 rounded-xl bg-white" />
+        </div>
+        <div className="grid grid-cols-2 sm:flex gap-2">
+          <Select value={ordenarPor} onValueChange={v => setOrdenarPor(v as OrdenarPor)}>
+            <SelectTrigger className="h-12 rounded-xl bg-white sm:w-44 gap-2"><ArrowUpDown className="w-4 h-4 text-gray-400" /><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cadastro">Mais recentes</SelectItem>
+              <SelectItem value="nome">Nome (A-Z)</SelectItem>
+              <SelectItem value="vencimento">Vencimento</SelectItem>
+              <SelectItem value="plano">Plano</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={periodoFiltro} onValueChange={v => setPeriodoFiltro(v as typeof periodoFiltro)}>
+            <SelectTrigger className="h-12 rounded-xl bg-white sm:w-48"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Cadastro: qualquer data</SelectItem>
+              <SelectItem value="7d">Últimos 7 dias</SelectItem>
+              <SelectItem value="30d">Últimos 30 dias</SelectItem>
+              <SelectItem value="90d">Últimos 90 dias</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <p className="text-xs text-gray-500 mb-3 px-1">{sorted.length} {sorted.length === 1 ? 'cliente' : 'clientes'}</p>
+
+      {/* computador: tabela */}
+      <div className="hidden md:block rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="ui-thead">
+              <tr>
+                <th className="px-5 py-3 text-left">Empresa / responsável</th>
+                <th className="px-4 py-3 text-left">Tipo</th>
+                <th className="px-4 py-3 text-left">CPF/CNPJ</th>
+                <th className="px-4 py-3 text-left">Inventários</th>
+                <th className="px-4 py-3 text-left">Plano</th>
+                <th className="px-4 py-3 text-left">Teste / vencimento</th>
+                <th className="px-4 py-3 text-left">Cadastro</th>
+                <th className="px-5 py-3 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {sorted.map(emp => {
+                const tipo = emp.profiles?.[0]?.tipo_usuario ?? 'empresa';
+                const proc = emp.projetos?.filter(p => p.status !== 'rascunho').length ?? 0;
+                const doc = emp.profiles?.[0]?.cpf_cnpj ?? emp.cnpj;
+                const venc = textoVencimento(emp);
+                return (
+                  <tr key={emp.id} className="hover:bg-[#f8faf7]">
+                    <td className="px-5 py-3">
+                      <button onClick={() => setDetalheEmpresa(emp)} className="text-left group">
+                        <p className="font-medium text-gray-900 group-hover:underline">{emp.name}</p>
+                        {emp.profiles?.[0]?.name && <p className="text-xs text-gray-500">{emp.profiles[0].name}</p>}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                      {tipo === 'empresa' ? <span className="inline-flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" /> Empresa</span> : <span className="inline-flex items-center gap-1"><UserCheck className="w-3.5 h-3.5" /> Pessoa física</span>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500 font-mono">{doc ? maskCpfCnpj(doc) : '—'}</td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">
+                      <span className="font-semibold text-gray-800">{emp.projetos?.length ?? 0}</span>
+                      {proc > 0 && <span className="text-green-700"> · {proc} processados</span>}
+                    </td>
+                    <td className="px-4 py-3"><EtiquetaPlano emp={emp} /></td>
+                    <td className={`px-4 py-3 text-xs whitespace-nowrap ${venc.c}`}>{venc.t}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{dataBR(emp.created_at)}</td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <AcaoPrincipal emp={emp} />
+                        <MenuAcoes emp={emp} />
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {sorted.map((emp, i) => {
-                    const trialEndsAt = emp.trial_ends_at ? new Date(emp.trial_ends_at) : null;
-                    const trialExpired = trialEndsAt ? trialEndsAt < new Date() : false;
-                    const trialDays = trialEndsAt
-                      ? Math.max(0, Math.ceil((trialEndsAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-                      : 0;
-                    const isUpdating = updatingId === emp.id;
-                    const isExcluindo = excluindoId === emp.id;
-                    const tipoUsuario = emp.profiles?.[0]?.tipo_usuario ?? 'empresa';
-                    const processados = emp.projetos?.filter(p => p.status !== 'rascunho').length ?? 0;
-                    const cpfCnpj = emp.profiles?.[0]?.cpf_cnpj ?? emp.cnpj;
-
-                    return (
-                      <tr key={emp.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}>
-                        <td className="px-4 py-3">
-                          <button onClick={() => setDetalheEmpresa(emp)} className="text-left hover:underline">
-                            <p className="font-medium text-gray-900 text-sm">{emp.name}</p>
-                            {emp.profiles?.[0]?.name && <p className="text-xs text-gray-400">{emp.profiles[0].name}</p>}
-                          </button>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="flex items-center gap-1 text-xs text-gray-500">
-                            {tipoUsuario === 'empresa' ? <><Briefcase className="w-3 h-3" /> Empresa</> : <><UserCheck className="w-3 h-3" /> Pessoa Física</>}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-400 font-mono">{cpfCnpj ? maskCpfCnpj(cpfCnpj) : '—'}</td>
-                        <td className="px-4 py-3">
-                          <div className="text-xs">
-                            <span className="text-gray-800 font-medium">{emp.projetos?.length ?? 0}</span>
-                            <span className="text-gray-400"> total</span>
-                            {processados > 0 && <span className="text-green-600 ml-1">· {processados} proc.</span>}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {emp.is_blocked ? (
-                            <Badge className="bg-red-50 text-red-700 border-red-200 border text-xs gap-1 font-normal">
-                              <Ban className="w-3 h-3" /> Bloqueado
-                            </Badge>
-                          ) : emp.plan_type && PLANOS_PAGOS.includes(emp.plan_type) ? (
-                            <Badge className="bg-green-50 text-green-700 border-green-200 border text-xs gap-1 font-normal">
-                              <Crown className="w-3 h-3" /> {PLANO_POR_ID[emp.plan_type]?.nome ?? emp.plan_type}
-                            </Badge>
-                          ) : emp.plan === 'profissional' ? (
-                            <Badge className="bg-green-50 text-green-700 border-green-200 border text-xs gap-1 font-normal">
-                              <Crown className="w-3 h-3" /> Pro
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className={trialExpired ? 'text-red-600 border-red-200 bg-red-50 text-xs' : 'text-yellow-600 border-yellow-200 bg-yellow-50 text-xs'}>
-                              {trialExpired ? 'Expirado' : `Trial · ${trialDays}d`}
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-xs">
-                          {emp.plan !== 'profissional' && trialEndsAt ? (
-                            trialExpired ? <span className="text-red-500">Expirado</span> : <span className="text-green-600">{trialDays}d restantes</span>
-                          ) : emp.plan_expires_at ? (
-                            <span className="text-gray-500">{new Date(emp.plan_expires_at).toLocaleDateString('pt-BR')}</span>
-                          ) : <span className="text-gray-300">—</span>}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-400">{new Date(emp.created_at).toLocaleDateString('pt-BR')}</td>
-                        <td className="px-4 py-3">
-                          {isUpdating || isExcluindo ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                          ) : (
-                            <div className="flex items-center gap-1 flex-wrap">
-                              <button onClick={() => setDetalheEmpresa(emp)} className="text-xs h-7 px-2 flex items-center gap-1 text-gray-400 hover:text-gray-700" title="Ver detalhes">
-                                <Eye className="w-3 h-3" />
-                              </button>
-                              {emp.plan === 'profissional' ? (
-                                <Button variant="outline" size="sm" className="text-xs h-7 border-gray-200 text-gray-600" onClick={() => changePlan(emp.id, 'trial')}>
-                                  Rebaixar
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button size="sm" className="text-xs h-7 gap-1" style={{ background: cores.verdeClaro, color: cores.verde }} onClick={() => changePlan(emp.id, 'profissional')}>
-                                    <CheckCircle2 className="w-3 h-3" /> Ativar Pro
-                                  </Button>
-                                  <Button variant="outline" size="sm" className="text-xs h-7 border-blue-200 text-blue-600" onClick={() => extendTrial(emp.id)}>
-                                    +30d
-                                  </Button>
-                                </>
-                              )}
-                              <Button
-                                variant="outline" size="sm"
-                                className={`text-xs h-7 gap-1 ${emp.is_blocked ? 'border-green-200 text-green-600' : 'border-red-200 text-red-600'}`}
-                                onClick={() => toggleBloqueio(emp)}
-                                title={emp.is_blocked ? 'Desbloquear acesso' : 'Bloquear acesso'}
-                              >
-                                {emp.is_blocked ? <ShieldOff className="w-3 h-3" /> : <Ban className="w-3 h-3" />}
-                              </Button>
-                              <button onClick={() => abrirWhatsApp(emp)} className="text-xs h-7 px-2 flex items-center gap-1 text-gray-400 hover:text-green-600" title="Falar no WhatsApp">
-                                <MessageCircle className="w-3 h-3" />
-                              </button>
-                              {emp.asaas_customer_id && (
-                                <a href={`https://app.asaas.com/customer/${emp.asaas_customer_id}`} target="_blank" rel="noopener noreferrer" className="text-xs h-7 px-2 flex items-center gap-1 text-gray-400 hover:text-gray-700" title="Ver cliente no Asaas">
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              )}
-                              <button onClick={() => excluirCliente(emp)} className="text-xs h-7 px-2 flex items-center gap-1 text-red-400 hover:text-red-600" title="Excluir cliente">
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {filtered.length === 0 && (
-                <div className="text-center py-12 text-gray-400">
-                  <Building2 className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">
-                    {empresas.length === 0 ? 'Nenhuma empresa. Execute o SQL das políticas admin no Supabase.' : 'Nenhum resultado para o filtro aplicado.'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {sorted.length === 0 && <Vazio>{empresas.length === 0 ? 'Nenhuma empresa cadastrada.' : 'Nenhum cliente para este filtro.'}</Vazio>}
       </div>
 
-      {/* Modal de detalhes do cliente */}
-      {detalheEmpresa && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setDetalheEmpresa(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 z-10 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">{detalheEmpresa.name}</h3>
-              <button onClick={() => setDetalheEmpresa(null)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
+      {/* celular: cartões */}
+      <div className="md:hidden space-y-3">
+        {sorted.map(emp => {
+          const venc = textoVencimento(emp);
+          const proc = emp.projetos?.filter(p => p.status !== 'rascunho').length ?? 0;
+          return (
+            <div key={emp.id} className="rounded-2xl border border-gray-100 bg-white shadow-sm p-4">
+              <div className="flex items-start justify-between gap-2">
+                <button onClick={() => setDetalheEmpresa(emp)} className="text-left min-w-0">
+                  <p className="font-semibold text-gray-900 leading-tight">{emp.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{emp.profiles?.[0]?.name ?? '—'}</p>
+                </button>
+                <MenuAcoes emp={emp} />
+              </div>
+              <div className="mt-2"><EtiquetaPlano emp={emp} /></div>
+              <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-50 text-xs">
+                <div><p className="text-gray-400 flex items-center gap-1"><Trees className="w-3 h-3" /> Inventários</p><p className="font-semibold text-gray-800 mt-0.5">{emp.projetos?.length ?? 0}{proc > 0 ? <span className="font-normal text-green-700"> · {proc} proc.</span> : null}</p></div>
+                <div><p className="text-gray-400">Teste / venc.</p><p className={`font-semibold mt-0.5 ${venc.c}`}>{venc.t}</p></div>
+                <div><p className="text-gray-400">Cadastro</p><p className="font-semibold text-gray-800 mt-0.5">{dataBR(emp.created_at)}</p></div>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <AcaoPrincipal emp={emp} cheio />
+                <Button size="sm" variant="outline" className="h-9 rounded-xl gap-1.5" onClick={() => setDetalheEmpresa(emp)}><Eye className="w-4 h-4" /> Detalhes</Button>
+              </div>
             </div>
-            <div className="space-y-2 text-sm">
-              <p className="text-gray-500">Responsável: <span className="text-gray-800 font-medium">{detalheEmpresa.profiles?.[0]?.name ?? '—'}</span></p>
-              <p className="text-xs text-gray-400">E-mail não disponível aqui — precisa do endpoint admin (auth.admin), não implementado ainda.</p>
-              {(detalheEmpresa.profiles?.[0]?.cpf_cnpj ?? detalheEmpresa.cnpj) && (
-                <p className="text-gray-500">CPF/CNPJ: <span className="text-gray-800 font-mono">{maskCpfCnpj((detalheEmpresa.profiles?.[0]?.cpf_cnpj ?? detalheEmpresa.cnpj)!)}</span></p>
-              )}
-              <p className="text-gray-500">
-                Plano: <span className="text-gray-800 font-medium">
-                  {detalheEmpresa.plan_type && PLANOS_PAGOS.includes(detalheEmpresa.plan_type) ? PLANO_POR_ID[detalheEmpresa.plan_type]?.nome : detalheEmpresa.plan === 'profissional' ? 'Profissional' : 'Trial'}
-                </span>
-              </p>
-              <p className="text-gray-500">Cadastro: <span className="text-gray-800">{new Date(detalheEmpresa.created_at).toLocaleDateString('pt-BR')}</span></p>
-              <p className="text-gray-500">Projetos: <span className="text-gray-800">{detalheEmpresa.projetos?.length ?? 0} criados</span></p>
-            </div>
+          );
+        })}
+        {sorted.length === 0 && <div className="rounded-2xl border border-gray-100 bg-white"><Vazio>{empresas.length === 0 ? 'Nenhuma empresa cadastrada.' : 'Nenhum cliente para este filtro.'}</Vazio></div>}
+      </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-100 space-y-1.5">
-              <label className="text-xs font-medium text-gray-500">Mudar plano (billing Asaas)</label>
-              <Select value={detalheEmpresa.plan_type ?? 'trial'} onValueChange={v => mudarPlanoManual(detalheEmpresa.id, v)}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="trial">Trial</SelectItem>
-                  {PLANOS.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.nome} — {p.precoFormatado}/mês</SelectItem>
+      {/* Detalhes do cliente */}
+      {detalheEmpresa && (() => {
+        const d = detalheEmpresa;
+        const doc = d.profiles?.[0]?.cpf_cnpj ?? d.cnpj;
+        const venc = textoVencimento(d);
+        const linhas: [string, ReactNode][] = [
+          ['Responsável', d.profiles?.[0]?.name ?? '—'],
+          ['Telefone', d.telefone ?? d.profiles?.[0]?.telefone ?? '—'],
+          ['CPF/CNPJ', doc ? <span className="font-mono">{maskCpfCnpj(doc)}</span> : '—'],
+          ['Cidade', [d.cidade ?? d.profiles?.[0]?.cidade, d.estado_uf ?? d.profiles?.[0]?.estado_uf].filter(Boolean).join('/') || '—'],
+          ['Plano', <EtiquetaPlano key="p" emp={d} />],
+          ['Teste / vencimento', <span key="v" className={venc.c}>{venc.t}</span>],
+          ['Inventários', `${d.projetos?.length ?? 0} criados`],
+          ['Cadastro', dataBR(d.created_at)],
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDetalheEmpresa(null)} />
+            <div className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl z-10 max-h-[92vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+              <div className="bg-gradient-to-br from-[#00420d] via-[#0B5A1E] to-[#16A34A] text-white px-6 pt-6 pb-5 rounded-t-3xl">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-white/70 text-xs">Cliente</p>
+                    <h3 className="text-xl font-bold leading-tight">{d.name}</h3>
+                  </div>
+                  <button onClick={() => setDetalheEmpresa(null)} className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center shrink-0" aria-label="Fechar"><X className="w-5 h-5" /></button>
+                </div>
+              </div>
+              <div className="p-6 space-y-5">
+                <dl className="divide-y divide-gray-50 text-sm">
+                  {linhas.map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between gap-4 py-2.5">
+                      <dt className="text-gray-500">{k}</dt>
+                      <dd className="text-gray-900 font-medium text-right">{v}</dd>
+                    </div>
                   ))}
-                  <SelectItem value="bloqueado">Bloqueado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                </dl>
 
-            <div className="flex flex-wrap gap-2 mt-4">
-              <Button size="sm" variant="outline" className="text-xs" onClick={() => extendTrial(detalheEmpresa.id)}>Estender Trial (+30d)</Button>
-              <Button
-                size="sm" variant="outline"
-                className={`text-xs ${detalheEmpresa.is_blocked ? 'border-green-200 text-green-600' : 'border-red-200 text-red-600'}`}
-                onClick={() => { toggleBloqueio(detalheEmpresa); setDetalheEmpresa(null); }}
-              >
-                {detalheEmpresa.is_blocked ? 'Desbloquear' : 'Bloquear'}
-              </Button>
-              <Button size="sm" variant="outline" className="text-xs gap-1 border-green-200 text-green-700" onClick={() => abrirWhatsApp(detalheEmpresa)}>
-                <MessageCircle className="w-3 h-3" /> WhatsApp
-              </Button>
-              {detalheEmpresa.asaas_customer_id && (
-                <a href={`https://app.asaas.com/customer/${detalheEmpresa.asaas_customer_id}`} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1">
-                  <ExternalLink className="w-3 h-3" /> Ver no Asaas
-                </a>
-              )}
-              <Button
-                size="sm" variant="outline"
-                className="text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50 ml-auto"
-                onClick={() => excluirCliente(detalheEmpresa)}
-                disabled={excluindoId === detalheEmpresa.id}
-              >
-                <Trash2 className="w-3 h-3" /> Excluir cliente
-              </Button>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500">Mudar plano (cobrança)</label>
+                  <Select value={d.plan_type ?? 'trial'} onValueChange={v => mudarPlanoManual(d.id, v)}>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="trial">Teste</SelectItem>
+                      {PLANOS.map(p => <SelectItem key={p.id} value={p.id}>{p.nome} — {p.precoFormatado}/mês</SelectItem>)}
+                      <SelectItem value="bloqueado">Bloqueado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" className="rounded-xl gap-1.5" onClick={() => extendTrial(d.id)}><CalendarPlus className="w-4 h-4" /> +30 dias de teste</Button>
+                  <Button variant="outline" className="rounded-xl gap-1.5 text-green-700 border-green-200 hover:bg-green-50" onClick={() => abrirWhatsApp(d)}><MessageCircle className="w-4 h-4" /> WhatsApp</Button>
+                  <Button variant="outline" className={`rounded-xl gap-1.5 ${d.is_blocked ? 'text-green-700 border-green-200' : 'text-red-600 border-red-200'}`} onClick={() => { toggleBloqueio(d); setDetalheEmpresa(null); }}>
+                    {d.is_blocked ? <><ShieldOff className="w-4 h-4" /> Desbloquear</> : <><Ban className="w-4 h-4" /> Bloquear</>}
+                  </Button>
+                  {d.asaas_customer_id ? (
+                    <a href={`https://app.asaas.com/customer/${d.asaas_customer_id}`} target="_blank" rel="noopener noreferrer" className="h-9 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1.5"><ExternalLink className="w-4 h-4" /> Ver no Asaas</a>
+                  ) : <span />}
+                </div>
+                <button onClick={() => excluirCliente(d)} disabled={excluindoId === d.id} className="w-full text-sm text-red-600 hover:text-red-700 inline-flex items-center justify-center gap-1.5 pt-2">
+                  {excluindoId === d.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Excluir cliente permanentemente
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

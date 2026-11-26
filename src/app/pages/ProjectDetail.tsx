@@ -24,6 +24,7 @@ import VolumePorParcela from '../components/results/VolumePorParcela';
 import IndividuosPorParcela from '../components/results/IndividuosPorParcela';
 import ReportPreview from '../components/results/ReportPreview';
 import ExportPanel from '../components/results/ExportPanel';
+import type { TextosSalvos } from '../lib/reportText';
 import ScoreCard from '../components/results/ScoreCard';
 import { PageHeader, HeaderButton, HeaderStats, HeaderBadge } from '../components/layout/PageHeader';
 import {
@@ -66,6 +67,7 @@ interface Projeto {
   fator_forma: number;
   status: string;
   created_at: string;
+  relatorio_textos?: TextosSalvos | null;
 }
 
 // Seções da aba Resultados (menu que acompanha a rolagem)
@@ -761,7 +763,13 @@ export default function ProjectDetail() {
         {/* TAB: RELATÓRIO */}
         <TabsContent value="relatorio">
           {hasResultado && projeto && (
-            <ReportPreview projeto={projeto} resultado={resultado} />
+            <ReportPreview
+              projetoId={projeto.id}
+              projeto={projeto}
+              resultado={resultado}
+              onSalvo={t => setProjeto(prev => (prev ? { ...prev, relatorio_textos: t } : prev))}
+              onIrExportar={() => { setActiveTab('exportar'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            />
           )}
         </TabsContent>
 

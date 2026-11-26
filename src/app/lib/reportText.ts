@@ -246,9 +246,36 @@ O estudo desenvolvido contribui para o conhecimento da estrutura e composição 
 }
 
 // ---- Relatório Completo ----
+export type ChaveSecao =
+  | 'introducao' | 'objetivo' | 'metodologia' | 'resultados_intro' | 'resultados_gerais'
+  | 'horizontal' | 'diametrica' | 'vertical' | 'diversidade' | 'conclusao';
+
 export interface SecaoRelatorio {
+  chave: ChaveSecao;
   titulo: string;
   conteudo: string;
+}
+
+// Textos salvos pelo usuário (editados à mão ou melhorados com IA)
+export interface TextosSalvos {
+  versao: 1;
+  base: { n_individuos: number; n_especies: number; volume_total: number };
+  secoes: Partial<Record<ChaveSecao, { texto: string; origem: 'editado' | 'ia'; em: string }>>;
+}
+
+export function baseDoResultado(r: ResultadoInventario): TextosSalvos['base'] {
+  return {
+    n_individuos: r.dados_gerais.n_individuos,
+    n_especies: r.dados_gerais.n_especies,
+    volume_total: Math.round(r.dados_gerais.volume_estimado_total * 100) / 100,
+  };
+}
+
+// Os textos salvos só valem se foram feitos sobre o mesmo processamento
+export function textosValidos(t: TextosSalvos | null | undefined, r: ResultadoInventario): boolean {
+  if (!t || t.versao !== 1 || !t.secoes) return false;
+  const b = baseDoResultado(r);
+  return t.base?.n_individuos === b.n_individuos && t.base?.n_especies === b.n_especies && Math.abs((t.base?.volume_total ?? -1) - b.volume_total) < 0.01;
 }
 
 export function gerarRelatorioCompleto(
@@ -257,42 +284,52 @@ export function gerarRelatorioCompleto(
 ): SecaoRelatorio[] {
   return [
     {
+      chave: 'introducao',
       titulo: '1 INTRODUÇÃO',
       conteudo: gerarTextoIntroducao(projeto),
     },
     {
+      chave: 'objetivo',
       titulo: '2 OBJETIVO',
       conteudo: gerarTextoObjetivo(projeto),
     },
     {
+      chave: 'metodologia',
       titulo: '3 MATERIAL E MÉTODOS',
       conteudo: gerarTextoMetodologia(projeto, resultado),
     },
     {
+      chave: 'resultados_intro',
       titulo: '4 RESULTADOS E DISCUSSÃO',
       conteudo: 'A seguir são apresentados os resultados obtidos no inventário florestal e a discussão técnica dos parâmetros calculados.',
     },
     {
+      chave: 'resultados_gerais',
       titulo: '4.1 Parâmetros gerais',
       conteudo: gerarTextoResultadosGerais(projeto, resultado),
     },
     {
+      chave: 'horizontal',
       titulo: '4.2 Análise fitossociológica',
       conteudo: gerarTextoEstruturaHorizontal(resultado),
     },
     {
+      chave: 'diametrica',
       titulo: '4.3 Estrutura diamétrica',
       conteudo: gerarTextoEstruturaDiametrica(resultado),
     },
     {
+      chave: 'vertical',
       titulo: '4.4 Estrutura vertical',
       conteudo: gerarTextoEstruturaVertical(resultado),
     },
     {
+      chave: 'diversidade',
       titulo: '4.5 Índices de diversidade',
       conteudo: gerarTextoIndicesDiversidade(resultado),
     },
     {
+      chave: 'conclusao',
       titulo: '5 CONCLUSÃO',
       conteudo: gerarTextoConclusao(projeto, resultado),
     },

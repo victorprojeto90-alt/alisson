@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { FileText, Download, Table2, FileType2, Loader2, CheckCircle2 } from 'lucide-react';
 import type { ResultadoInventario } from '../../lib/calculations';
-import type { ProjetoParaRelatorio } from '../../lib/reportText';
+import { textosValidos, type ProjetoParaRelatorio, type TextosSalvos } from '../../lib/reportText';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 import { Link } from 'react-router';
@@ -22,6 +22,7 @@ interface Props {
     nivel_confianca: number;
     precisao_requerida: number;
     data_inventario?: string | null;
+    relatorio_textos?: TextosSalvos | null;
   };
   resultado: ResultadoInventario;
 }
@@ -85,6 +86,7 @@ export default function ExportPanel({ projeto, resultado }: Props) {
     uf: profile?.estado_uf ?? profile?.empresa?.estado_uf ?? null,
     dataInventario: projeto.data_inventario ?? null,
     registro: profile?.registro_profissional ?? null,
+    textos: projeto.relatorio_textos ?? null,
     marca: {
       ativa: !!profile?.empresa?.marca_ativa,
       nome: profile?.empresa?.marca_nome,
@@ -95,6 +97,9 @@ export default function ExportPanel({ projeto, resultado }: Props) {
     },
   };
   const usandoMarca = !!profile?.empresa?.marca_ativa;
+  const textosOk = textosValidos(projeto.relatorio_textos, resultado);
+  const nPersonalizadas = textosOk ? Object.keys(projeto.relatorio_textos!.secoes).length : 0;
+  const textosAntigos = !!projeto.relatorio_textos && !textosOk;
 
   const handleExport = async (type: ExportType) => {
     setLoading(type);
@@ -130,6 +135,13 @@ export default function ExportPanel({ projeto, resultado }: Props) {
           <p className="text-sm text-gray-500">
             Os três formatos usam os mesmos dados e textos. O responsável técnico, o registro profissional e a empresa vêm do seu cadastro.
           </p>
+          {(nPersonalizadas > 0 || textosAntigos) && (
+            <p className={`mt-3 text-xs rounded-xl px-4 py-3 ${textosAntigos ? 'bg-amber-50 text-amber-800' : 'bg-blue-50 text-blue-800'}`}>
+              {textosAntigos
+                ? 'O inventário foi reprocessado depois que o texto foi editado. Os arquivos vão com o texto automático atualizado. Revise na aba Relatório.'
+                : `${nPersonalizadas} ${nPersonalizadas === 1 ? 'seção do texto foi personalizada' : 'seções do texto foram personalizadas'} na aba Relatório e vão assim no PDF e no Word.`}
+            </p>
+          )}
           <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between rounded-xl bg-[#f4f8f3] px-4 py-3">
             <p className="text-xs text-gray-600">
               {usandoMarca

@@ -1,3 +1,4 @@
+import type React from 'react';
 import type { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '../ui/utils';
@@ -90,11 +91,11 @@ export interface HeaderStatItem {
 }
 
 // Faixa de números dentro do cabeçalho. Com onClick vira filtro (item ativo fica branco).
-export function HeaderStats({ items, className }: { items: HeaderStatItem[]; className?: string }) {
+export function HeaderStats({ items, className, colunasCelular }: { items: HeaderStatItem[]; className?: string; colunasCelular?: number }) {
   return (
     <div
-      className={cn('grid gap-2 md:max-w-3xl', className)}
-      style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+      className={cn('grid gap-2 md:max-w-3xl grid-cols-[repeat(var(--hs-m),minmax(0,1fr))] md:grid-cols-[repeat(var(--hs),minmax(0,1fr))]', className)}
+      style={{ '--hs': items.length, '--hs-m': colunasCelular ?? items.length } as React.CSSProperties}
     >
       {items.map(item => {
         const Tag = item.onClick ? 'button' : 'div';
