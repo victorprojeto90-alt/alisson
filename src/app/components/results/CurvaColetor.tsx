@@ -57,8 +57,8 @@ export default function CurvaColetor({ pontos, totalParcelas }: Props) {
         </div>
 
         {/* Gráfico */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <ResponsiveContainer width="100%" height={320}>
+        <div className="bg-white border border-gray-100 rounded-2xl p-2 md:p-4">
+          <ResponsiveContainer width="100%" height={280}>
             <LineChart data={pontos} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
@@ -96,33 +96,33 @@ export default function CurvaColetor({ pontos, totalParcelas }: Props) {
         </div>
 
         {/* Tabela de dados */}
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
-          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+        <div className="border border-gray-100 rounded-2xl overflow-hidden">
+          <div className="bg-gray-50 px-4 py-2 border-b border-gray-100">
             <p className="text-sm font-medium text-gray-700">Dados da curva por parcela</p>
           </div>
-          <div className="overflow-x-auto max-h-64 overflow-y-auto">
+          <div>
             <table className="w-full text-xs">
-              <thead className="ui-thead sticky top-0">
+              <thead className="ui-thead">
                 <tr>
-                  <th className="px-4 py-2 text-left font-semibold text-gray-500">Parcela</th>
-                  <th className="px-4 py-2 text-right font-semibold text-gray-500">Espécies novas</th>
-                  <th className="px-4 py-2 text-right font-semibold text-gray-500">Acumulado</th>
+                  <th className="px-3 py-2 text-left font-semibold">Parcela</th>
+                  <th className="px-3 py-2 text-right font-semibold">Novas</th>
+                  <th className="px-3 py-2 text-right font-semibold">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {pontos.map(ponto => (
                   <tr
                     key={ponto.parcela}
-                    className={pontoEstabilizacao?.parcela === ponto.parcela ? 'bg-yellow-50' : 'hover:bg-gray-50'}
+                    className={pontoEstabilizacao?.parcela === ponto.parcela ? 'bg-[#acd115]/10' : ''}
                   >
-                    <td className="px-4 py-2 text-gray-700">
+                    <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
                       Parcela {ponto.numero_parcela}
                       {pontoEstabilizacao?.parcela === ponto.parcela && (
-                        <span className="ml-2 text-xs text-yellow-600 font-medium">← estabilização</span>
+                        <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-[#acd115]/30 text-[#00420d] font-semibold whitespace-nowrap">estabilizou</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-right text-gray-600">+{ponto.especies_novas}</td>
-                    <td className="px-4 py-2 text-right font-medium text-green-700">{ponto.especies_acumuladas}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-600">+{ponto.especies_novas}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-[#00420d]">{ponto.especies_acumuladas}</td>
                   </tr>
                 ))}
               </tbody>
@@ -131,9 +131,9 @@ export default function CurvaColetor({ pontos, totalParcelas }: Props) {
         </div>
 
         {/* Interpretação */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-          <p className="text-sm font-medium text-blue-800 mb-1">📊 Interpretação</p>
-          <p className="text-sm text-blue-700">
+        <div className="bg-[#f4f8f3] rounded-2xl p-4">
+          <p className="text-sm font-semibold text-[#0B3D2E] mb-1">Interpretação</p>
+          <p className="text-sm text-gray-600">
             {pontoEstabilizacao
               ? `A curva atingiu estabilização a partir da parcela ${pontoEstabilizacao.parcela}, indicando que a amostragem foi suficiente para representar a diversidade da área.`
               : 'A curva ainda não atingiu estabilização clara, sugerindo que a amostragem pode ser ampliada para maior representatividade.'}

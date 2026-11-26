@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { IndividuoCalculado } from '../../lib/calculations';
-import { fmt } from '../../lib/calculations';
+import { nbr } from '../../lib/formato';
 
 interface Props {
   individuos: IndividuoCalculado[];
@@ -57,7 +57,38 @@ export default function IndividuosPorParcela({ individuos }: Props) {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto max-h-[500px]">
+        {/* celular */}
+        <div className="md:hidden px-4 pb-3 space-y-2">
+          {itensPagina.map((ind, i) => (
+            <div key={`m-${ind.parcela_numero}-${inicio + i}`} className="rounded-2xl border border-gray-100 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm text-gray-900 truncate">{ind.nome_comum}</p>
+                  <p className="text-xs italic text-gray-500 truncate">{ind.nome_cientifico || '—'}</p>
+                </div>
+                <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#00420d]/10 text-[#00420d]">Parcela {ind.parcela_numero}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 mt-2.5 text-center">
+                {[
+                  ['Altura m', ind.altura_total_m != null ? nbr(ind.altura_total_m, 2) : '—'],
+                  ['CAP cm', nbr(ind.cap_cm, 2)],
+                  ['DAP cm', nbr(ind.dap_cm, 2)],
+                  ['AB m²', nbr(ind.area_basal_m2, 4)],
+                  ['Vol. cil. m³', nbr(ind.volume_cilindrico_m3, 4)],
+                  ['Vol. FF m³', nbr(ind.volume_ff_m3, 4)],
+                ].map(([k, v]) => (
+                  <div key={k} className="rounded-lg bg-[#f8faf7] py-1.5">
+                    <p className="text-[10px] text-gray-400 leading-none">{k}</p>
+                    <p className="text-xs font-semibold text-gray-800 tabular-nums mt-1">{v}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          {itensPagina.length === 0 && <p className="py-8 text-center text-sm text-gray-400">Nenhum indivíduo encontrado.</p>}
+        </div>
+
+        <div className="hidden md:block overflow-x-auto max-h-[500px]">
           <table className="w-full text-xs">
             <thead className="ui-thead sticky top-0 z-10">
               <tr>
@@ -68,16 +99,16 @@ export default function IndividuosPorParcela({ individuos }: Props) {
             </thead>
             <tbody>
               {itensPagina.map((ind, i) => (
-                <tr key={`${ind.parcela_numero}-${ind.nome_comum}-${inicio + i}`} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="py-2 px-3 font-mono">{ind.parcela_numero}</td>
+                <tr key={`${ind.parcela_numero}-${ind.nome_comum}-${inicio + i}`} className={i % 2 === 0 ? 'bg-white' : 'bg-[#f8faf7]'}>
+                  <td className="py-2 px-3 tabular-nums">{ind.parcela_numero}</td>
                   <td className="py-2 px-3 font-medium text-gray-900 whitespace-nowrap">{ind.nome_comum}</td>
                   <td className="py-2 px-3 italic text-gray-500 whitespace-nowrap">{ind.nome_cientifico || '—'}</td>
-                  <td className="py-2 px-3 font-mono text-right">{ind.altura_total_m != null ? fmt.num(ind.altura_total_m, 2) : '—'}</td>
-                  <td className="py-2 px-3 font-mono text-right">{fmt.num(ind.cap_cm, 2)}</td>
-                  <td className="py-2 px-3 font-mono text-right">{fmt.num(ind.dap_cm, 2)}</td>
-                  <td className="py-2 px-3 font-mono text-right">{fmt.num(ind.area_basal_m2, 4)}</td>
-                  <td className="py-2 px-3 font-mono text-right">{fmt.num(ind.volume_cilindrico_m3, 4)}</td>
-                  <td className="py-2 px-3 font-mono text-right">{fmt.num(ind.volume_ff_m3, 4)}</td>
+                  <td className="py-2 px-3 tabular-nums text-right">{ind.altura_total_m != null ? nbr(ind.altura_total_m, 2) : '—'}</td>
+                  <td className="py-2 px-3 tabular-nums text-right">{nbr(ind.cap_cm, 2)}</td>
+                  <td className="py-2 px-3 tabular-nums text-right">{nbr(ind.dap_cm, 2)}</td>
+                  <td className="py-2 px-3 tabular-nums text-right">{nbr(ind.area_basal_m2, 4)}</td>
+                  <td className="py-2 px-3 tabular-nums text-right">{nbr(ind.volume_cilindrico_m3, 4)}</td>
+                  <td className="py-2 px-3 tabular-nums text-right">{nbr(ind.volume_ff_m3, 4)}</td>
                 </tr>
               ))}
               {itensPagina.length === 0 && (

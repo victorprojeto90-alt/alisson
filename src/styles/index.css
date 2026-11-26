@@ -22,11 +22,6 @@ body { overscroll-behavior-y: none; }
 .ui-thead th { color: #0B3D2E; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
 .ui-thead tr { border-bottom: 1px solid #dfe7dc; }
 table:has(.ui-thead) tbody tr:hover { background: rgba(172, 209, 21, 0.07); }
-/* Celular: tabelas largas rolam para o lado com a 1ª coluna fixa */
-@media (max-width: 767px) {
-  .overflow-x-auto > table:has(.ui-thead) tr > *:first-child { position: sticky; left: 0; z-index: 1; background: #fff; box-shadow: 1px 0 0 #eef0ec; }
-  .overflow-x-auto > table:has(.ui-thead) thead tr > *:first-child { background: #eef3ec; z-index: 2; }
-}
 /* Âncoras das seções (compensa cabeçalho + abas fixas) */
 .ui-section { scroll-margin-top: 9.5rem; }
 @media (min-width: 768px) { .ui-section { scroll-margin-top: 7rem; } }

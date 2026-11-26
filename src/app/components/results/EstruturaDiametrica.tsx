@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
 } from 'recharts';
-import { fmt } from '../../lib/calculations';
+import { nbr, pbr, ibr } from '../../lib/formato';
 import { RefreshCw } from 'lucide-react';
 
 interface ClasseLocal {
@@ -120,14 +120,14 @@ export default function EstruturaDiametrica({ individuos }: Props) {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* IC control */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-[#f4f8f3] border border-gray-100 rounded-2xl p-4">
           <div className="flex-1">
-            <p className="text-xs font-semibold text-blue-800 mb-1">
-              Intervalo de classe atual: <span className="text-blue-600">{ic} cm</span>
-              {icAtual !== null && <span className="ml-2 text-blue-400">(manual)</span>}
-              {icAtual === null && <span className="ml-2 text-blue-400">(Sturges automático)</span>}
+            <p className="text-xs font-semibold text-[#0B3D2E] mb-1">
+              Intervalo de classe atual: <span className="text-[#16A34A]">{ic} cm</span>
+              {icAtual !== null && <span className="ml-2 text-gray-400">(manual)</span>}
+              {icAtual === null && <span className="ml-2 text-gray-400">(Sturges automático)</span>}
             </p>
-            <p className="text-xs text-blue-600">
+            <p className="text-xs text-gray-500">
               Altere o IC manualmente se desejar. N = {n} indivíduos, Sturges sugere {icSturges} cm.
             </p>
           </div>
@@ -138,13 +138,13 @@ export default function EstruturaDiametrica({ individuos }: Props) {
               placeholder={String(icSturges)}
               value={icInput}
               onChange={e => setIcInput(e.target.value)}
-              className="w-20 rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-20 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30"
               onKeyDown={e => e.key === 'Enter' && handleRecalcular()}
             />
-            <span className="text-xs text-blue-500">cm</span>
+            <span className="text-xs text-gray-500">cm</span>
             <button
               onClick={handleRecalcular}
-              className="flex items-center gap-1.5 bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-1.5 bg-[#00420d] text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-[#0B5A1E] transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Recalcular
@@ -152,7 +152,7 @@ export default function EstruturaDiametrica({ individuos }: Props) {
             {icAtual !== null && (
               <button
                 onClick={handleResetSturges}
-                className="text-xs text-blue-500 hover:text-blue-700 underline"
+                className="text-xs text-gray-500 hover:text-gray-800 underline"
               >
                 Resetar
               </button>
@@ -176,50 +176,63 @@ export default function EstruturaDiametrica({ individuos }: Props) {
                   payload[0]?.payload?.label || ''
                 }
               />
-              <Bar dataKey="n" fill="#00420d" radius={[4, 4, 0, 0]} name="n">
+              <Bar dataKey="n" fill="#0B5A1E" radius={[4, 4, 0, 0]} name="n">
                 <LabelList dataKey="n" position="top" style={{ fontSize: 10, fill: '#6b7280' }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto rounded-xl border border-gray-200">
+        {/* Tabela: no celular vira lista com barra */}
+        <div className="md:hidden space-y-2">
+          {classes.map(c => (
+            <div key={c.classe} className="rounded-xl border border-gray-100 p-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="font-semibold text-sm text-gray-900">{c.classe}</p>
+                <p className="text-sm font-bold text-[#00420d] tabular-nums">{ibr(c.n_individuos)} <span className="text-xs font-normal text-gray-500">ind. · {pbr(c.pct)}</span></p>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden mt-2">
+                <div className="h-full bg-gradient-to-r from-[#0B5A1E] to-[#16A34A] rounded-full" style={{ width: `${total > 0 ? (c.n_individuos / total) * 100 : 0}%` }} />
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1 tabular-nums">Área basal: {nbr(c.area_basal_m2, 4)} m²</p>
+            </div>
+          ))}
+          <div className="rounded-xl bg-[#00420d]/5 p-3 flex justify-between text-sm font-semibold tabular-nums">
+            <span>Total</span>
+            <span>{ibr(total)} ind. · AB {nbr(classes.reduce((s, c) => s + c.area_basal_m2, 0), 4)} m²</span>
+          </div>
+        </div>
+        <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-100">
           <table className="w-full text-xs">
             <thead className="ui-thead">
               <tr>
-                <th className="py-2.5 px-4 text-left font-semibold">Classe DAP (cm)</th>
-                <th className="py-2.5 px-4 text-right font-semibold">Nº Indivíduos</th>
-                <th className="py-2.5 px-4 text-right font-semibold">%</th>
-                <th className="py-2.5 px-4 text-right font-semibold">Área Basal (m²)</th>
-                <th className="py-2.5 px-4 text-left font-semibold w-40">Freq. Relativa</th>
+                <th className="py-2.5 px-4 text-left">Classe de DAP (cm)</th>
+                <th className="py-2.5 px-4 text-right">Indivíduos</th>
+                <th className="py-2.5 px-4 text-right">%</th>
+                <th className="py-2.5 px-4 text-right">Área basal (m²)</th>
+                <th className="py-2.5 px-4 text-left w-48">Frequência relativa</th>
               </tr>
             </thead>
             <tbody>
               {classes.map((c, i) => (
-                <tr key={c.classe} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <tr key={c.classe} className={i % 2 ? 'bg-[#f8faf7]' : 'bg-white'}>
                   <td className="py-2.5 px-4 font-medium">{c.classe}</td>
-                  <td className="py-2.5 px-4 text-right font-mono">{c.n_individuos}</td>
-                  <td className="py-2.5 px-4 text-right font-mono">{fmt.pct(c.pct)}</td>
-                  <td className="py-2.5 px-4 text-right font-mono">{fmt.num(c.area_basal_m2, 4)}</td>
+                  <td className="py-2.5 px-4 text-right tabular-nums">{ibr(c.n_individuos)}</td>
+                  <td className="py-2.5 px-4 text-right tabular-nums">{pbr(c.pct)}</td>
+                  <td className="py-2.5 px-4 text-right tabular-nums">{nbr(c.area_basal_m2, 4)}</td>
                   <td className="py-2.5 px-4">
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#00420d] rounded-full"
-                        style={{ width: `${total > 0 ? (c.n_individuos / total) * 100 : 0}%` }}
-                      />
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-[#0B5A1E] to-[#16A34A] rounded-full" style={{ width: `${total > 0 ? (c.n_individuos / total) * 100 : 0}%` }} />
                     </div>
                   </td>
                 </tr>
               ))}
-              <tr className="bg-[#00420d]/5 font-semibold border-t border-[#00420d]/20">
-                <td className="py-2.5 px-4">TOTAL</td>
-                <td className="py-2.5 px-4 text-right font-mono">{total}</td>
-                <td className="py-2.5 px-4 text-right font-mono">100%</td>
-                <td className="py-2.5 px-4 text-right font-mono">
-                  {fmt.num(classes.reduce((s, c) => s + c.area_basal_m2, 0), 4)}
-                </td>
-                <td className="py-2.5 px-4" />
+              <tr className="bg-[#e2ecdf] font-semibold">
+                <td className="py-2.5 px-4">Total</td>
+                <td className="py-2.5 px-4 text-right tabular-nums">{ibr(total)}</td>
+                <td className="py-2.5 px-4 text-right tabular-nums">100,00%</td>
+                <td className="py-2.5 px-4 text-right tabular-nums">{nbr(classes.reduce((s, c) => s + c.area_basal_m2, 0), 4)}</td>
+                <td />
               </tr>
             </tbody>
           </table>
