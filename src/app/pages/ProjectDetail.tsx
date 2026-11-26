@@ -2,7 +2,7 @@
 import { PageSkeleton } from '../components/ui/skeletons';
 import { useParams, useNavigate } from 'react-router';
 import { supabase } from '../lib/supabase';
-import { useCalculations } from '../hooks/useCalculations';
+import { useCalculations, assinaturaCalculo } from '../hooks/useCalculations';
 import { agruparIndividuos, type Arvore, type Parcela } from '../lib/calculations';
 import type { ColumnMapping } from '../components/project/ColumnMapper';
 import type { RawRow } from '../components/project/DataUpload';
@@ -131,7 +131,8 @@ const TAB_TRIGGER = 'flex-none h-10 rounded-xl px-3.5 gap-1.5 text-sm font-semib
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { resultado, processing, processar, loadResultado } = useCalculations();
+  const { resultado, processing, processar, loadResultado, assinaturaSalva, salvoEm } = useCalculations();
+  const [confirmarReprocessar, setConfirmarReprocessar] = useState(false);
 
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [arvores, setArvores] = useState<Arvore[]>([]);
@@ -188,7 +189,8 @@ export default function ProjectDetail() {
       // Load previous result — falha aqui não deve travar a tela (ver useCalculations.ts)
       if (proj?.status === 'processado' || proj?.status === 'finalizado') {
         try {
-          await loadResultado(id!);
+          const salvo = await loadResultado(id!, arvs ?? [], proj.fator_forma);
+          if (salvo) setActiveTab('resultados');
         } catch (err) {
           console.error('Erro ao carregar resultado do projeto:', err);
           // continua sem resultado — usuário ainda vê os dados do projeto
@@ -357,6 +359,10 @@ export default function ProjectDetail() {
 
   const hasData = arvores.length > 0;
   const hasResultado = resultado != null;
+  const desatualizado = !!(hasResultado && assinaturaSalva && projeto && assinaturaSalva !== assinaturaCalculo(arvores, parcelas, {
+    area_total_ha: projeto.area_total_ha, fator_forma: projeto.fator_forma, nivel_confianca: projeto.nivel_confianca, tamanho_parcela_m2: projeto.tamanho_parcela_m2,
+  }));
+  const salvoEmTxt = salvoEm ? new Date(salvoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' às') : null;
 
   // Agrupa fustes por indivíduo (mesma lógica do motor de cálculo) — reaproveitado tanto
   // pela aba de Resultados (Estrutura Vertical/Diamétrica) quanto pela aba de Indivíduos.
@@ -387,6 +393,9 @@ export default function ProjectDetail() {
             {projeto.data_inventario && (
               <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{new Date(projeto.data_inventario + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
             )}
+            {hasResultado && salvoEmTxt && (
+              <span className="flex items-center gap-1 text-[#acd115]"><CheckCircle2 className="w-3.5 h-3.5" />Resultado salvo em {salvoEmTxt}</span>
+            )}
           </span>
         }
         actions={
@@ -394,7 +403,7 @@ export default function ProjectDetail() {
             <HeaderButton variant="outline" onClick={() => setShowEdit(true)} className="flex-1 md:flex-none">
               <Pencil className="w-4 h-4" /> Editar
             </HeaderButton>
-            <HeaderButton onClick={handleProcessar} disabled={!hasData || processing} className="flex-[2] md:flex-none">
+            <HeaderButton onClick={() => (hasResultado ? setConfirmarReprocessar(true) : handleProcessar())} disabled={!hasData || processing} className="flex-[2] md:flex-none">
               {processing
                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Processando...</>
                 : hasResultado
@@ -447,6 +456,16 @@ export default function ProjectDetail() {
             <div className="mt-2"><SecoesNav /></div>
           )}
         </div>
+
+        {desatualizado && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-800 flex-1">A planilha ou os parâmetros mudaram depois do último processamento. Os resultados mostrados estão <b>desatualizados</b>.</p>
+            <Button size="sm" onClick={handleProcessar} disabled={processing} className="rounded-xl bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+              {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Reprocessar agora
+            </Button>
+          </div>
+        )}
 
         {!hasResultado && hasData && (
           <div className="flex items-start gap-3 mb-4 rounded-2xl border border-[#acd115]/50 bg-[#acd115]/10 p-4 text-sm text-[#0B3D2E]">
@@ -788,6 +807,28 @@ export default function ProjectDetail() {
           )}
         </TabsContent>
       </Tabs>
+
+      {confirmarReprocessar && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setConfirmarReprocessar(false)} />
+          <div className="relative bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl z-10 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+            <div className="w-12 h-12 rounded-2xl bg-[#00420d]/10 text-[#00420d] flex items-center justify-center mb-4"><RefreshCw className="w-6 h-6" /></div>
+            <h3 className="text-lg font-bold text-gray-900">Reprocessar o inventário?</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              {desatualizado
+                ? 'Os dados mudaram desde o último processamento. Os cálculos serão refeitos e o resultado salvo será substituído.'
+                : 'Os dados não mudaram desde o último processamento, então o resultado deve sair igual. O resultado salvo será substituído.'}
+              {salvoEmTxt ? ` Último processamento: ${salvoEmTxt}.` : ''}
+            </p>
+            <div className="flex gap-3 mt-6">
+              <Button variant="outline" className="flex-1 h-11 rounded-xl" onClick={() => setConfirmarReprocessar(false)}>Cancelar</Button>
+              <Button className="flex-1 h-11 rounded-xl bg-[#00420d] hover:bg-[#0B5A1E] text-white gap-2" onClick={() => { setConfirmarReprocessar(false); handleProcessar(); }}>
+                <RefreshCw className="w-4 h-4" /> Reprocessar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showEdit && (
         <EditarProjetoModal

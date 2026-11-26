@@ -210,6 +210,7 @@ export default function ColumnMapper({ headers, rows, bioma, onMappingChange, on
 
     const novasSugestoes: Record<string, SugestaoIA> = {};
     let falhas = 0;
+    let iaIndisponivel = false;
 
     // Chamadas sequenciais (não em paralelo) para não estourar rate limit do Gemini
     // e para o indicador de progresso avançar de forma previsível, um nome por vez.
@@ -226,6 +227,7 @@ export default function ColumnMapper({ headers, rows, bioma, onMappingChange, on
             body: JSON.stringify({ nome_comum: nomeComum, bioma: bioma ?? undefined }),
           }
         );
+        if (response.status === 503 || response.status === 401) { iaIndisponivel = true; break; }
         if (!response.ok) throw new Error('Falha na API de IA');
         const data = await response.json() as { nome_cientifico?: string; familia?: string; certeza?: string };
         if (data.nome_cientifico && data.familia) {
@@ -249,6 +251,10 @@ export default function ColumnMapper({ headers, rows, bioma, onMappingChange, on
 
     setSugestoesIA(prev => ({ ...prev, ...novasSugestoes }));
     setIdentificando(false);
+    if (iaIndisponivel && Object.keys(novasSugestoes).length === 0) {
+      toast.error('A IA está indisponível agora. Você pode salvar a planilha normalmente e preencher os nomes científicos depois.');
+      return;
+    }
 
     const total = nomesComunsDistintos.length;
     const sucesso = total - falhas;

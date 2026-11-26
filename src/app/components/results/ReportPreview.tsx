@@ -66,7 +66,10 @@ async function chamarIA(projeto: ProjetoParaRelatorio, secoes: SecaoRelatorio[])
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
     body: JSON.stringify({ projeto, secoes }),
   });
-  if (!resp.ok) throw new Error('a IA não respondeu agora, tente de novo em instantes');
+  if (!resp.ok) {
+    const erro = await resp.json().catch(() => ({})) as { error?: string };
+    throw new Error(erro.error || 'a IA não respondeu agora. Tente de novo em instantes.');
+  }
   const data = await resp.json() as { secoes?: SecaoRelatorio[] };
   if (!data.secoes?.length) throw new Error('resposta vazia');
   return data.secoes;
@@ -157,7 +160,7 @@ export default function ReportPreview({ projetoId, projeto, resultado, onSalvo, 
       if (!mudou) { toast.message('A IA não sugeriu mudanças.'); return; }
       if (await gravar(novas)) toast.success(`${mudou === 1 ? 'Seção melhorada' : mudou + ' seções melhoradas'} com IA. Confira os números antes de exportar.`);
     } catch (e) {
-      toast.error('Não foi possível melhorar com IA: ' + (e instanceof Error ? e.message : 'erro desconhecido'));
+      toast.error(e instanceof Error ? e.message : 'Não foi possível melhorar com IA agora.');
     } finally {
       setIaTudo(false);
       setIaSecao(null);

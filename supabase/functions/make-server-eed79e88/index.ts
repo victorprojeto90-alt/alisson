@@ -31,8 +31,72 @@ async function getUser(c: Parameters<Parameters<typeof app.post>[1]>[0]) {
   return user;
 }
 
+
+// =========================================================
+// Chamada ao Gemini com novas tentativas e modelos reserva.
+// O modelo principal às vezes responde 503 ("alta demanda"); nesses casos
+// tentamos de novo e caímos para os modelos seguintes da lista.
+// =========================================================
+const MODELOS_GEMINI = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'];
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function chamarGemini(apiKey: string, body: unknown): Promise<{ ok: true; texto: string; modelo: string } | { ok: false; status: number; motivo: string }> {
+  let ultimoStatus = 0;
+  let ultimoMotivo = '';
+  const limite = Date.now() + 100000; // a função tem ~150 s no total
+  for (const modelo of MODELOS_GEMINI) {
+    for (let tentativa = 0; tentativa < 2; tentativa++) {
+      if (Date.now() > limite) return { ok: false, status: 504, motivo: 'tempo total esgotado' };
+      try {
+        const resp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) }
+        );
+        if (resp.ok) {
+          const json = await resp.json();
+          const texto = json?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
+          if (texto.trim()) return { ok: true, texto, modelo };
+          ultimoStatus = 502; ultimoMotivo = 'resposta vazia';
+          break; // tenta o próximo modelo
+        }
+        ultimoStatus = resp.status;
+        ultimoMotivo = (await resp.text()).slice(0, 300);
+        console.error(`Gemini ${modelo} respondeu ${resp.status}: ${ultimoMotivo}`);
+        if (resp.status === 404 || resp.status === 400) break; // modelo indisponível: próximo
+        if (resp.status === 401 || resp.status === 403) return { ok: false, status: resp.status, motivo: 'chave do Gemini inválida' };
+        await esperar(800 * (tentativa + 1)); // 429/500/503: espera e tenta de novo
+      } catch (e) {
+        ultimoStatus = 504;
+        ultimoMotivo = e instanceof Error ? e.message : 'tempo esgotado';
+        console.error(`Gemini ${modelo} falhou: ${ultimoMotivo}`);
+      }
+    }
+  }
+  return { ok: false, status: ultimoStatus || 503, motivo: ultimoMotivo };
+}
+
+// A IA às vezes devolve o JSON dentro de ```json ... ```
+const lerJson = (t: string) => JSON.parse(t.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''));
+
+const MSG_IA_OCUPADA = 'A IA está ocupada agora. Tente de novo em um minuto.';
+
 // Health check
 app.get("/make-server-eed79e88/health", (c) => c.json({ status: "ok" }));
+
+// Diagnóstico interno da IA (protegido pela mesma senha do robô de cobrança)
+app.post("/make-server-eed79e88/ai/diagnostico", async (c) => {
+  const segredo = c.req.header('x-cron-secret') ?? '';
+  const { data: valido } = await supabase.rpc('verificar_cron_secret', { p_secret: segredo });
+  if (!valido) return c.json({ error: 'Forbidden' }, 403);
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  if (!GEMINI_API_KEY) return c.json({ ok: false, motivo: 'GEMINI_API_KEY não configurada' });
+  const inicio = Date.now();
+  const ia = await chamarGemini(GEMINI_API_KEY, {
+    contents: [{ role: 'user', parts: [{ text: 'Responda apenas: OK' }] }],
+    generationConfig: { temperature: 0, maxOutputTokens: 256 },
+  });
+  return c.json({ ...ia, ms: Date.now() - inicio, texto: ia.ok ? ia.texto.slice(0, 40) : undefined });
+});
 
 // =========================================================
 // POST /ai/aprimorar — Enhances report sections with Gemini
@@ -99,37 +163,15 @@ Retorne um JSON com o formato exato:
   ]
 }`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] },
-        ],
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 8192,
-          responseMimeType: 'application/json',
-        },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const err = await response.text();
-    console.error('Gemini API error:', err);
-    return c.json({ error: 'Erro ao chamar Gemini API' }, 500);
-  }
-
-  const geminiData = await response.json();
-  const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!rawText) return c.json({ error: 'Resposta vazia do Gemini' }, 500);
+  const ia = await chamarGemini(GEMINI_API_KEY, {
+    contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }],
+    generationConfig: { temperature: 0.4, maxOutputTokens: 8192, responseMimeType: 'application/json' },
+  });
+  if (!ia.ok) return c.json({ error: MSG_IA_OCUPADA }, 503);
+  const rawText = ia.texto;
 
   try {
-    const parsed = JSON.parse(rawText);
+    const parsed = lerJson(rawText);
     const vindas = Array.isArray(parsed?.secoes) ? parsed.secoes : [];
     // Devolve sempre as mesmas seções, na mesma ordem; o que a IA não devolver fica como estava
     const saida = secoes.map((orig, i) => {
@@ -170,30 +212,15 @@ Retorne APENAS um JSON válido com o formato:
 
 Se não souber com certeza, retorne certeza "baixa" e uma sugestão.`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 2048,
-          responseMimeType: 'application/json',
-        },
-      }),
-    }
-  );
-
-  if (!response.ok) return c.json({ error: 'Erro ao chamar Gemini API' }, 500);
-
-  const geminiData = await response.json();
-  const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) return c.json({ error: 'Resposta vazia do Gemini' }, 500);
+  const ia = await chamarGemini(GEMINI_API_KEY, {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.3, maxOutputTokens: 2048, responseMimeType: 'application/json' },
+  });
+  if (!ia.ok) return c.json({ error: MSG_IA_OCUPADA }, 503);
+  const rawText = ia.texto;
 
   try {
-    return c.json(JSON.parse(rawText));
+    return c.json(lerJson(rawText));
   } catch {
     return c.json({ error: 'Resposta da IA em formato inválido' }, 502);
   }
@@ -230,25 +257,14 @@ Página atual do usuário: ${page}
 
 Pergunta: ${question}
 
-Responda de forma direta e útil em até 3 parágrafos. Se a pergunta for completamente fora do contexto da plataforma, oriente o usuário a entrar em contato com suporte@ambisafe.com.br.`;
+Responda de forma direta e útil em até 3 parágrafos. Se a pergunta for completamente fora do contexto da plataforma, oriente o usuário a falar com o suporte pelo WhatsApp (83) 99114-4456.`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
-      }),
-    }
-  );
-
-  if (!response.ok) return c.json({ error: 'Erro ao chamar Gemini API' }, 500);
-
-  const geminiData = await response.json();
-  const answer = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!answer) return c.json({ error: 'Resposta vazia do Gemini' }, 500);
+  const ia = await chamarGemini(GEMINI_API_KEY, {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
+  });
+  if (!ia.ok) return c.json({ error: MSG_IA_OCUPADA }, 503);
+  const answer = ia.texto;
 
   return c.json({ answer });
 });
