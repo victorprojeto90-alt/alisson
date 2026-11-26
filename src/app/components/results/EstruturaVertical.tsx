@@ -1,9 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
-} from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import type { Estratificacao } from '../../lib/calculations';
-import { fmt } from '../../lib/calculations';
+import { nbr, ibr, pbr } from '../../lib/formato';
 
 interface EspecieEstrato {
   nome_comum: string;
@@ -18,158 +16,142 @@ interface Props {
   especiesEstratos?: EspecieEstrato[];
 }
 
-const COLORS = ['#6EE7B7', '#00420d', '#acd115'];
+const COR: Record<string, string> = { Inferior: '#86EFAC', 'Médio': '#16A34A', Superior: '#00420d' };
+const cor = (estrato: string, i: number) => COR[estrato] ?? ['#86EFAC', '#16A34A', '#00420d'][i % 3];
 
 export default function EstruturaVertical({ estratos, especiesEstratos = [] }: Props) {
   const total = estratos.reduce((s, e) => s + e.n_individuos, 0);
+  const abTotal = estratos.reduce((s, e) => s + e.area_basal_m2, 0);
+  const pieData = estratos.filter(e => e.n_individuos > 0).map((e, i) => ({ name: e.estrato, value: e.n_individuos, color: cor(e.estrato, i) }));
 
-  const pieData = estratos
-    .filter(e => e.n_individuos > 0)
-    .map((e, i) => ({
-      name: e.estrato,
-      value: e.n_individuos,
-      color: COLORS[i % COLORS.length],
-    }));
+  const pivot = new Map<string, { inferior: number; medio: number; superior: number }>();
+  for (const r of especiesEstratos) {
+    if (!pivot.has(r.nome_comum)) pivot.set(r.nome_comum, { inferior: 0, medio: 0, superior: 0 });
+    const p = pivot.get(r.nome_comum)!;
+    if (r.estrato === 'Inferior') p.inferior += r.n_individuos;
+    else if (r.estrato === 'Médio') p.medio += r.n_individuos;
+    else if (r.estrato === 'Superior') p.superior += r.n_individuos;
+  }
+  const linhas = Array.from(pivot.entries()).map(([nome, c]) => ({ nome, ...c, total: c.inferior + c.medio + c.superior })).sort((a, b) => b.total - a.total);
+  const maxLinha = Math.max(...linhas.map(l => l.total), 1);
+  const tot = { inf: linhas.reduce((s, r) => s + r.inferior, 0), med: linhas.reduce((s, r) => s + r.medio, 0), sup: linhas.reduce((s, r) => s + r.superior, 0) };
+  const totAll = tot.inf + tot.med + tot.sup;
 
   return (
     <Card className="shadow-sm">
       <CardHeader>
-        <CardTitle className="text-base">Estrutura Vertical (Estratificação)</CardTitle>
-        <p className="text-sm text-gray-400 mt-0.5">Distribuição dos indivíduos nos estratos da floresta</p>
+        <CardTitle className="text-base">Estrutura vertical (estratificação)</CardTitle>
+        <p className="text-sm text-gray-400 mt-0.5">Distribuição dos indivíduos pelos estratos de altura</p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Chart + summary table */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Pie chart */}
-          <div className="h-56">
+        <div className="grid md:grid-cols-[220px_1fr] gap-5 items-center">
+          <div className="relative h-48 md:h-52">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={90}
-                  dataKey="value"
-                  label={({ name, percent }) =>
-                    `${name}: ${(percent * 100).toFixed(1)}%`
-                  }
-                  labelLine={false}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={index} fill={entry.color} />
-                  ))}
+                <Pie data={pieData} dataKey="value" innerRadius="58%" outerRadius="92%" paddingAngle={2} stroke="none">
+                  {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => [`${v} ind.`, 'Indivíduos']} />
-                <Legend />
+                <Tooltip formatter={(v: number) => [`${ibr(v)} ind.`, 'Indivíduos']} />
               </PieChart>
             </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <p className="text-2xl font-bold text-gray-900 tabular-nums">{ibr(total)}</p>
+              <p className="text-[11px] text-gray-500">indivíduos</p>
+            </div>
           </div>
-
-          {/* Strata summary table */}
-          <div className="overflow-x-auto rounded-xl border border-gray-200">
-            <table className="w-full text-xs">
-              <thead className="ui-thead">
-                <tr>
-                  <th className="py-2.5 px-3 text-left font-semibold">Estrato</th>
-                  <th className="py-2.5 px-3 text-left font-semibold">Amplitude</th>
-                  <th className="py-2.5 px-3 text-right font-semibold">NI</th>
-                  <th className="py-2.5 px-3 text-right font-semibold">%</th>
-                  <th className="py-2.5 px-3 text-right font-semibold">AB (m²)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {estratos.map((e, i) => (
-                  <tr key={e.estrato} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: COLORS[i % COLORS.length] }}
-                        />
-                        <span className="font-medium">{e.estrato}</span>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3 text-gray-500 text-xs">{e.descricao}</td>
-                    <td className="py-2.5 px-3 text-right font-mono">{e.n_individuos}</td>
-                    <td className="py-2.5 px-3 text-right font-mono">{fmt.pct(e.pct)}</td>
-                    <td className="py-2.5 px-3 text-right font-mono">{fmt.num(e.area_basal_m2, 4)}</td>
-                  </tr>
-                ))}
-                <tr className="bg-[#00420d]/5 font-semibold border-t">
-                  <td className="py-2.5 px-3" colSpan={2}>TOTAL</td>
-                  <td className="py-2.5 px-3 text-right font-mono">{total}</td>
-                  <td className="py-2.5 px-3 text-right font-mono">100%</td>
-                  <td className="py-2.5 px-3 text-right font-mono">
-                    {fmt.num(estratos.reduce((s, e) => s + e.area_basal_m2, 0), 4)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="space-y-2">
+            {estratos.map((e, i) => (
+              <div key={e.estrato} className="rounded-2xl border border-gray-100 p-3 flex items-center gap-3">
+                <span className="w-3 h-10 rounded-full shrink-0" style={{ backgroundColor: cor(e.estrato, i) }} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="font-semibold text-sm text-gray-900">{e.estrato}</p>
+                    <p className="text-base font-bold text-[#00420d] tabular-nums">{pbr(e.pct)}</p>
+                  </div>
+                  <p className="text-xs text-gray-500">{e.descricao.replace(/(\d)\.(\d)/g, '$1,$2')}</p>
+                  <p className="text-xs text-gray-500 tabular-nums">{ibr(e.n_individuos)} ind. · AB {nbr(e.area_basal_m2, 4)} m²</p>
+                </div>
+              </div>
+            ))}
+            <p className="text-xs text-gray-500 text-right tabular-nums">Total: {ibr(total)} ind. · AB {nbr(abTotal, 4)} m²</p>
           </div>
         </div>
 
-        {/* Per-species strata pivot table */}
-        {especiesEstratos.length > 0 && (() => {
-          // Pivot: group by nome_comum
-          const pivotMap = new Map<string, { inferior: number; medio: number; superior: number }>();
-          for (const row of especiesEstratos) {
-            if (!pivotMap.has(row.nome_comum)) pivotMap.set(row.nome_comum, { inferior: 0, medio: 0, superior: 0 });
-            const entry = pivotMap.get(row.nome_comum)!;
-            if (row.estrato === 'Inferior') entry.inferior += row.n_individuos;
-            else if (row.estrato === 'Médio') entry.medio += row.n_individuos;
-            else if (row.estrato === 'Superior') entry.superior += row.n_individuos;
-          }
-          const rows = Array.from(pivotMap.entries())
-            .map(([nome, counts]) => ({ nome, ...counts, total: counts.inferior + counts.medio + counts.superior }))
-            .sort((a, b) => b.total - a.total);
-          const totInf = rows.reduce((s, r) => s + r.inferior, 0);
-          const totMed = rows.reduce((s, r) => s + r.medio, 0);
-          const totSup = rows.reduce((s, r) => s + r.superior, 0);
-          const totAll = totInf + totMed + totSup;
-          const pct = (n: number) => totAll > 0 ? `${((n / totAll) * 100).toFixed(2)}%` : '0%';
+        {linhas.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-sm text-gray-700 mb-2">Estratos por espécie</h4>
+            <div className="flex flex-wrap gap-3 text-[11px] text-gray-500 mb-3">
+              {(['Inferior', 'Médio', 'Superior'] as const).map((e, i) => (
+                <span key={e} className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: cor(e, i) }} />{e}</span>
+              ))}
+            </div>
 
-          return (
-            <div>
-              <h4 className="font-semibold text-sm text-gray-700 mb-3">
-                Análise da estrutura vertical por espécie
-              </h4>
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
-                <table className="w-full text-xs">
-                  <thead className="ui-thead">
-                    <tr>
-                      <th className="py-2.5 px-4 text-left font-semibold">Espécies</th>
-                      <th className="py-2.5 px-4 text-center font-semibold">Parâmetro</th>
-                      <th className="py-2.5 px-4 text-right font-semibold">Inferior</th>
-                      <th className="py-2.5 px-4 text-right font-semibold">Médio</th>
-                      <th className="py-2.5 px-4 text-right font-semibold">Superior</th>
-                      <th className="py-2.5 px-4 text-right font-semibold">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row, i) => (
-                      <tr key={row.nome} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="py-2 px-4 font-medium">{row.nome}</td>
-                        <td className="py-2 px-4 text-center text-gray-500">Ht</td>
-                        <td className="py-2 px-4 text-right font-mono">{row.inferior || '—'}</td>
-                        <td className="py-2 px-4 text-right font-mono">{row.medio || '—'}</td>
-                        <td className="py-2 px-4 text-right font-mono">{row.superior || '—'}</td>
-                        <td className="py-2 px-4 text-right font-mono font-semibold">{row.total}</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-[#00420d]/5 font-semibold border-t border-[#00420d]/20">
-                      <td className="py-2.5 px-4">TOTAL</td>
-                      <td className="py-2.5 px-4 text-center text-gray-500">Ht</td>
-                      <td className="py-2.5 px-4 text-right font-mono">{totInf} <span className="font-normal text-gray-500">({pct(totInf)})</span></td>
-                      <td className="py-2.5 px-4 text-right font-mono">{totMed} <span className="font-normal text-gray-500">({pct(totMed)})</span></td>
-                      <td className="py-2.5 px-4 text-right font-mono">{totSup} <span className="font-normal text-gray-500">({pct(totSup)})</span></td>
-                      <td className="py-2.5 px-4 text-right font-mono">{totAll}</td>
-                    </tr>
-                  </tbody>
-                </table>
+            {/* celular: barra empilhada por espécie */}
+            <div className="md:hidden space-y-2.5">
+              {linhas.map(l => (
+                <div key={l.nome}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="font-medium text-gray-800 truncate">{l.nome}</span>
+                    <span className="text-gray-500 tabular-nums shrink-0 ml-2">{l.inferior} · {l.medio} · {l.superior} = <b className="text-gray-800">{l.total}</b></span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden flex" style={{ width: `${Math.max((l.total / maxLinha) * 100, 8)}%` }}>
+                    <span style={{ width: `${(l.inferior / l.total) * 100}%`, backgroundColor: cor('Inferior', 0) }} />
+                    <span style={{ width: `${(l.medio / l.total) * 100}%`, backgroundColor: cor('Médio', 1) }} />
+                    <span style={{ width: `${(l.superior / l.total) * 100}%`, backgroundColor: cor('Superior', 2) }} />
+                  </div>
+                </div>
+              ))}
+              <div className="rounded-xl bg-[#00420d]/5 p-3 grid grid-cols-4 gap-2 text-xs text-center">
+                <div><p className="text-gray-500">Inferior</p><p className="font-bold tabular-nums">{ibr(tot.inf)}</p></div>
+                <div><p className="text-gray-500">Médio</p><p className="font-bold tabular-nums">{ibr(tot.med)}</p></div>
+                <div><p className="text-gray-500">Superior</p><p className="font-bold tabular-nums">{ibr(tot.sup)}</p></div>
+                <div><p className="text-gray-500">Total</p><p className="font-bold tabular-nums">{ibr(totAll)}</p></div>
               </div>
             </div>
-          );
-        })()}
+
+            {/* computador: tabela */}
+            <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-100">
+              <table className="w-full text-xs">
+                <thead className="ui-thead">
+                  <tr>
+                    <th className="py-2.5 px-4 text-left">Espécie</th>
+                    <th className="py-2.5 px-4 text-right">Inferior</th>
+                    <th className="py-2.5 px-4 text-right">Médio</th>
+                    <th className="py-2.5 px-4 text-right">Superior</th>
+                    <th className="py-2.5 px-4 text-right">Total</th>
+                    <th className="py-2.5 px-4 text-left w-48">Distribuição</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {linhas.map((l, i) => (
+                    <tr key={l.nome} className={i % 2 ? 'bg-[#f8faf7]' : 'bg-white'}>
+                      <td className="py-2 px-4 font-medium">{l.nome}</td>
+                      <td className="py-2 px-4 text-right tabular-nums">{l.inferior || '—'}</td>
+                      <td className="py-2 px-4 text-right tabular-nums">{l.medio || '—'}</td>
+                      <td className="py-2 px-4 text-right tabular-nums">{l.superior || '—'}</td>
+                      <td className="py-2 px-4 text-right tabular-nums font-semibold">{l.total}</td>
+                      <td className="py-2 px-4">
+                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden flex">
+                          <span style={{ width: `${(l.inferior / l.total) * 100}%`, backgroundColor: cor('Inferior', 0) }} />
+                          <span style={{ width: `${(l.medio / l.total) * 100}%`, backgroundColor: cor('Médio', 1) }} />
+                          <span style={{ width: `${(l.superior / l.total) * 100}%`, backgroundColor: cor('Superior', 2) }} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-[#e2ecdf] font-semibold">
+                    <td className="py-2.5 px-4">Total</td>
+                    <td className="py-2.5 px-4 text-right tabular-nums">{ibr(tot.inf)} <span className="font-normal text-gray-500">({pbr(totAll ? (tot.inf / totAll) * 100 : 0)})</span></td>
+                    <td className="py-2.5 px-4 text-right tabular-nums">{ibr(tot.med)} <span className="font-normal text-gray-500">({pbr(totAll ? (tot.med / totAll) * 100 : 0)})</span></td>
+                    <td className="py-2.5 px-4 text-right tabular-nums">{ibr(tot.sup)} <span className="font-normal text-gray-500">({pbr(totAll ? (tot.sup / totAll) * 100 : 0)})</span></td>
+                    <td className="py-2.5 px-4 text-right tabular-nums">{ibr(totAll)}</td>
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
