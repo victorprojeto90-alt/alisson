@@ -28,3 +28,30 @@ table:has(.ui-thead) tbody tr:hover { background: rgba(172, 209, 21, 0.07); }
 /* Faixas que rolam para o lado sem barra visível */
 .ui-scroll-x { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .ui-scroll-x::-webkit-scrollbar { display: none; }
+
+/* Páginas legais (Privacidade / Termos): cada seção vira um cartão */
+.legal-conteudo > section {
+  background: #fff;
+  border: 1px solid #edf1ea;
+  border-radius: 1rem;
+  padding: 1.25rem 1.1rem;
+  box-shadow: 0 1px 2px rgba(10, 61, 31, 0.04);
+  scroll-margin-top: 90px;
+}
+@media (min-width: 640px) { .legal-conteudo > section { padding: 1.75rem 2rem; } }
+.legal-conteudo h2 {
+  display: flex; align-items: center; gap: .65rem;
+  font-size: 1.125rem; line-height: 1.35; font-weight: 700; color: #0A3D1F;
+  margin-bottom: .9rem; padding-bottom: .85rem; border-bottom: 1px solid #f0f3ee;
+}
+.legal-conteudo h3 { font-size: .95rem; font-weight: 600; color: #0B5A1E; margin: 1.1rem 0 .4rem; }
+.legal-conteudo strong { color: #1a1a1a; }
+.legal-conteudo ul { list-style: none; margin-left: 0 !important; }
+.legal-conteudo ul > li { position: relative; padding-left: 1.1rem; }
+.legal-conteudo ul > li::before {
+  content: ''; position: absolute; left: .15rem; top: .62em;
+  width: .4rem; height: .4rem; border-radius: 9999px; background: #7fb52b;
+}
+.legal-conteudo .bg-gray-50 { background: #f6f9f4 !important; border-color: #e5ece1 !important; }
+.legal-conteudo table { border-color: #e5ece1 !important; }
+.legal-conteudo a { color: #0B5A1E; font-weight: 500; }
