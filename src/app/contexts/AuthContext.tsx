@@ -24,6 +24,13 @@ export interface Empresa {
   is_blocked?: boolean | null;
   block_reason?: string | null;
   ultimo_pagamento_at?: string | null;
+  // Marca própria nos relatórios
+  marca_ativa?: boolean | null;
+  marca_nome?: string | null;
+  marca_logo_path?: string | null;
+  marca_cor_primaria?: string | null;
+  marca_cor_secundaria?: string | null;
+  marca_contato?: string | null;
 }
 
 export interface Profile {
@@ -36,6 +43,7 @@ export interface Profile {
   cpf_cnpj?: string | null;
   cidade?: string | null;
   estado_uf?: string | null;
+  registro_profissional?: string | null;
   empresa: Empresa;
 }
 
@@ -94,6 +102,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, name: string, companyName: string, extra?: ExtraSignUpData) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  recarregarPerfil: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -160,6 +169,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       loadingProfileFor.current = null;
     }
+  };
+
+  const recarregarPerfil = async () => {
+    if (!user) return;
+    const data = await fetchProfile(user.id);
+    if (data) setProfile(data);
   };
 
   useEffect(() => {
@@ -248,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearPasswordRecoveryError,
       isBlocked,
       blockReason,
+      recarregarPerfil,
       signIn,
       signUp,
       signOut,

@@ -3,18 +3,14 @@ import autoTable, { type RowInput, type CellDef } from 'jspdf-autotable';
 import type { ResultadoInventario } from './calculations';
 import type { ProjetoParaRelatorio } from './reportText';
 import { montarModelo, type Bloco, type ContextoEmissao } from './relatorio/modelo';
-import { carregarFontesPDF, carregarLogos, desenharGrafico, prepararFonteCanvas } from './relatorio/recursos';
+import { carregarFontesPDF, desenharGrafico, prepararFonteCanvas } from './relatorio/recursos';
+import { carregarTema } from './relatorio/tema';
 
 type RGB = [number, number, number];
-const VERDE: RGB = [0, 66, 13];
-const VERDE_MEDIO: RGB = [11, 90, 30];
-const LIMA: RGB = [172, 209, 21];
 const TEXTO: RGB = [33, 37, 41];
 const CINZA: RGB = [107, 114, 128];
-const LINHA: RGB = [214, 222, 211];
-const ZEBRA: RGB = [244, 248, 243];
-const GRUPO: RGB = [226, 236, 223];
 const F = 'Carlito';
+const rgb = (hex: string): RGB => [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
 
 export async function exportarPDF(
   nomeArquivo: string,
@@ -22,8 +18,17 @@ export async function exportarPDF(
   resultado: ResultadoInventario,
   ctx: ContextoEmissao = {}
 ) {
-  const [fontes, logos] = await Promise.all([carregarFontesPDF(), carregarLogos(), prepararFonteCanvas()]);
+  const [fontes, tema] = await Promise.all([carregarFontesPDF(), carregarTema(ctx.marca, ctx.empresa), prepararFonteCanvas()]);
   const modelo = montarModelo(projeto, resultado, ctx);
+  const VERDE = rgb(tema.escura);
+  const PRIMARIA = rgb(tema.primaria);
+  const VERDE_MEDIO = rgb(tema.media);
+  const LIMA = rgb(tema.destaque);
+  const LINHA = rgb(tema.linha);
+  const ZEBRA = rgb(tema.zebra);
+  const GRUPO = rgb(tema.grupo);
+  const SOBRE = rgb(tema.sobrePrimaria);
+  const coresGrafico = { forte: '#' + tema.media, suave: '#' + tema.suave };
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   (['normal', 'bold', 'italic', 'bolditalic'] as const).forEach(est => {
@@ -49,25 +54,44 @@ export async function exportarPDF(
   const paginaAtual = () => doc.getNumberOfPages();
 
   // ================= CAPA =================
-  doc.setFillColor(...VERDE);
-  doc.rect(0, 0, W, 112, 'F');
-  doc.setFillColor(...VERDE_MEDIO);
-  doc.circle(W - 18, 18, 46, 'F');
-  doc.setFillColor(...VERDE);
-  doc.circle(W - 18, 18, 30, 'F');
+  const topoFaixa = tema.logoCapaNoBranco ? 48 : 0;
+  if (tema.logoCapaNoBranco) {
+    // marca do cliente: logo sobre o branco, acima da faixa colorida
+    if (tema.logoCapa) {
+      const maxW = 80, maxH = 24;
+      const esc = Math.min(maxW / tema.logoCapa.largura, maxH / tema.logoCapa.altura);
+      const lw = tema.logoCapa.largura * esc, lh = tema.logoCapa.altura * esc;
+      doc.addImage(tema.logoCapa.dataUrl, 'PNG', ML, 12 + (maxH - lh) / 2, lw, lh);
+    } else {
+      doc.setFont(F, 'bold');
+      doc.setFontSize(22);
+      cor(VERDE);
+      doc.text(doc.splitTextToSize(tema.nome, CW)[0], ML, 30);
+    }
+  }
+  doc.setFillColor(...PRIMARIA);
+  doc.rect(0, topoFaixa, W, 112 - topoFaixa, 'F');
+  if (!tema.logoCapaNoBranco) {
+    doc.setFillColor(...VERDE_MEDIO);
+    doc.circle(W - 18, 18, 46, 'F');
+    doc.setFillColor(...PRIMARIA);
+    doc.circle(W - 18, 18, 30, 'F');
+    if (tema.logoCapa) {
+      const logoW = 78;
+      doc.addImage(tema.logoCapa.dataUrl, 'PNG', ML, 30, logoW, (logoW * tema.logoCapa.altura) / tema.logoCapa.largura);
+    }
+  }
   doc.setFillColor(...LIMA);
   doc.rect(0, 112, W, 2.2, 'F');
-  const logoW = 78;
-  doc.addImage(logos.claro.dataUrl, 'PNG', ML, 30, logoW, (logoW * logos.claro.altura) / logos.claro.largura);
   doc.setFont(F, 'bold');
   doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(SOBRE[0], SOBRE[1], SOBRE[2]);
   doc.text('RELATÓRIO TÉCNICO DE', ML, 78);
   doc.setFontSize(20);
   doc.text('INVENTÁRIO FLORESTAL', ML, 88);
   doc.setFont(F, 'normal');
   doc.setFontSize(10);
-  cor(LIMA);
+  if (tema.proprio) doc.setTextColor(SOBRE[0], SOBRE[1], SOBRE[2]); else cor(LIMA);
   doc.text(modelo.capa.finalidade, ML, 97);
 
   y = 140;
@@ -231,7 +255,7 @@ export async function exportarPDF(
         font: F, fontSize: muitas ? 8 : 9.5, textColor: TEXTO, cellPadding: { top: 1.7, bottom: 1.7, left: muitas ? 1.2 : 2, right: muitas ? 1.2 : 2 },
         lineColor: LINHA, lineWidth: { bottom: 0.15 } as unknown as number, overflow: 'linebreak', valign: 'middle',
       },
-      headStyles: { fillColor: VERDE, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: muitas ? 8 : 9.5, lineWidth: 0 },
+      headStyles: { fillColor: PRIMARIA, textColor: SOBRE, fontStyle: 'bold', fontSize: muitas ? 8 : 9.5, lineWidth: 0 },
       footStyles: { fillColor: GRUPO, textColor: VERDE, fontStyle: 'bold', lineWidth: { top: 0.4 } as unknown as number, lineColor: VERDE },
       alternateRowStyles: { fillColor: ZEBRA },
       columnStyles: Object.fromEntries(b.colunas.map((c, i) => [i, {
@@ -253,7 +277,7 @@ export async function exportarPDF(
   };
 
   const figura = (b: Extract<Bloco, { tipo: 'figura' }>) => {
-    const img = desenharGrafico(b.grafico);
+    const img = desenharGrafico({ ...b.grafico, cores: coresGrafico });
     const larg = CW;
     const alt = (larg * img.altura) / img.largura;
     garantir(alt + 20);
@@ -379,10 +403,19 @@ export async function exportarPDF(
   // ================= CABEÇALHO E RODAPÉ =================
   const total = doc.getNumberOfPages();
   const logoH = 5.2;
-  const logoHW = (logoH * logos.escuro.largura) / logos.escuro.altura;
+  const credito = tema.proprio ? 'Gerado pelo sistema AMBISAFE' : '';
   for (let i = 2; i <= total; i++) {
     doc.setPage(i);
-    doc.addImage(logos.escuro.dataUrl, 'PNG', ML, 12, logoHW, logoH);
+    if (tema.logoCabecalho) {
+      const esc = Math.min(45 / tema.logoCabecalho.largura, (tema.proprio ? 8 : logoH) / tema.logoCabecalho.altura);
+      const lw = tema.logoCabecalho.largura * esc, lh = tema.logoCabecalho.altura * esc;
+      doc.addImage(tema.logoCabecalho.dataUrl, 'PNG', ML, 18 - lh, lw, lh);
+    } else {
+      doc.setFont(F, 'bold');
+      doc.setFontSize(10);
+      cor(VERDE);
+      doc.text(doc.splitTextToSize(tema.nome, CW / 2)[0], ML, 16);
+    }
     doc.setFont(F, 'normal');
     doc.setFontSize(8.5);
     cor(CINZA);
@@ -390,13 +423,19 @@ export async function exportarPDF(
     doc.setDrawColor(...LINHA);
     doc.setLineWidth(0.25);
     doc.line(ML, 20, W - MR, 20);
-    doc.line(ML, H - 14, W - MR, H - 14);
-    doc.text(doc.splitTextToSize(modelo.rodape, CW - 30)[0], ML, H - 9.5);
+    doc.line(ML, H - 15, W - MR, H - 15);
+    doc.text(doc.splitTextToSize(modelo.rodape, CW - 30)[0], ML, H - 10.5);
+    const linha2 = [tema.contato, credito].filter(Boolean).join('  ·  ');
+    if (linha2) {
+      doc.setFontSize(7.5);
+      cor([150, 156, 163]);
+      doc.text(doc.splitTextToSize(linha2, CW - 30)[0], ML, H - 6.8);
+    }
     doc.setFont(F, 'bold');
+    doc.setFontSize(8.5);
     cor(VERDE);
-    doc.text(`${i} / ${total}`, W - MR, H - 9.5, { align: 'right' });
+    doc.text(`${i} / ${total}`, W - MR, H - 10.5, { align: 'right' });
   }
-
-  doc.setProperties({ title: `Relatório Técnico — ${projeto.nome}`, subject: 'Inventário Florestal', creator: 'AMBISAFE', author: modelo.capa.responsavel });
+  doc.setProperties({ title: `Relatório Técnico — ${projeto.nome}`, subject: 'Inventário Florestal', creator: 'AMBISAFE', author: tema.proprio ? tema.nome : modelo.capa.responsavel });
   doc.save(`${nomeArquivo}.pdf`);
 }

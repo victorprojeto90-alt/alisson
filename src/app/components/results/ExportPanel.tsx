@@ -6,6 +6,7 @@ import type { ResultadoInventario } from '../../lib/calculations';
 import type { ProjetoParaRelatorio } from '../../lib/reportText';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
+import { Link } from 'react-router';
 
 interface Props {
   projeto: {
@@ -83,7 +84,17 @@ export default function ExportPanel({ projeto, resultado }: Props) {
     cidade: profile?.cidade ?? profile?.empresa?.cidade ?? null,
     uf: profile?.estado_uf ?? profile?.empresa?.estado_uf ?? null,
     dataInventario: projeto.data_inventario ?? null,
+    registro: profile?.registro_profissional ?? null,
+    marca: {
+      ativa: !!profile?.empresa?.marca_ativa,
+      nome: profile?.empresa?.marca_nome,
+      logoPath: profile?.empresa?.marca_logo_path,
+      corPrimaria: profile?.empresa?.marca_cor_primaria,
+      corSecundaria: profile?.empresa?.marca_cor_secundaria,
+      contato: profile?.empresa?.marca_contato,
+    },
   };
+  const usandoMarca = !!profile?.empresa?.marca_ativa;
 
   const handleExport = async (type: ExportType) => {
     setLoading(type);
@@ -117,8 +128,18 @@ export default function ExportPanel({ projeto, resultado }: Props) {
             Exportar relatório
           </CardTitle>
           <p className="text-sm text-gray-500">
-            Os três formatos usam os mesmos dados e textos. O responsável técnico e a empresa vêm do seu cadastro em Configurações.
+            Os três formatos usam os mesmos dados e textos. O responsável técnico, o registro profissional e a empresa vêm do seu cadastro.
           </p>
+          <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between rounded-xl bg-[#f4f8f3] px-4 py-3">
+            <p className="text-xs text-gray-600">
+              {usandoMarca
+                ? <>Os relatórios saem com <b>a sua marca</b> ({profile?.empresa?.marca_nome || profile?.empresa?.name}). A AMBISAFE aparece só como crédito no rodapé.</>
+                : <>Os relatórios saem com a <b>marca AMBISAFE</b>. Você pode colocar o seu logo, suas cores e o nome da sua empresa.</>}
+            </p>
+            <Link to="/app/configuracoes#marca" className="text-xs font-semibold text-[#0B5A1E] hover:underline whitespace-nowrap">
+              {usandoMarca ? 'Alterar marca' : 'Usar minha marca'} →
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-3 gap-4">

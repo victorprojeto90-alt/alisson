@@ -11,6 +11,7 @@ import { Badge } from '../components/ui/badge';
 import { PLANOS } from '../lib/planos';
 import { cancelarAssinatura, buscarHistoricoPagamentos, type PagamentoHistorico } from '../lib/asaasProxy';
 import PlanoModal from '../components/payment/PlanoModal';
+import MarcaRelatorioCard from '../components/settings/MarcaRelatorioCard';
 import { User, Building2, Crown, Loader2, Check, Clock, UserCheck, Briefcase, CreditCard, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -24,7 +25,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 export default function Configuracoes() {
-  const { user, profile, empresa } = useAuth();
+  const { user, profile, empresa, recarregarPerfil } = useAuth();
   const [planoModalAberto, setPlanoModalAberto] = useState(false);
   const [confirmandoCancelamento, setConfirmandoCancelamento] = useState(false);
   const [cancelando, setCancelando] = useState(false);
@@ -37,6 +38,7 @@ export default function Configuracoes() {
   const [cpfCnpj, setCpfCnpj] = useState(profile?.cpf_cnpj ?? '');
   const [cidade, setCidade] = useState(profile?.cidade ?? '');
   const [estadoUf, setEstadoUf] = useState(profile?.estado_uf ?? '');
+  const [registro, setRegistro] = useState(profile?.registro_profissional ?? '');
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [companyName, setCompanyName] = useState(empresa?.name ?? '');
@@ -45,6 +47,33 @@ export default function Configuracoes() {
   const [companyCidade, setCompanyCidade] = useState(empresa?.cidade ?? '');
   const [companyEstado, setCompanyEstado] = useState(empresa?.estado_uf ?? '');
   const [savingEmpresa, setSavingEmpresa] = useState(false);
+
+  // Preenche os formulários quando o perfil termina de carregar (a página pode abrir antes)
+  useEffect(() => {
+    if (!profile) return;
+    setName(profile.name ?? '');
+    setTelefone(profile.telefone ?? '');
+    setCpfCnpj(profile.cpf_cnpj ?? '');
+    setCidade(profile.cidade ?? '');
+    setEstadoUf(profile.estado_uf ?? '');
+    setRegistro(profile.registro_profissional ?? '');
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!empresa) return;
+    setCompanyName(empresa.name ?? '');
+    setCompanyTelefone(empresa.telefone ?? '');
+    setCompanyCnpj(empresa.cnpj ?? '');
+    setCompanyCidade(empresa.cidade ?? '');
+    setCompanyEstado(empresa.estado_uf ?? '');
+  }, [empresa?.id]);
+
+  // Atalho vindo da tela Exportar (/app/configuracoes#marca)
+  useEffect(() => {
+    if (window.location.hash === '#marca') {
+      setTimeout(() => document.getElementById('marca')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+    }
+  }, []);
 
   useEffect(() => {
     if (!empresa?.asaas_subscription_id) return;
@@ -61,11 +90,11 @@ export default function Configuracoes() {
     setSavingProfile(true);
     const { error } = await supabase
       .from('profiles')
-      .update({ name: name.trim(), telefone, cpf_cnpj: cpfCnpj, cidade, estado_uf: estadoUf })
+      .update({ name: name.trim(), telefone, cpf_cnpj: cpfCnpj, cidade, estado_uf: estadoUf, registro_profissional: registro.trim() || null })
       .eq('id', user.id);
     setSavingProfile(false);
     if (error) toast.error('Erro ao salvar perfil: ' + error.message);
-    else toast.success('Perfil atualizado!');
+    else { toast.success('Perfil atualizado!'); recarregarPerfil(); }
   };
 
   const handleSaveEmpresa = async () => {
@@ -83,7 +112,7 @@ export default function Configuracoes() {
       .eq('id', empresa.id);
     setSavingEmpresa(false);
     if (error) toast.error('Erro ao salvar empresa: ' + error.message);
-    else toast.success('Empresa atualizada!');
+    else { toast.success('Empresa atualizada!'); recarregarPerfil(); }
   };
 
   const trialEndsAt = empresa?.trial_ends_at ? new Date(empresa.trial_ends_at) : null;
@@ -199,6 +228,11 @@ export default function Configuracoes() {
                   maxLength={2}
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Registro profissional <span className="text-gray-400 font-normal">(CREA, CRBio…)</span></Label>
+              <Input placeholder="Ex.: CREA-PB 123456789" value={registro} maxLength={60} onChange={e => setRegistro(e.target.value)} />
+              <p className="text-[11px] text-gray-400">Vai na assinatura do relatório técnico.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Função</Label>
@@ -353,6 +387,9 @@ export default function Configuracoes() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Marca nos relatórios */}
+        {empresa ? <MarcaRelatorioCard key={empresa.id} /> : null}
 
         {/* Meu Plano e Pagamentos */}
         {temAssinaturaAsaas && (

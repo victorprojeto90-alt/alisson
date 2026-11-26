@@ -26,18 +26,31 @@ function bytesParaBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-async function carregarImagem(url: string): Promise<Imagem> {
+export async function carregarImagem(url: string, maxLado = 1600): Promise<Imagem> {
   const resp = await fetch(url);
-  const bytes = new Uint8Array(await resp.arrayBuffer());
-  const base64 = bytesParaBase64(bytes);
-  const dataUrl = `data:image/png;base64,${base64}`;
-  const dims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
-  return { dataUrl, base64, bytes, largura: dims.w, altura: dims.h };
+  if (!resp.ok) throw new Error('Não foi possível carregar a imagem');
+  const blob = await resp.blob();
+  const objUrl = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = objUrl;
+    });
+    const escala = Math.min(1, maxLado / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * escala));
+    const h = Math.max(1, Math.round(img.naturalHeight * escala));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+    const dataUrl = canvas.toDataURL('image/png');
+    const base64 = dataUrl.split(',')[1];
+    return { dataUrl, base64, bytes: base64ParaBytes(base64), largura: w, altura: h };
+  } finally {
+    URL.revokeObjectURL(objUrl);
+  }
 }
 
 export const carregarLogos = async () => {
@@ -62,14 +75,13 @@ export async function carregarFontesPDF(): Promise<Record<'normal' | 'bold' | 'i
 // ---------- Gráficos (desenhados em canvas e usados no PDF e no Word) ----------
 export interface DadosGrafico {
   tipo: 'colunas' | 'barras';
+  cores?: { forte: string; suave: string };
   rotulos: string[];
   valores: number[];
   eixo: string;
   formato?: (v: number) => string;
 }
 
-const VERDE = '#0B5A1E';
-const VERDE_CLARO = '#16A34A';
 const CINZA_TEXTO = '#374151';
 const CINZA_LINHA = '#E5E7EB';
 
@@ -82,6 +94,8 @@ function passoBonito(max: number): number {
 }
 
 export function desenharGrafico(d: DadosGrafico): Imagem {
+  const VERDE = d.cores?.forte ?? '#0B5A1E';
+  const VERDE_CLARO = d.cores?.suave ?? '#16A34A';
   const W = 1800;
   const H = d.tipo === 'colunas' ? 860 : Math.max(620, 110 + d.rotulos.length * 74);
   const canvas = document.createElement('canvas');
