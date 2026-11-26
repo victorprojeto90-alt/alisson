@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { PageSkeleton } from '../../components/ui/skeletons';
 import { supabase } from '../../lib/supabase';
+import { useNavigate } from 'react-router';
+import { useEmpresasAdmin, PLANOS_PAGOS, PLANO_POR_ID, emTrialAtivo } from './adminShared';
+import { Secao, Etiqueta, Indicador, Vazio, brl, dataBR } from './adminUi';
+import { PageHeader, HeaderStats, HeaderButton } from '../../components/layout/PageHeader';
 import {
-  useEmpresasAdmin, PLANOS_PAGOS, PLANO_POR_ID, emTrialAtivo, cores, cardStyle,
-} from './adminShared';
-import {
-  Building2, Crown, Clock, Ban, Trees, DollarSign, TrendingUp, XCircle,
-  AlertTriangle, MessageCircleQuestion,
+  Trees, DollarSign, TrendingUp, XCircle, AlertTriangle, MessageCircleQuestion, Users, ChevronRight, CreditCard,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -20,17 +20,9 @@ interface HelpQuestion {
   created_at: string;
 }
 
-function PageHeader() {
-  return (
-    <div style={{ background: 'white', borderBottom: `1px solid ${cores.borda}`, padding: '24px 32px' }}>
-      <h1 style={{ fontSize: '22px', fontWeight: 700, color: cores.texto }}>Dashboard</h1>
-      <p style={{ color: cores.textoSecundario, marginTop: '2px', fontSize: '14px' }}>Visão geral do AMBISAFE</p>
-    </div>
-  );
-}
-
 export default function AdminDashboard() {
   const { empresas, loading } = useEmpresasAdmin();
+  const navigate = useNavigate();
   const [helpQuestions, setHelpQuestions] = useState<HelpQuestion[]>([]);
 
   useEffect(() => {
@@ -89,162 +81,164 @@ export default function AdminDashboard() {
     .slice(0, 10);
 
   if (loading) {
-    return (
-      <PageSkeleton />
-    );
+    return <PageSkeleton />;
   }
 
-  const statCard = (label: string, value: string | number, Icon: typeof Building2, color: string, bg: string) => (
-    <div style={cardStyle}>
-      <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-        <Icon size={16} color={color} />
-      </div>
-      <p style={{ fontSize: 24, fontWeight: 700, color: cores.texto }}>{value}</p>
-      <p style={{ fontSize: 12, color: cores.textoSecundario }}>{label}</p>
-    </div>
-  );
+  const planoDe = (e: typeof empresas[number]) =>
+    e.plan_type && PLANOS_PAGOS.includes(e.plan_type) ? (PLANO_POR_ID[e.plan_type]?.nome ?? e.plan_type) : e.plan === 'profissional' ? 'Profissional' : 'Teste';
+
+  const perguntasPorTela = (() => {
+    const counts: Record<string, number> = {};
+    helpQuestions.forEach(q => { counts[q.page] = (counts[q.page] ?? 0) + 1; });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  })();
+  const maxPerg = perguntasPorTela[0]?.[1] ?? 1;
+  const nAlertas = trialsExpirando.length + inadimplentes.length;
 
   return (
-    <div>
-      <PageHeader />
-      <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* Métricas principais */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-          {statCard('Contas', total, Building2, cores.verde, `${cores.verde}1a`)}
-          {statCard('Em Trial', emTrial.length, Clock, '#d97706', '#fef3c7')}
-          {statCard('Pagantes', pagantes.length, Crown, '#16a34a', '#dcfce7')}
-          {statCard('Bloqueados', bloqueados.length, Ban, cores.vermelho, '#fee2e2')}
-          {statCard('Projetos criados', totalProjects, Trees, '#059669', '#d1fae5')}
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <PageHeader
+        eyebrow="Painel administrativo"
+        title="Visão geral"
+        subtitle={`${total} contas cadastradas · ${totalProjects} inventários criados`}
+        actions={<>
+          <HeaderButton variant="outline" onClick={() => navigate('/admin/financeiro')}><CreditCard className="w-4 h-4" /> Financeiro</HeaderButton>
+          <HeaderButton onClick={() => navigate('/admin/clientes')}><Users className="w-4 h-4" /> Clientes</HeaderButton>
+        </>}
+      >
+        <HeaderStats
+          items={[
+            { label: 'Contas', value: total, active: true },
+            { label: 'Pagantes', value: pagantes.length },
+            { label: 'Em teste', value: emTrial.length },
+            { label: 'Bloqueadas', value: bloqueados.length },
+          ]}
+        />
+      </PageHeader>
+
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-5 md:mb-6">
+        <Indicador rotulo="Receita mensal (MRR)" valor={brl(mrr)} icone={<DollarSign className="w-5 h-5" />} />
+        <Indicador rotulo="Ticket médio" valor={brl(ticketMedio)} icone={<DollarSign className="w-5 h-5" />} />
+        <Indicador rotulo="Conversão teste → pago" valor={`${trialParaPagoP}%`} icone={<TrendingUp className="w-5 h-5" />} tom="azul" />
+        <Indicador rotulo="Cancelamentos" valor={cancelamentosSolicitados} icone={<XCircle className="w-5 h-5" />} tom="vermelho" />
+        <div className="col-span-2 lg:col-span-1">
+          <Indicador rotulo="Inventários criados" valor={totalProjects} icone={<Trees className="w-5 h-5" />} />
         </div>
+      </div>
 
-        {/* Financeiro */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-          {statCard('MRR', `R$ ${mrr.toFixed(2).replace('.', ',')}`, DollarSign, '#15803d', '#dcfce7')}
-          {statCard('Conversão trial → pago', `${trialParaPagoP}%`, TrendingUp, cores.azul, '#dbeafe')}
-          {statCard('Cancelamentos', cancelamentosSolicitados, XCircle, cores.vermelho, '#fee2e2')}
-          {statCard('Ticket médio', `R$ ${ticketMedio.toFixed(2).replace('.', ',')}`, DollarSign, cores.verde, `${cores.verde}1a`)}
-        </div>
-
-        {/* Alertas */}
-        {(trialsExpirando.length > 0 || inadimplentes.length > 0) && (
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <AlertTriangle size={16} color={cores.vermelho} />
-              <span style={{ fontSize: 14, fontWeight: 600, color: cores.texto }}>
-                Alertas ({trialsExpirando.length + inadimplentes.length})
-              </span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {inadimplentes.map(e => (
-                <div key={`inad-${e.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', fontSize: 13 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: cores.vermelho, flexShrink: 0 }} />
-                  <span style={{ fontWeight: 500, color: cores.texto }}>{e.name}</span>
-                  <span style={{ color: cores.textoSecundario, fontSize: 12 }}>— pagamento em atraso</span>
-                </div>
-              ))}
-              {trialsExpirando.map(e => {
-                const dias = Math.max(0, Math.ceil((new Date(e.trial_ends_at!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-                return (
-                  <div key={`trial-${e.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', fontSize: 13 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: dias <= 1 ? cores.vermelho : cores.amarelo, flexShrink: 0 }} />
-                    <span style={{ fontWeight: 500, color: cores.texto }}>{e.name}</span>
-                    <span style={{ color: cores.textoSecundario, fontSize: 12 }}>— trial expira em {dias} dia{dias !== 1 ? 's' : ''}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: helpQuestions.length > 0 ? '2fr 1fr' : '1fr', gap: 24 }}>
-          {/* Gráfico de cadastros */}
-          <div style={cardStyle}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: cores.texto, marginBottom: 12 }}>Novos Cadastros — Últimos 6 Meses</p>
-            <div style={{ height: 220 }}>
+      <div className="grid lg:grid-cols-3 gap-5 md:gap-6 items-start">
+        <div className="lg:col-span-2 space-y-5 md:space-y-6">
+          <Secao titulo="Novos cadastros" descricao="Últimos 6 meses">
+            <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={cadastrosPorMes}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                  <Tooltip formatter={(v: number) => [`${v} cadastro${v !== 1 ? 's' : ''}`, '']} />
-                  <Bar dataKey="cadastros" fill={cores.verde} radius={[4, 4, 0, 0]} />
+                <BarChart data={cadastrosPorMes} margin={{ left: -20, right: 8, top: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eef2ee" vertical={false} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{ fill: '#f4f8f3' }} formatter={(v: number) => [`${v} cadastro${v !== 1 ? 's' : ''}`, '']} />
+                  <Bar dataKey="cadastros" fill="#0B5A1E" radius={[6, 6, 0, 0]} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </Secao>
 
-          {/* Perguntas por tela */}
-          {helpQuestions.length > 0 && (
-            <div style={cardStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <MessageCircleQuestion size={16} color={cores.verdeClaro} />
-                <span style={{ fontSize: 14, fontWeight: 600, color: cores.texto }}>Perguntas por Tela</span>
-              </div>
-              {(() => {
-                const counts: Record<string, number> = {};
-                helpQuestions.forEach(q => { counts[q.page] = (counts[q.page] ?? 0) + 1; });
-                const sortedCounts = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-                const max = sortedCounts[0]?.[1] ?? 1;
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {sortedCounts.map(([page, count]) => (
-                      <div key={page}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                          <span style={{ color: cores.textoSecundario, textTransform: 'capitalize' }}>{page}</span>
-                          <span style={{ color: cores.textoSecundario, fontWeight: 500 }}>{count}</span>
-                        </div>
-                        <div style={{ width: '100%', background: '#f3f4f6', borderRadius: 999, height: 6 }}>
-                          <div style={{ width: `${(count / max) * 100}%`, background: cores.verdeClaro, borderRadius: 999, height: 6 }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
+          <Secao
+            titulo="Cadastros recentes"
+            contagem={recentSignups.length}
+            semPadding
+            acoes={<button onClick={() => navigate('/admin/clientes')} className="text-xs font-semibold text-[#0B5A1E] hover:underline inline-flex items-center gap-0.5">Ver todos <ChevronRight className="w-3.5 h-3.5" /></button>}
+          >
+            {/* computador */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="ui-thead">
+                  <tr>
+                    <th className="px-6 py-3 text-left">Empresa</th>
+                    <th className="px-4 py-3 text-left">Responsável</th>
+                    <th className="px-4 py-3 text-left">Plano</th>
+                    <th className="px-4 py-3 text-left">Cadastro</th>
+                    <th className="px-6 py-3 text-left">Situação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {recentSignups.map(emp => (
+                    <tr key={emp.id}>
+                      <td className="px-6 py-3 font-medium text-gray-900">{emp.name}</td>
+                      <td className="px-4 py-3 text-gray-500">{emp.profiles?.[0]?.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{planoDe(emp)}</td>
+                      <td className="px-4 py-3 text-gray-500">{dataBR(emp.created_at)}</td>
+                      <td className="px-6 py-3">{emp.is_blocked ? <Etiqueta tom="vermelho">Bloqueada</Etiqueta> : <Etiqueta tom="verde">Ativa</Etiqueta>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+            {/* celular */}
+            <div className="md:hidden divide-y divide-gray-50">
+              {recentSignups.map(emp => (
+                <div key={emp.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 truncate">{emp.name}</p>
+                    <p className="text-xs text-gray-500">{planoDe(emp)} · {dataBR(emp.created_at)}</p>
+                  </div>
+                  {emp.is_blocked ? <Etiqueta tom="vermelho">Bloqueada</Etiqueta> : <Etiqueta tom="verde">Ativa</Etiqueta>}
+                </div>
+              ))}
+            </div>
+            {recentSignups.length === 0 && <Vazio>Nenhum cadastro ainda.</Vazio>}
+          </Secao>
         </div>
 
-        {/* Atividade recente */}
-        <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
-          <p style={{ fontSize: 14, fontWeight: 600, color: cores.texto, padding: '16px 20px 0' }}>Atividade Recente</p>
-          <div style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-              <thead style={{ background: '#f9fafb', borderTop: `1px solid ${cores.borda}`, borderBottom: `1px solid ${cores.borda}` }}>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: '8px 20px', color: cores.textoSecundario, fontSize: 12 }}>Nome</th>
-                  <th style={{ textAlign: 'left', padding: '8px 20px', color: cores.textoSecundario, fontSize: 12 }}>Plano</th>
-                  <th style={{ textAlign: 'left', padding: '8px 20px', color: cores.textoSecundario, fontSize: 12 }}>Cadastro</th>
-                  <th style={{ textAlign: 'left', padding: '8px 20px', color: cores.textoSecundario, fontSize: 12 }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentSignups.map(emp => (
-                  <tr key={emp.id} style={{ borderBottom: `1px solid #f3f4f6` }}>
-                    <td style={{ padding: '10px 20px', fontWeight: 500, color: cores.texto }}>{emp.name}</td>
-                    <td style={{ padding: '10px 20px', color: cores.textoSecundario, fontSize: 12 }}>
-                      {emp.plan_type && PLANOS_PAGOS.includes(emp.plan_type)
-                        ? PLANO_POR_ID[emp.plan_type]?.nome
-                        : emp.plan === 'profissional' ? 'Profissional' : 'Trial'}
-                    </td>
-                    <td style={{ padding: '10px 20px', color: cores.textoSecundario, fontSize: 12 }}>
-                      {new Date(emp.created_at).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td style={{ padding: '10px 20px' }}>
-                      <span style={{
-                        fontSize: 11, padding: '2px 8px', borderRadius: 999, fontWeight: 500,
-                        background: emp.is_blocked ? '#fee2e2' : '#dcfce7',
-                        color: emp.is_blocked ? cores.vermelho : '#15803d',
-                      }}>
-                        {emp.is_blocked ? 'Bloqueado' : 'Ativo'}
-                      </span>
-                    </td>
-                  </tr>
+        <div className="space-y-5 md:space-y-6">
+          <Secao titulo="Atenção" contagem={nAlertas} icone={<AlertTriangle className="w-4 h-4" />} descricao="Pagamentos em atraso e testes acabando">
+            {nAlertas === 0 ? (
+              <Vazio>Nada pendente agora.</Vazio>
+            ) : (
+              <ul className="space-y-2">
+                {inadimplentes.map(e => (
+                  <li key={`inad-${e.id}`} className="flex items-center gap-3 rounded-xl bg-red-50/60 px-3 py-2.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">{e.name}</p>
+                      <p className="text-xs text-red-700">Pagamento em atraso</p>
+                    </div>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ height: 12 }} />
+                {trialsExpirando.map(e => {
+                  const dias = Math.max(0, Math.ceil((new Date(e.trial_ends_at!).getTime() - Date.now()) / 86400000));
+                  return (
+                    <li key={`trial-${e.id}`} className="flex items-center gap-3 rounded-xl bg-amber-50/70 px-3 py-2.5">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${dias <= 1 ? 'bg-red-500' : 'bg-amber-500'}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{e.name}</p>
+                        <p className="text-xs text-amber-700">Teste acaba em {dias} dia{dias !== 1 ? 's' : ''}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Secao>
+
+          <Secao titulo="Dúvidas por tela" contagem={helpQuestions.length} icone={<MessageCircleQuestion className="w-4 h-4" />} descricao="Perguntas feitas na Central de Ajuda">
+            {perguntasPorTela.length === 0 ? (
+              <Vazio>Nenhuma pergunta registrada.</Vazio>
+            ) : (
+              <div className="space-y-3">
+                {perguntasPorTela.map(([page, count]) => (
+                  <div key={page}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-gray-600 truncate">{page}</span>
+                      <span className="font-semibold text-gray-800">{count}</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                      <div className="h-1.5 rounded-full bg-[#16A34A]" style={{ width: `${(count / maxPerg) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Secao>
         </div>
       </div>
     </div>

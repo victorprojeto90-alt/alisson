@@ -1,17 +1,19 @@
-import { useState, useEffect, useMemo, type CSSProperties } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { PageSkeleton, StatsSkeleton } from '../../components/ui/skeletons';
 import { toast } from 'sonner';
 import {
   useEmpresasAdmin, EmpresaAdmin, PLANOS_PAGOS, PLANO_POR_ID, CORES_PIZZA,
-  abrirWhatsApp, baixarCSV, cores, cardStyle,
+  abrirWhatsApp, baixarCSV,
 } from './adminShared';
+import { Secao, Etiqueta, Vazio, Indicador, brl, dataBR } from './adminUi';
+import { PageHeader, HeaderStats, HeaderButton } from '../../components/layout/PageHeader';
 import { adminAsaas, type AsaasPayment, type AsaasSubscription } from '../../lib/adminAsaas';
 import { Button } from '../../components/ui/button';
 import {
-  DollarSign, Crown, AlertTriangle, Clock, Download, RefreshCw, MessageCircle,
-  Send, Loader2, UserX,
+  Crown, AlertTriangle, Download, RefreshCw, MessageCircle, Send, Loader2, UserX, PieChart as PieIcon,
+  CheckCircle2, Clock, Repeat,
 } from 'lucide-react';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 type Periodo = '7d' | '30d' | '90d' | '12m';
 
@@ -23,58 +25,6 @@ function calcularPeriodo(periodo: Periodo) {
   else if (periodo === '90d') inicio.setDate(inicio.getDate() - 90);
   else inicio.setFullYear(inicio.getFullYear() - 1);
   return { inicio: inicio.toISOString().split('T')[0], fim: fim.toISOString().split('T')[0] };
-}
-
-function PageHeader({
-  periodo, onPeriodo, onExportar, onAtualizar, atualizando,
-}: {
-  periodo: Periodo;
-  onPeriodo: (p: Periodo) => void;
-  onExportar: () => void;
-  onAtualizar: () => void;
-  atualizando: boolean;
-}) {
-  const opcoes: { id: Periodo; label: string }[] = [
-    { id: '7d', label: '7 dias' }, { id: '30d', label: '30 dias' },
-    { id: '90d', label: '90 dias' }, { id: '12m', label: '12 meses' },
-  ];
-  return (
-    <div style={{ background: 'white', borderBottom: `1px solid ${cores.borda}`, padding: '24px 32px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, color: cores.texto }}>Financeiro</h1>
-          <p style={{ color: cores.textoSecundario, marginTop: '2px', fontSize: '14px' }}>Dados reais do Asaas</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onAtualizar} disabled={atualizando}>
-            <RefreshCw className={`w-3.5 h-3.5 ${atualizando ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onExportar}>
-            <Download className="w-3.5 h-3.5" />
-            CSV
-          </Button>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 4, marginTop: 16 }}>
-        {opcoes.map(o => (
-          <button
-            key={o.id}
-            onClick={() => onPeriodo(o.id)}
-            style={{
-              padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500,
-              border: `1px solid ${periodo === o.id ? cores.verde : cores.borda}`,
-              background: periodo === o.id ? cores.verde : 'white',
-              color: periodo === o.id ? 'white' : cores.textoSecundario,
-              cursor: 'pointer',
-            }}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export default function AdminFinanceiro() {
@@ -178,193 +128,204 @@ export default function AdminFinanceiro() {
   };
 
   if (loading) {
-    return (
-      <PageSkeleton />
-    );
+    return <PageSkeleton />;
   }
 
-  const statCard = (label: string, value: string | number, Icon: typeof DollarSign, color: string, bg: string, sub: string) => (
-    <div style={cardStyle}>
-      <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-        <Icon size={16} color={color} />
-      </div>
-      <p style={{ fontSize: 22, fontWeight: 700, color: cores.texto }}>{value}</p>
-      <p style={{ fontSize: 12, color: cores.textoSecundario }}>{label}</p>
-      <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{sub}</p>
-    </div>
-  );
+  const opcoes: { id: Periodo; label: string }[] = [
+    { id: '7d', label: '7 dias' }, { id: '30d', label: '30 dias' }, { id: '90d', label: '90 dias' }, { id: '12m', label: '12 meses' },
+  ];
+  const nomePeriodo = opcoes.find(o => o.id === periodo)?.label ?? '';
+  const naoPagaram = [...nuncaPagaram, ...tentouNaoPagou];
 
   return (
-    <div>
-      <PageHeader periodo={periodo} onPeriodo={setPeriodo} onExportar={exportarCSV} onAtualizar={carregarDadosAsaas} atualizando={loadingAsaas} />
-      <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {erroAsaas && (
-          <div style={{ ...cardStyle, borderColor: '#fecaca', background: '#fef2f2', padding: 16 }}>
-            <p style={{ fontSize: 13, color: cores.vermelho }}>
-              Não foi possível carregar os dados do Asaas: {erroAsaas}. Os cards abaixo usam fallback local onde possível.
-            </p>
-          </div>
-        )}
-
-        {/* Cards reais */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-          {loadingAsaas ? (
-            <div style={{ gridColumn: '1 / -1' }}><StatsSkeleton count={4} /></div>
-          ) : (
-            <>
-              {statCard('Recebido', `R$ ${somaRecebidos.toFixed(2).replace('.', ',')}`, DollarSign, '#15803d', '#dcfce7', 'no período selecionado')}
-              {statCard('Pendente', `R$ ${somaPendentes.toFixed(2).replace('.', ',')}`, Clock, cores.amarelo, '#fef3c7', 'aguardando pagamento')}
-              {statCard('Vencido', `R$ ${somaVencidos.toFixed(2).replace('.', ',')}`, AlertTriangle, cores.vermelho, '#fee2e2', 'em atraso')}
-              {statCard('Assinaturas', assinaturasAsaas.length, Crown, cores.verde, `${cores.verde}1a`, 'ativas no Asaas')}
-              {statCard('MRR Real', `R$ ${mrrReal.toFixed(2).replace('.', ',')}`, DollarSign, cores.azul, '#dbeafe', assinaturasAsaas.length > 0 ? 'soma das assinaturas Asaas' : 'estimado (fallback local)')}
-            </>
-          )}
+    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <PageHeader
+        eyebrow="Painel administrativo"
+        title="Financeiro"
+        subtitle="Cobranças e assinaturas vindas do Asaas"
+        actions={<>
+          <HeaderButton variant="outline" onClick={carregarDadosAsaas} disabled={loadingAsaas}>
+            <RefreshCw className={`w-4 h-4 ${loadingAsaas ? 'animate-spin' : ''}`} /> Atualizar
+          </HeaderButton>
+          <HeaderButton variant="outline" onClick={exportarCSV}><Download className="w-4 h-4" /> CSV</HeaderButton>
+        </>}
+      >
+        <div className="flex gap-1 p-1 rounded-2xl bg-white/10 w-fit mb-3">
+          {opcoes.map(o => (
+            <button
+              key={o.id}
+              onClick={() => setPeriodo(o.id)}
+              className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors ${periodo === o.id ? 'bg-white text-[#00420d] shadow' : 'text-white/80 hover:bg-white/10'}`}
+            >
+              {o.label}
+            </button>
+          ))}
         </div>
+        {loadingAsaas ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:max-w-3xl">
+            {[0, 1, 2, 3].map(i => <div key={i} className="h-[62px] rounded-2xl bg-white/10 animate-pulse" />)}
+          </div>
+        ) : (
+          <HeaderStats
+            colunasCelular={2}
+            items={[
+              { label: `Recebido · ${nomePeriodo}`, value: brl(somaRecebidos), active: true },
+              { label: 'Aguardando', value: brl(somaPendentes) },
+              { label: 'Em atraso', value: brl(somaVencidos) },
+              { label: 'Receita mensal', value: brl(mrrReal) },
+            ]}
+          />
+        )}
+      </PageHeader>
 
-        {/* Distribuição de planos */}
-        <div style={cardStyle}>
-          <p style={{ fontSize: 14, fontWeight: 600, color: cores.texto, marginBottom: 12 }}>Distribuição de Planos</p>
+      {erroAsaas && (
+        <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-2">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <span>Não foi possível carregar os dados do Asaas: {erroAsaas}. Onde dá, os números usam o cálculo local.</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-6">
+        <Indicador rotulo="Assinaturas ativas" valor={assinaturasAsaas.length} icone={<Repeat className="w-5 h-5" />} />
+        <Indicador rotulo="Pagamentos recebidos" valor={recebidos.length} detalhe={nomePeriodo} icone={<CheckCircle2 className="w-5 h-5" />} />
+        <Indicador rotulo="Aguardando pagamento" valor={pendentes.length} icone={<Clock className="w-5 h-5" />} tom="amarelo" />
+        <Indicador rotulo="Em atraso" valor={vencidos.length} icone={<AlertTriangle className="w-5 h-5" />} tom="vermelho" />
+      </div>
+      {loadingAsaas && <div className="mb-5"><StatsSkeleton count={4} /></div>}
+
+      <div className="grid lg:grid-cols-3 gap-5 md:gap-6 mb-5 md:mb-6 items-start">
+        <Secao titulo="Planos dos assinantes" icone={<PieIcon className="w-4 h-4" />} descricao={assinaturasAsaas.length > 0 ? 'Receita mensal pela soma das assinaturas no Asaas' : 'Receita mensal estimada pelos planos'}>
           {distribuicaoPlanos.length === 0 ? (
-            <p style={{ fontSize: 12, color: cores.textoSecundario }}>Nenhum assinante pago ainda.</p>
+            <Vazio>Nenhum assinante pago ainda.</Vazio>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'center' }}>
-              <div style={{ height: 200 }}>
+            <div className="flex items-center gap-4">
+              <div className="w-32 h-32 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={pizzaData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70}>
+                    <Pie data={pizzaData} dataKey="value" nameKey="name" innerRadius={34} outerRadius={60} paddingAngle={2}>
                       {pizzaData.map((_, i) => <Cell key={i} fill={CORES_PIZZA[i % CORES_PIZZA.length]} />)}
                     </Pie>
                     <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {distribuicaoPlanos.map(p => (
-                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                    <span style={{ color: cores.textoSecundario }}>{p.nome}</span>
-                    <span style={{ fontWeight: 600, color: cores.texto }}>{p.qtd}</span>
-                  </div>
+              <ul className="flex-1 space-y-2">
+                {distribuicaoPlanos.map((p, i) => (
+                  <li key={p.id} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-gray-600"><span className="w-2.5 h-2.5 rounded-full" style={{ background: CORES_PIZZA[i % CORES_PIZZA.length] }} />{p.nome}</span>
+                    <span className="font-semibold text-gray-900">{p.qtd}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           )}
-        </div>
+        </Secao>
 
-        {/* Quem só cadastrou e não pagou */}
-        <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <UserX size={16} color={cores.textoSecundario} />
-            <p style={{ fontSize: 14, fontWeight: 600, color: cores.texto }}>Quem só cadastrou e não pagou</p>
-          </div>
-          <p style={{ fontSize: 12, color: cores.textoSecundario, padding: '0 20px 12px' }}>
-            Nunca tentaram assinar ({nuncaPagaram.length}) + criaram cliente no Asaas mas abandonaram o checkout ({tentouNaoPagou.length})
-          </p>
-          {(nuncaPagaram.length + tentouNaoPagou.length) === 0 ? (
-            <p style={{ fontSize: 12, color: cores.textoSecundario, padding: '0 20px 16px' }}>Todos os cadastros já tentaram ou completaram uma assinatura.</p>
+        <Secao
+          className="lg:col-span-2"
+          titulo="Cadastrou e não pagou"
+          contagem={naoPagaram.length}
+          icone={<UserX className="w-4 h-4" />}
+          descricao={`Nunca tentaram assinar: ${nuncaPagaram.length} · Começaram e abandonaram o pagamento: ${tentouNaoPagou.length}`}
+          semPadding
+        >
+          {naoPagaram.length === 0 ? (
+            <Vazio>Todos os cadastros já tentaram ou concluíram uma assinatura.</Vazio>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-                <thead style={{ background: '#f9fafb', borderTop: `1px solid ${cores.borda}`, borderBottom: `1px solid ${cores.borda}` }}>
-                  <tr>
-                    <th style={thStyle}>Nome</th>
-                    <th style={thStyle}>Cadastro</th>
-                    <th style={thStyle}>Trial expira</th>
-                    <th style={thStyle}>Situação</th>
-                    <th style={thStyle}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...nuncaPagaram, ...tentouNaoPagou].map(e => (
-                    <tr key={e.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                      <td style={tdStyle}>{e.name}</td>
-                      <td style={{ ...tdStyle, color: cores.textoSecundario }}>{new Date(e.created_at).toLocaleDateString('pt-BR')}</td>
-                      <td style={{ ...tdStyle, color: cores.textoSecundario }}>
-                        {e.trial_ends_at ? new Date(e.trial_ends_at).toLocaleDateString('pt-BR') : '—'}
-                      </td>
-                      <td style={tdStyle}>
-                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: e.asaas_customer_id ? '#fef3c7' : '#f3f4f6', color: e.asaas_customer_id ? cores.amarelo : cores.textoSecundario }}>
-                          {e.asaas_customer_id ? 'Abandonou checkout' : 'Nunca tentou'}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <button onClick={() => abrirWhatsApp(e)} style={{ fontSize: 12, color: '#16a34a', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <MessageCircle size={13} /> WA
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Lista
+              colunas={['Empresa', 'Cadastro', 'Teste acaba', 'Situação', '']}
+              linhas={naoPagaram.map(e => ({
+                id: e.id,
+                titulo: e.name,
+                celulas: [
+                  <span key="n" className="font-medium text-gray-900">{e.name}</span>,
+                  dataBR(e.created_at),
+                  dataBR(e.trial_ends_at),
+                  e.asaas_customer_id ? <Etiqueta key="s" tom="amarelo">Abandonou o pagamento</Etiqueta> : <Etiqueta key="s" tom="cinza">Nunca tentou</Etiqueta>,
+                  <BotaoWhats key="w" onClick={() => abrirWhatsApp(e)} />,
+                ],
+                resumo: `Cadastro ${dataBR(e.created_at)} · teste até ${dataBR(e.trial_ends_at)}`,
+                etiqueta: e.asaas_customer_id ? <Etiqueta tom="amarelo">Abandonou</Etiqueta> : <Etiqueta tom="cinza">Nunca tentou</Etiqueta>,
+                acoes: <BotaoWhats onClick={() => abrirWhatsApp(e)} />,
+              }))}
+            />
           )}
-        </div>
+        </Secao>
+      </div>
 
-        {/* Pagamentos recebidos */}
-        <TabelaPagamentos titulo={`Pagamentos Recebidos (${periodo})`} pagamentos={recebidos} nomeCliente={nomeCliente} getEmpresa={getEmpresa} tipo="recebido" />
+      <div className="space-y-5 md:space-y-6">
+        <SecaoPagamentos titulo="Em atraso" tipo="vencido" pagamentos={vencidos} nomeCliente={nomeCliente} getEmpresa={getEmpresa} onReenviar={reenviarCobranca} enviandoCobranca={enviandoCobranca} />
+        <SecaoPagamentos titulo="Aguardando pagamento" tipo="pendente" pagamentos={pendentes} nomeCliente={nomeCliente} getEmpresa={getEmpresa} onReenviar={reenviarCobranca} enviandoCobranca={enviandoCobranca} />
+        <SecaoPagamentos titulo={`Recebidos · ${nomePeriodo}`} tipo="recebido" pagamentos={recebidos} nomeCliente={nomeCliente} getEmpresa={getEmpresa} />
 
-        {/* Pagamentos pendentes */}
-        <TabelaPagamentos
-          titulo="Pagamentos Pendentes (aguardando)"
-          pagamentos={pendentes}
-          nomeCliente={nomeCliente}
-          getEmpresa={getEmpresa}
-          tipo="pendente"
-          onReenviar={reenviarCobranca}
-          enviandoCobranca={enviandoCobranca}
-        />
-
-        {/* Pagamentos vencidos */}
-        <TabelaPagamentos
-          titulo="Pagamentos Vencidos (em atraso)"
-          pagamentos={vencidos}
-          nomeCliente={nomeCliente}
-          getEmpresa={getEmpresa}
-          tipo="vencido"
-          onReenviar={reenviarCobranca}
-          enviandoCobranca={enviandoCobranca}
-        />
-
-        {/* Assinaturas ativas */}
-        <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
-          <p style={{ fontSize: 14, fontWeight: 600, color: cores.texto, padding: '16px 20px 12px' }}>Assinaturas Ativas (Asaas) ({assinaturasAsaas.length})</p>
+        <Secao titulo="Assinaturas ativas no Asaas" contagem={assinaturasAsaas.length} icone={<Crown className="w-4 h-4" />} semPadding>
           {assinaturasAsaas.length === 0 ? (
-            <p style={{ fontSize: 12, color: cores.textoSecundario, padding: '0 20px 16px' }}>
-              {loadingAsaas ? 'Carregando...' : 'Nenhuma assinatura ativa encontrada no Asaas.'}
-            </p>
+            <Vazio>{loadingAsaas ? 'Carregando...' : 'Nenhuma assinatura ativa encontrada.'}</Vazio>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-                <thead style={{ background: '#f9fafb', borderTop: `1px solid ${cores.borda}`, borderBottom: `1px solid ${cores.borda}` }}>
-                  <tr>
-                    <th style={thStyle}>Cliente</th>
-                    <th style={thStyle}>Valor/mês</th>
-                    <th style={thStyle}>Próx. cobrança</th>
-                    <th style={thStyle}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {assinaturasAsaas.map(a => (
-                    <tr key={a.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                      <td style={tdStyle}>{nomeCliente(a.customer)}</td>
-                      <td style={tdStyle}>R$ {a.value.toFixed(2).replace('.', ',')}</td>
-                      <td style={{ ...tdStyle, color: cores.textoSecundario }}>{new Date(a.nextDueDate).toLocaleDateString('pt-BR')}</td>
-                      <td style={tdStyle}>
-                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: '#dcfce7', color: '#15803d' }}>{a.status}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Lista
+              colunas={['Cliente', 'Valor/mês', 'Próxima cobrança', 'Situação']}
+              linhas={assinaturasAsaas.map(a => ({
+                id: a.id,
+                titulo: nomeCliente(a.customer),
+                celulas: [<span key="n" className="font-medium text-gray-900">{nomeCliente(a.customer)}</span>, brl(a.value), dataBR(a.nextDueDate), <Etiqueta key="s" tom="verde">Ativa</Etiqueta>],
+                resumo: `${brl(a.value)}/mês · próxima ${dataBR(a.nextDueDate)}`,
+                etiqueta: <Etiqueta tom="verde">Ativa</Etiqueta>,
+              }))}
+            />
           )}
-        </div>
+        </Secao>
       </div>
     </div>
   );
 }
 
-function TabelaPagamentos({
+function BotaoWhats({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 hover:bg-green-50 px-2.5 h-8 rounded-lg">
+      <MessageCircle className="w-4 h-4" /> WhatsApp
+    </button>
+  );
+}
+
+interface LinhaLista { id: string; titulo: string; celulas: ReactNode[]; resumo: string; etiqueta?: ReactNode; acoes?: ReactNode }
+
+// Tabela no computador, cartões no celular
+function Lista({ colunas, linhas }: { colunas: string[]; linhas: LinhaLista[] }) {
+  return (
+    <>
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="ui-thead">
+            <tr>{colunas.map((c, i) => <th key={i} className={`py-3 text-left ${i === 0 ? 'px-6' : 'px-4'}`}>{c}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {linhas.map(l => (
+              <tr key={l.id} className="hover:bg-[#f8faf7]">
+                {l.celulas.map((c, i) => <td key={i} className={`py-3 text-gray-600 ${i === 0 ? 'px-6' : 'px-4'}`}>{c}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="md:hidden divide-y divide-gray-50">
+        {linhas.map(l => (
+          <div key={l.id} className="px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900">{l.titulo}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{l.resumo}</p>
+              </div>
+              {l.etiqueta && <div className="shrink-0">{l.etiqueta}</div>}
+            </div>
+            {l.acoes && <div className="mt-2 flex">{l.acoes}</div>}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function SecaoPagamentos({
   titulo, pagamentos, nomeCliente, getEmpresa, tipo, onReenviar, enviandoCobranca,
 }: {
   titulo: string;
@@ -375,72 +336,52 @@ function TabelaPagamentos({
   onReenviar?: (customerId: string, valor: number, nome: string) => void;
   enviandoCobranca?: string | null;
 }) {
-  return (
-    <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
-      <p style={{ fontSize: 14, fontWeight: 600, color: cores.texto, padding: '16px 20px 12px' }}>{titulo} ({pagamentos.length})</p>
-      {pagamentos.length === 0 ? (
-        <p style={{ fontSize: 12, color: cores.textoSecundario, padding: '0 20px 16px' }}>Nenhum registro encontrado.</p>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-            <thead style={{ background: '#f9fafb', borderTop: `1px solid ${cores.borda}`, borderBottom: `1px solid ${cores.borda}` }}>
-              <tr>
-                <th style={thStyle}>Cliente</th>
-                <th style={thStyle}>Valor</th>
-                <th style={thStyle}>{tipo === 'recebido' ? 'Data' : tipo === 'pendente' ? 'Vence' : 'Venceu'}</th>
-                {tipo !== 'recebido' && <th style={thStyle}>Dias</th>}
-                {tipo === 'recebido' && <th style={thStyle}>Método</th>}
-                <th style={thStyle}>{tipo === 'recebido' ? 'ID Asaas' : 'Ações'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagamentos.map(p => {
-                const dias = Math.abs(Math.ceil((new Date(p.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-                const nome = nomeCliente(p.customer);
-                return (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={tdStyle}>{nome}</td>
-                    <td style={tdStyle}>R$ {p.value.toFixed(2).replace('.', ',')}</td>
-                    <td style={{ ...tdStyle, color: cores.textoSecundario }}>{new Date(p.dueDate).toLocaleDateString('pt-BR')}</td>
-                    {tipo !== 'recebido' && <td style={tdStyle}>{dias}d</td>}
-                    {tipo === 'recebido' && <td style={{ ...tdStyle, color: cores.textoSecundario }}>{p.billingType}</td>}
-                    <td style={tdStyle}>
-                      {tipo === 'recebido' ? (
-                        <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace' }}>{p.id}</span>
-                      ) : (
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          {onReenviar && (
-                            <button
-                              onClick={() => onReenviar(p.customer, p.value, nome)}
-                              disabled={enviandoCobranca === p.customer}
-                              style={{ fontSize: 12, color: cores.azul, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                            >
-                              {enviandoCobranca === p.customer ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Reenviar
-                            </button>
-                          )}
-                          <button
-                            onClick={() => {
-                              const empresa = getEmpresa(p.customer);
-                              if (empresa) abrirWhatsApp(empresa);
-                              else toast.error('Empresa não encontrada localmente para este cliente Asaas.');
-                            }}
-                            style={{ fontSize: 12, color: '#16a34a', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                          >
-                            <MessageCircle size={13} /> WA
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+  const icone = tipo === 'recebido' ? <CheckCircle2 className="w-4 h-4" /> : tipo === 'pendente' ? <Clock className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />;
+  const total = pagamentos.reduce((s, p) => s + p.value, 0);
+  const whats = (customer: string) => {
+    const empresa = getEmpresa(customer);
+    if (empresa) abrirWhatsApp(empresa);
+    else toast.error('Não achamos a empresa deste cliente do Asaas no sistema.');
+  };
+  const acoes = (p: AsaasPayment, nome: string) => (
+    <div className="flex items-center gap-1">
+      {onReenviar && (
+        <Button size="sm" variant="outline" className="h-8 rounded-lg gap-1.5 text-blue-700 border-blue-200 hover:bg-blue-50" onClick={() => onReenviar(p.customer, p.value, nome)} disabled={enviandoCobranca === p.customer}>
+          {enviandoCobranca === p.customer ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Reenviar
+        </Button>
       )}
+      <BotaoWhats onClick={() => whats(p.customer)} />
     </div>
   );
+  return (
+    <Secao
+      titulo={titulo}
+      contagem={pagamentos.length}
+      icone={icone}
+      descricao={pagamentos.length ? `Total: ${brl(total)}` : undefined}
+      semPadding
+    >
+      {pagamentos.length === 0 ? (
+        <Vazio>Nenhum registro.</Vazio>
+      ) : (
+        <Lista
+          colunas={tipo === 'recebido' ? ['Cliente', 'Valor', 'Data', 'Forma', 'Código'] : ['Cliente', 'Valor', tipo === 'pendente' ? 'Vence em' : 'Venceu em', 'Dias', 'Ações']}
+          linhas={pagamentos.map(p => {
+            const dias = Math.abs(Math.ceil((new Date(p.dueDate).getTime() - Date.now()) / 86400000));
+            const nome = nomeCliente(p.customer);
+            return {
+              id: p.id,
+              titulo: nome,
+              celulas: tipo === 'recebido'
+                ? [<span key="n" className="font-medium text-gray-900">{nome}</span>, <span key="v" className="font-semibold text-gray-900">{brl(p.value)}</span>, dataBR(p.dueDate), p.billingType, <span key="c" className="font-mono text-xs text-gray-400">{p.id}</span>]
+                : [<span key="n" className="font-medium text-gray-900">{nome}</span>, <span key="v" className="font-semibold text-gray-900">{brl(p.value)}</span>, dataBR(p.dueDate), <Etiqueta key="d" tom={tipo === 'vencido' ? 'vermelho' : 'amarelo'}>{dias} dias</Etiqueta>, <span key="a">{acoes(p, nome)}</span>],
+              resumo: `${brl(p.value)} · ${tipo === 'recebido' ? 'pago em' : tipo === 'pendente' ? 'vence em' : 'venceu em'} ${dataBR(p.dueDate)}${tipo === 'recebido' ? ' · ' + p.billingType : ''}`,
+              etiqueta: tipo === 'recebido' ? undefined : <Etiqueta tom={tipo === 'vencido' ? 'vermelho' : 'amarelo'}>{tipo === 'vencido' ? `${dias} dias em atraso` : `faltam ${dias} dias`}</Etiqueta>,
+              acoes: tipo === 'recebido' ? undefined : acoes(p, nome),
+            };
+          })}
+        />
+      )}
+    </Secao>
+  );
 }
-
-const thStyle: CSSProperties = { textAlign: 'left', padding: '8px 20px', color: '#6b7280', fontSize: 12, fontWeight: 600 };
-const tdStyle: CSSProperties = { padding: '10px 20px', color: '#111827' };
