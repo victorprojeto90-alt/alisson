@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
-import logoFull from '../../assets/ambisafe-logo-full2.png';
+import LegalLayout from '../components/legal/LegalLayout';
 
 const C = {
   dark: '#0A3D1F',
@@ -11,66 +9,17 @@ const C = {
 };
 
 export default function Privacidade() {
-  const navigate = useNavigate();
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
   return (
-    <div className="min-h-screen bg-white antialiased" style={{ color: C.text }}>
-
-      {/* ── HEADER ──────────────────────────────────────────────────────── */}
-      <header
-        className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
-        style={{
-          backgroundColor: C.dark,
-          boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,0.3)' : 'none',
-        }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link to="/" className="flex-shrink-0">
-            <img src={logoFull} alt="AMBISAFE" className="h-9 w-auto object-contain"
-              style={{ filter: 'brightness(0) invert(1)' }} />
-          </Link>
-          <button
-            onClick={() => navigate('/auth?mode=register')}
-            className="px-5 py-2 rounded-full text-sm font-bold transition-all hover:opacity-90 active:scale-95"
-            style={{ backgroundColor: C.lime, color: C.dark }}
-          >
-            Começar grátis
-          </button>
-        </div>
-      </header>
-
-      {/* ── CONTEÚDO ─────────────────────────────────────────────────────── */}
-      <main className="pt-24 pb-20">
-        <div className="max-w-[800px] mx-auto px-6 sm:px-8">
-
-          {/* Breadcrumb */}
-          <div className="text-sm mb-8" style={{ color: C.muted }}>
-            <Link to="/" className="hover:underline">Início</Link>
-            <span className="mx-2">/</span>
-            <span>Política de Privacidade</span>
-          </div>
-
-          <h1 className="text-4xl font-bold mb-2" style={{ color: C.dark }}>
-            Política de Privacidade
-          </h1>
-          <p className="text-sm mb-10" style={{ color: C.muted }}>
-            Vigência: 17 de abril de 2025 &nbsp;·&nbsp; CNPJ 60.395.913/0001-86 &nbsp;·&nbsp;
-            Conforme LGPD (Lei 13.709/2018)
-          </p>
-
-          <div className="prose prose-slate max-w-none space-y-10 text-[15px] leading-relaxed">
+    <LegalLayout
+      tipo="privacidade"
+      titulo="Política de Privacidade"
+      resumo="Como a AMBISAFE coleta, usa, guarda e protege os seus dados pessoais."
+      etiquetas={['Vigência: 17 de abril de 2025', 'CNPJ 60.395.913/0001-86', 'Conforme LGPD (Lei 13.709/2018)']}
+    >
 
             {/* 1 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 1. Identificação do Controlador
               </h2>
               <p>
@@ -94,12 +43,12 @@ export default function Privacidade() {
 
             {/* 2 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 2. Dados Coletados
               </h2>
               <p>A AMBISAFE coleta as seguintes categorias de dados pessoais:</p>
 
-              <h3 className="text-base font-semibold mt-4 mb-2" style={{ color: C.dark }}>
+              <h3>
                 2.1 Dados de Cadastro
               </h3>
               <ul className="list-disc ml-6 space-y-1">
@@ -110,7 +59,7 @@ export default function Privacidade() {
                 <li>CNPJ da empresa (opcional).</li>
               </ul>
 
-              <h3 className="text-base font-semibold mt-4 mb-2" style={{ color: C.dark }}>
+              <h3>
                 2.2 Dados de Uso da Plataforma
               </h3>
               <ul className="list-disc ml-6 space-y-1">
@@ -120,7 +69,7 @@ export default function Privacidade() {
                 <li>Configurações e preferências da conta.</li>
               </ul>
 
-              <h3 className="text-base font-semibold mt-4 mb-2" style={{ color: C.dark }}>
+              <h3>
                 2.3 Dados Técnicos de Acesso
               </h3>
               <ul className="list-disc ml-6 space-y-1">
@@ -133,7 +82,7 @@ export default function Privacidade() {
 
             {/* 3 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 3. Finalidade do Tratamento
               </h2>
               <p>Os dados coletados são utilizados exclusivamente para as seguintes finalidades:</p>
@@ -151,7 +100,7 @@ export default function Privacidade() {
 
             {/* 4 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 4. Base Legal para o Tratamento (LGPD)
               </h2>
               <p>O tratamento de dados pessoais pela AMBISAFE fundamenta-se nas seguintes hipóteses legais previstas no Art. 7º da LGPD:</p>
@@ -173,7 +122,7 @@ export default function Privacidade() {
 
             {/* 5 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 5. Compartilhamento de Dados
               </h2>
               <p>
@@ -210,7 +159,7 @@ export default function Privacidade() {
 
             {/* 6 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 6. Armazenamento e Segurança
               </h2>
               <p>Os dados pessoais são armazenados em servidores seguros gerenciados pela Supabase/AWS, com as seguintes medidas de segurança:</p>
@@ -231,7 +180,7 @@ export default function Privacidade() {
 
             {/* 7 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 7. Direitos do Titular dos Dados
               </h2>
               <p>
@@ -261,7 +210,7 @@ export default function Privacidade() {
 
             {/* 8 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 8. Retenção de Dados
               </h2>
               <p>Os dados pessoais são mantidos pelos seguintes períodos:</p>
@@ -301,7 +250,7 @@ export default function Privacidade() {
 
             {/* 9 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 9. Cookies e Tecnologias de Rastreamento
               </h2>
               <p>
@@ -324,7 +273,7 @@ export default function Privacidade() {
 
             {/* 10 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 10. Alterações desta Política
               </h2>
               <p>
@@ -346,7 +295,7 @@ export default function Privacidade() {
 
             {/* 11 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 11. Contato e Encarregado de Proteção de Dados (DPO)
               </h2>
               <p>
@@ -378,7 +327,7 @@ export default function Privacidade() {
 
             {/* 12 */}
             <section>
-              <h2 className="text-xl font-bold mb-3" style={{ color: C.dark }}>
+              <h2>
                 12. Vigência
               </h2>
               <p>
@@ -387,35 +336,6 @@ export default function Privacidade() {
               </p>
             </section>
 
-          </div>
-        </div>
-      </main>
-
-      {/* ── FOOTER ──────────────────────────────────────────────────────── */}
-      <footer className="py-10 border-t border-white/10" style={{ backgroundColor: C.dark }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <img src={logoFull} alt="AMBISAFE" className="h-8 w-auto"
-              style={{ filter: 'brightness(0) invert(1)' }} />
-            <div className="flex items-center gap-6 text-sm text-white/40">
-              <Link to="/termos-de-uso" className="hover:text-white transition-colors">Termos de uso</Link>
-              <Link to="/privacidade" className="hover:text-white transition-colors">Privacidade</Link>
-              <a
-                href="https://wa.me/5583996028738"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white transition-colors"
-              >
-                Contato
-              </a>
-            </div>
-            <p className="text-white/30 text-sm text-center">
-              © {new Date().getFullYear()} AMBISAFE — Software de cálculo de inventário florestal
-            </p>
-          </div>
-        </div>
-      </footer>
-
-    </div>
+    </LegalLayout>
   );
 }
