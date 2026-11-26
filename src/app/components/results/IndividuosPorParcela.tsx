@@ -36,7 +36,7 @@ export default function IndividuosPorParcela({ individuos }: Props) {
   };
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -59,7 +59,7 @@ export default function IndividuosPorParcela({ individuos }: Props) {
       <CardContent className="p-0">
         <div className="overflow-x-auto max-h-[500px]">
           <table className="w-full text-xs">
-            <thead className="bg-[#0B3D2E] text-white sticky top-0 z-10">
+            <thead className="ui-thead sticky top-0 z-10">
               <tr>
                 {['Parcela', 'Nome Comum', 'Nome Científico', 'Altura (m)', 'CAP (cm)', 'DAP (cm)', 'Área Basal (m²)', 'Vol. Cilíndrico (m³)', 'Vol. c/ Fator de Forma (m³)'].map(c => (
                   <th key={c} className="py-2.5 px-3 text-left text-xs font-semibold whitespace-nowrap">{c}</th>

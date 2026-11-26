@@ -8,6 +8,7 @@ import { Input } from '../components/ui/input';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
+import { PageHeader, HeaderButton, HeaderStats } from '../components/layout/PageHeader';
 import EditarProjetoModal, { type ProjetoEditavel } from '../components/project/EditarProjetoModal';
 import {
   Plus, Trees, Search, Loader2, ChevronRight,
@@ -183,46 +184,26 @@ export default function Projetos() {
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      {/* Cabeçalho verde com contadores que filtram a lista */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#00420d] via-[#0B5A1E] to-[#16A34A] text-white p-5 md:p-8 mb-5 md:mb-6 shadow-lg">
-        <div className="absolute -top-12 -right-12 w-44 h-44 md:w-72 md:h-72 rounded-full bg-white/10 pointer-events-none" />
-        <div className="relative md:flex md:items-start md:justify-between md:gap-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Inventários</h1>
-            <p className="text-white/75 text-sm mt-1">
-              {loading
-                ? <Bone className="h-4 w-40 inline-block bg-white/20" />
-                : <>{projetos.length} projeto{projetos.length !== 1 ? 's' : ''} · {areaTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ha inventariados</>}
-            </p>
-          </div>
-          <button
-            onClick={() => navigate('/app/projetos/novo')}
-            className="mt-4 md:mt-0 w-full md:w-auto h-12 md:px-6 rounded-xl bg-white text-[#00420d] font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] transition-all flex-shrink-0"
-          >
+      <PageHeader
+        title="Inventários"
+        subtitle={loading
+          ? <Bone className="h-4 w-40 inline-block bg-white/20" />
+          : <>{projetos.length} projeto{projetos.length !== 1 ? 's' : ''} · {areaTotal.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ha inventariados</>}
+        actions={
+          <HeaderButton onClick={() => navigate('/app/projetos/novo')} className="w-full md:w-auto">
             <Plus className="w-5 h-5" /> Novo Inventário
-          </button>
-        </div>
-
-        <div className="relative grid grid-cols-4 gap-2 mt-5 md:mt-7 md:max-w-2xl">
-          {filtros.map(f => {
-            const ativo = statusFilter === f.value;
-            return (
-              <button
-                key={f.value}
-                onClick={() => setStatusFilter(f.value)}
-                className={`rounded-2xl py-2.5 md:py-3 px-1 text-center transition-all ${
-                  ativo ? 'bg-white text-[#00420d] shadow-md' : 'bg-white/10 text-white hover:bg-white/15'
-                }`}
-              >
-                {loading
-                  ? <Bone className={`h-6 w-6 mx-auto mb-1 ${ativo ? '' : 'bg-white/20'}`} />
-                  : <p className="text-xl md:text-2xl font-bold leading-none">{f.count}</p>}
-                <p className={`text-[11px] md:text-xs mt-1 ${ativo ? 'text-[#00420d]/80 font-semibold' : 'text-white/75'}`}>{f.label}</p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+          </HeaderButton>
+        }
+      >
+        <HeaderStats
+          items={filtros.map(f => ({
+            label: f.label,
+            value: loading ? '–' : f.count,
+            active: statusFilter === f.value,
+            onClick: () => setStatusFilter(f.value),
+          }))}
+        />
+      </PageHeader>
 
       {/* Busca + ordenação */}
       <div className="flex gap-2 md:gap-3 mb-4 md:mb-5">
@@ -324,8 +305,8 @@ export default function Projetos() {
           {/* Computador: tabela */}
           <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-gray-500 bg-gray-50/80 border-b border-gray-100">
+              <thead className="ui-thead">
+                <tr className="text-left">
                   <th className="px-5 py-3.5 font-semibold">Projeto</th>
                   <th className="px-4 py-3.5 font-semibold">Local</th>
                   <th className="px-4 py-3.5 font-semibold text-right">Área</th>

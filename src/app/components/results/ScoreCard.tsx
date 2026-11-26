@@ -89,7 +89,7 @@ export default function ScoreCard({ score, precisaoRequerida, erroRelPct }: Prop
   };
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Icon className="w-5 h-5" style={{ color: mainColor }} />

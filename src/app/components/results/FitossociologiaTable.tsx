@@ -10,7 +10,7 @@ interface Props {
 
 function THead({ cols }: { cols: string[] }) {
   return (
-    <thead className="bg-[#0B3D2E] text-white sticky top-0 z-10">
+    <thead className="ui-thead sticky top-0 z-10">
       <tr>
         {cols.map(c => (
           <th key={c} className="py-2.5 px-3 text-left text-xs font-semibold whitespace-nowrap">{c}</th>
@@ -32,7 +32,7 @@ export default function FitossociologiaTable({ especies, familias }: Props) {
   const totVol = sorted.reduce((s, e) => s + e.vol_ha, 0);
 
   return (
-    <Card className="border-0 shadow-sm">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="text-base">Análise Fitossociológica da Estrutura Horizontal</CardTitle>
         <p className="text-sm text-gray-400">Parâmetros fitossociológicos das espécies e famílias amostradas</p>

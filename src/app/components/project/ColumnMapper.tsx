@@ -481,7 +481,7 @@ export default function ColumnMapper({ headers, rows, bioma, onMappingChange, on
           <p className="text-xs text-gray-500 mb-2 font-medium">Pré-visualização (primeiras 3 linhas):</p>
           <div className="overflow-x-auto rounded-xl border border-gray-200">
             <table className="text-xs w-full">
-              <thead className="bg-gray-50">
+              <thead className="ui-thead">
                 <tr>
                   {Object.entries(mapping)
                     .filter(([, v]) => v)

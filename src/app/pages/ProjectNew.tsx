@@ -189,7 +189,7 @@ export default function ProjectNew() {
         ))}
       </div>
 
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-sm">
         <CardContent className="p-6">
           {/* Step 0: Identificação */}
           {step === 0 && (

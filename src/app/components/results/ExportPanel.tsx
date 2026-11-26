@@ -109,7 +109,7 @@ export default function ExportPanel({ projeto, resultado }: Props) {
 
   return (
     <div className="space-y-6">
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Download className="w-5 h-5 text-[#16A34A]" />
@@ -169,7 +169,7 @@ export default function ExportPanel({ projeto, resultado }: Props) {
       </Card>
 
       {/* Summary of what's included */}
-      <Card className="border-0 shadow-sm">
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">O que está incluído nos relatórios</CardTitle>
         </CardHeader>

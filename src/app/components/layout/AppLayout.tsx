@@ -81,7 +81,7 @@ export default function AppLayout() {
       </header>
 
       {/* Conteúdo */}
-      <main className="flex-1 min-w-0 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pt-0 md:pb-0 overflow-x-hidden">
+      <main className="flex-1 min-w-0 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pt-0 md:pb-0 overflow-x-clip">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}
