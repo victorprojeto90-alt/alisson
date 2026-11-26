@@ -17,6 +17,8 @@ import {
   FileText,
   ChevronRight,
   RefreshCw,
+  Leaf,
+  HelpCircle,
 } from 'lucide-react';
 import OnboardingCard from '../components/help/OnboardingCard';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -217,39 +219,36 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
-      {/* Celular: cabeçalho verde estilo app, com o botão Novo Inventário dentro */}
-      <div className="md:hidden relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#00420d] to-[#16A34A] text-white p-5 mb-5 shadow-lg">
-        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10 pointer-events-none" />
-        <p className="text-white/70 text-sm">{empresa?.name}</p>
-        <h1 className="text-2xl font-bold mt-0.5">Olá, {profile?.name?.split(' ')[0] || 'Bem-vindo'} 👋</h1>
-        <span className="inline-block mt-2 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#acd115] text-[#00420d]">
-          {empresa?.plan === 'trial' ? 'Período de trial' : 'Plano Profissional'}
-        </span>
-        <button
-          onClick={() => navigate('/app/projetos/novo')}
-          className="relative mt-4 w-full h-12 rounded-xl bg-white text-[#00420d] font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
-        >
-          <Plus className="w-5 h-5" /> Novo Inventário
-        </button>
-      </div>
-
-      {/* Header (computador) */}
-      <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-            Olá, {profile?.name?.split(' ')[0] || 'Bem-vindo'} 👋
-          </h1>
-          <p className="text-gray-500 mt-1">
-            {empresa?.name} · {empresa?.plan === 'trial' ? 'Período de trial' : 'Plano Profissional'}
-          </p>
+      {/* Cabeçalho verde (celular e computador) */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#00420d] via-[#0B5A1E] to-[#16A34A] text-white p-5 md:p-8 mb-5 md:mb-6 shadow-lg md:flex md:items-center md:justify-between md:gap-6">
+        <div className="absolute -top-10 -right-10 w-40 h-40 md:w-72 md:h-72 rounded-full bg-white/10 pointer-events-none" />
+        <div className="absolute -bottom-16 right-40 w-48 h-48 rounded-full bg-[#acd115]/10 pointer-events-none hidden md:block" />
+        <div className="relative">
+          <p className="text-white/70 text-sm">{empresa?.name}</p>
+          <h1 className="text-2xl md:text-3xl font-bold mt-0.5">Olá, {profile?.name?.split(' ')[0] || 'Bem-vindo'} 👋</h1>
+          <div className="flex items-center gap-3 mt-2 flex-wrap">
+            <span className="inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full bg-[#acd115] text-[#00420d]">
+              {empresa?.plan === 'trial' ? 'Período de trial' : 'Plano Profissional'}
+            </span>
+            <span className="hidden md:inline text-white/70 text-sm">
+              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </span>
+          </div>
         </div>
-        <Button
-          onClick={() => navigate('/app/projetos/novo')}
-          className="bg-[#0B3D2E] hover:bg-[#0B3D2E]/90 text-white gap-2 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Inventário
-        </Button>
+        <div className="relative flex gap-3 mt-4 md:mt-0 flex-shrink-0">
+          <button
+            onClick={() => navigate('/app/relatorios')}
+            className="hidden md:flex h-12 px-5 rounded-xl border border-white/30 text-white font-semibold items-center gap-2 hover:bg-white/10 transition-colors"
+          >
+            <FileText className="w-5 h-5" /> Relatórios
+          </button>
+          <button
+            onClick={() => navigate('/app/projetos/novo')}
+            className="w-full md:w-auto h-12 md:px-6 rounded-xl bg-white text-[#00420d] font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+          >
+            <Plus className="w-5 h-5" /> Novo Inventário
+          </button>
+        </div>
       </div>
 
       {/* Onboarding checklist for new users */}
@@ -258,7 +257,7 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-8">
         {stats.map((stat, i) => (
-          <Card key={i} className="border-0 shadow-sm rounded-2xl">
+          <Card key={i} className="border-0 shadow-sm rounded-2xl md:hover:shadow-md md:hover:-translate-y-0.5 transition-all">
             <CardContent className="p-3.5 md:p-5 flex md:block items-center gap-3">
               <div className={`w-9 h-9 md:w-10 md:h-10 rounded-xl ${stat.bg} flex items-center justify-center md:mb-3 flex-shrink-0`}>
                 {stat.icon}
@@ -273,8 +272,9 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
         ))}
       </div>
 
-      {/* Projects List */}
-      <Card className="border-0 shadow-sm rounded-2xl">
+      {/* Inventários + coluna lateral (computador) */}
+      <div className="grid lg:grid-cols-3 gap-6 items-start">
+      <Card className="border-0 shadow-sm rounded-2xl lg:col-span-2">
         <CardHeader className="pb-4 px-4 md:px-6">
           <div className="flex items-center justify-between">
             <div>
@@ -369,6 +369,63 @@ CREATE POLICY "admin_all_resultados" ON resultados FOR ALL
           )}
         </CardContent>
       </Card>
+
+        {/* Coluna lateral (computador) */}
+        <aside className="hidden lg:flex flex-col gap-6">
+          <Card className="border-0 shadow-sm rounded-2xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Atalhos</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'Meus projetos', icon: <Trees className="w-5 h-5" />, onClick: () => navigate('/app/projetos'), destaque: true },
+                { label: 'Banco de espécies', icon: <Leaf className="w-5 h-5" />, onClick: () => navigate('/app/especies') },
+                { label: 'Relatórios', icon: <FileText className="w-5 h-5" />, onClick: () => navigate('/app/relatorios') },
+                { label: 'Central de ajuda', icon: <HelpCircle className="w-5 h-5" />, onClick: () => window.dispatchEvent(new Event('ambisafe:ajuda')) },
+              ].map(a => (
+                <button
+                  key={a.label}
+                  onClick={a.onClick}
+                  className={`flex flex-col items-start gap-3 p-4 rounded-xl text-left text-sm font-semibold transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                    a.destaque ? 'bg-[#00420d] text-white' : 'bg-gray-50 text-gray-800 hover:bg-white border border-gray-100'
+                  }`}
+                >
+                  <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${a.destaque ? 'bg-[#acd115] text-[#00420d]' : 'bg-[#0B3D2E]/10 text-[#0B3D2E]'}`}>
+                    {a.icon}
+                  </span>
+                  {a.label}
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm rounded-2xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Inventários por status</CardTitle>
+              <CardDescription>{projetos.length} no total</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(['finalizado', 'processado', 'rascunho'] as const).map(st => {
+                const qtd = projetos.filter(p => (p.status || 'rascunho') === st).length;
+                const pct = projetos.length ? Math.round((qtd / projetos.length) * 100) : 0;
+                const cfg = STATUS_CONFIG[st];
+                const barra = st === 'finalizado' ? 'bg-[#16A34A]' : st === 'processado' ? 'bg-blue-500' : 'bg-gray-400';
+                return (
+                  <div key={st}>
+                    <div className="flex items-center justify-between text-sm mb-1.5">
+                      <span className="flex items-center gap-2 text-gray-700">{cfg.icon}{cfg.label}</span>
+                      <span className="font-semibold text-gray-900">{loading ? '…' : qtd}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div className={`h-full rounded-full ${barra} transition-all duration-700`} style={{ width: `${loading ? 0 : pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
     </div>
   );
 }
