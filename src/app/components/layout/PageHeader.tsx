@@ -109,7 +109,7 @@ export function HeaderStats({ items, className }: { items: HeaderStatItem[]; cla
             )}
           >
             <p className="text-lg md:text-2xl font-bold leading-none truncate">{item.value}</p>
-            <p className={cn('text-[11px] md:text-xs mt-1 truncate', item.active ? 'text-[#00420d]/80 font-semibold' : 'text-white/75')}>
+            <p className={cn('text-[10px] sm:text-[11px] md:text-xs mt-1 leading-tight truncate', item.active ? 'text-[#00420d]/80 font-semibold' : 'text-white/75')}>
               {item.label}
             </p>
           </Tag>
