@@ -123,7 +123,7 @@ export function gerarTextoResultadosGerais(projeto: ProjetoParaRelatorio, result
 
   return `Foram amostrados ${dados_gerais.n_individuos} indivíduos arbóreos em ${dados_gerais.n_parcelas} parcelas, totalizando ${formatNum(dados_gerais.area_amostrada_ha, 4)} ha de área amostral. Registrou-se a ocorrência de ${dados_gerais.n_especies} espécies distribuídas em ${dados_gerais.n_familias} famílias botânicas.
 
-O volume médio estimado por hectare foi de ${formatNum(dados_gerais.media_vol_ha, 4)} m³/ha, com desvio padrão de ${formatNum(dados_gerais.desvio_padrao, 4)} m³/ha e coeficiente de variação de ${formatNum(dados_gerais.coeficiente_variacao_pct, 2)}%. O erro amostral obtido foi de ${formatNum(dados_gerais.erro_rel_pct, 2)}%, ${qualidadeErro}. O intervalo de confiança (IC ${95}%) para a estimativa volumétrica por hectare situa-se entre ${formatNum(dados_gerais.ic_inferior_ha, 4)} e ${formatNum(dados_gerais.ic_superior_ha, 4)} m³/ha.
+O volume médio estimado por hectare foi de ${formatNum(dados_gerais.media_vol_ha, 4)} m³/ha, com desvio padrão de ${formatNum(dados_gerais.desvio_padrao, 4)} m³/ha e coeficiente de variação de ${formatNum(dados_gerais.coeficiente_variacao_pct, 2)}%. O erro amostral obtido foi de ${formatNum(dados_gerais.erro_rel_pct, 2)}%, ${qualidadeErro}. O intervalo de confiança (IC ${projeto.nivel_confianca}%) para a estimativa volumétrica por hectare situa-se entre ${formatNum(dados_gerais.ic_inferior_ha, 4)} e ${formatNum(dados_gerais.ic_superior_ha, 4)} m³/ha.
 
 O volume total estimado para a área de estudo é de ${formatNum(dados_gerais.volume_estimado_total, 2)} m³, com IC variando entre ${formatNum(dados_gerais.ic_inferior_pop, 2)} e ${formatNum(dados_gerais.ic_superior_pop, 2)} m³.${espMaisImportante ? `
 

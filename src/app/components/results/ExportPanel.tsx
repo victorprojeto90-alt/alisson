@@ -1,19 +1,10 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import {
-  FileText,
-  Download,
-  Table2,
-  FileSpreadsheet,
-  Loader2,
-  CheckCircle2,
-} from 'lucide-react';
-import { exportarPDF } from '../../lib/exportPDF';
-import { exportarExcel } from '../../lib/exportExcel';
-import { exportarWord } from '../../lib/exportWord';
+import { FileText, Download, Table2, FileType2, Loader2, CheckCircle2 } from 'lucide-react';
 import type { ResultadoInventario } from '../../lib/calculations';
 import type { ProjetoParaRelatorio } from '../../lib/reportText';
+import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 
 interface Props {
@@ -29,51 +20,50 @@ interface Props {
     fator_forma: number;
     nivel_confianca: number;
     precisao_requerida: number;
+    data_inventario?: string | null;
   };
   resultado: ResultadoInventario;
 }
 
 type ExportType = 'pdf' | 'word' | 'excel';
 
-interface ExportOption {
-  type: ExportType;
-  label: string;
-  desc: string;
-  icon: React.ReactNode;
-  color: string;
-}
-
-const OPTIONS: ExportOption[] = [
+const OPTIONS: { type: ExportType; label: string; formato: string; desc: string; icon: React.ReactNode; cor: string }[] = [
   {
     type: 'pdf',
     label: 'Exportar PDF',
-    desc: 'Relatório técnico completo com tabelas formatadas, capa e textos automáticos.',
+    formato: 'PDF',
+    desc: 'Relatório pronto para protocolar: capa, sumário, textos técnicos, tabelas, gráficos, assinatura e anexo.',
     icon: <FileText className="w-6 h-6" />,
-    color: 'border-red-200 hover:border-red-300 hover:bg-red-50',
+    cor: 'bg-red-50 text-red-600',
   },
   {
     type: 'word',
-    label: 'Exportar Word (.docx)',
-    desc: 'Documento Word editável — quase pronto para protocolar. Inclui todas as tabelas e texto técnico.',
-    icon: <FileSpreadsheet className="w-6 h-6" />,
-    color: 'border-blue-200 hover:border-blue-300 hover:bg-blue-50',
+    label: 'Exportar Word',
+    formato: 'DOCX',
+    desc: 'O mesmo relatório do PDF, em Word editável, para ajustar o texto antes de entregar.',
+    icon: <FileType2 className="w-6 h-6" />,
+    cor: 'bg-blue-50 text-blue-600',
   },
   {
     type: 'excel',
-    label: 'Exportar Excel (.xlsx)',
-    desc: 'Planilha com 7 abas: dados gerais, fitossociologia, famílias, parcelas, estrutura diamétrica, diversidade e dados brutos.',
+    label: 'Exportar Excel',
+    formato: 'XLSX',
+    desc: 'Planilha com 9 abas formatadas: resumo, parâmetros, espécies, famílias, parcelas, estruturas, diversidade e dados de campo.',
     icon: <Table2 className="w-6 h-6" />,
-    color: 'border-green-200 hover:border-green-300 hover:bg-green-50',
+    cor: 'bg-green-50 text-green-700',
   },
 ];
 
 export default function ExportPanel({ projeto, resultado }: Props) {
+  const { profile } = useAuth();
   const [loading, setLoading] = useState<ExportType | null>(null);
   const [done, setDone] = useState<ExportType[]>([]);
 
-  const nomeArquivo = projeto.nome.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_').substring(0, 50);
+  const nomeArquivo = 'Relatorio_' + projeto.nome
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9\s-]/g, '').trim().replace(/\s+/g, '_').substring(0, 50);
 
-  const projetoRelatorio: ProjetoParaRelatorio = {
+  const projetoRelatorio: ProjetoParaRelatorio & { nome: string } = {
     nome: projeto.nome,
     municipio: projeto.municipio ?? undefined,
     estado: projeto.estado ?? undefined,
@@ -87,21 +77,32 @@ export default function ExportPanel({ projeto, resultado }: Props) {
     precisao_requerida: projeto.precisao_requerida,
   };
 
+  const ctx = {
+    empresa: profile?.empresa?.name ?? null,
+    responsavel: profile?.name ?? null,
+    cidade: profile?.cidade ?? profile?.empresa?.cidade ?? null,
+    uf: profile?.estado_uf ?? profile?.empresa?.estado_uf ?? null,
+    dataInventario: projeto.data_inventario ?? null,
+  };
+
   const handleExport = async (type: ExportType) => {
     setLoading(type);
     try {
       if (type === 'pdf') {
-        exportarPDF(nomeArquivo, projetoRelatorio, resultado);
+        const { exportarPDF } = await import('../../lib/exportPDF');
+        await exportarPDF(nomeArquivo, projetoRelatorio, resultado, ctx);
       } else if (type === 'excel') {
-        exportarExcel(nomeArquivo, resultado);
-      } else if (type === 'word') {
-        await exportarWord(nomeArquivo, projetoRelatorio, resultado);
+        const { exportarExcel } = await import('../../lib/exportExcel');
+        await exportarExcel(nomeArquivo, resultado, projetoRelatorio, ctx);
+      } else {
+        const { exportarWord } = await import('../../lib/exportWord');
+        await exportarWord(nomeArquivo, projetoRelatorio, resultado, ctx);
       }
-      setDone(prev => [...prev, type]);
-      toast.success(`Arquivo ${type.toUpperCase()} exportado com sucesso!`);
+      setDone(prev => (prev.includes(type) ? prev : [...prev, type]));
+      toast.success('Arquivo gerado. Confira seus downloads.');
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Erro desconhecido';
-      toast.error(`Erro ao exportar ${type.toUpperCase()}: ` + message);
+      toast.error('Não foi possível gerar o arquivo: ' + message);
     } finally {
       setLoading(null);
     }
@@ -113,53 +114,35 @@ export default function ExportPanel({ projeto, resultado }: Props) {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Download className="w-5 h-5 text-[#16A34A]" />
-            Exportar Relatório
+            Exportar relatório
           </CardTitle>
-          <p className="text-sm text-gray-400">
-            Exporte o relatório técnico nos formatos disponíveis. Os arquivos serão baixados automaticamente.
+          <p className="text-sm text-gray-500">
+            Os três formatos usam os mesmos dados e textos. O responsável técnico e a empresa vêm do seu cadastro em Configurações.
           </p>
         </CardHeader>
         <CardContent>
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             {OPTIONS.map(opt => {
               const isDone = done.includes(opt.type);
               const isLoading = loading === opt.type;
-
               return (
-                <div
-                  key={opt.type}
-                  className={`relative p-5 rounded-2xl border-2 transition-all ${opt.color} ${
-                    isDone ? 'bg-green-50 border-green-300' : ''
-                  }`}
-                >
-                  {isDone && (
-                    <div className="absolute top-3 right-3">
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    </div>
-                  )}
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
-                    opt.type === 'pdf' ? 'bg-red-100 text-red-600' :
-                    opt.type === 'word' ? 'bg-blue-100 text-blue-600' :
-                    'bg-green-100 text-green-600'
-                  }`}>
-                    {opt.icon}
+                <div key={opt.type} className={`relative flex flex-col p-5 rounded-2xl border transition-all ${isDone ? 'border-green-300 bg-green-50/40' : 'border-gray-100 hover:border-gray-200 hover:shadow-sm'}`}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${opt.cor}`}>{opt.icon}</div>
+                    {isDone ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700"><CheckCircle2 className="w-4 h-4" /> Baixado</span>
+                    ) : (
+                      <span className="text-[11px] font-bold tracking-wide text-gray-400">{opt.formato}</span>
+                    )}
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-1">{opt.label}</h3>
-                  <p className="text-xs text-gray-500 mb-4 leading-relaxed">{opt.desc}</p>
+                  <p className="text-xs text-gray-500 mb-4 leading-relaxed flex-1">{opt.desc}</p>
                   <Button
                     onClick={() => handleExport(opt.type)}
-                    disabled={isLoading}
-                    className={`w-full gap-2 text-sm ${
-                      opt.type === 'pdf' ? 'bg-red-600 hover:bg-red-700' :
-                      opt.type === 'word' ? 'bg-blue-600 hover:bg-blue-700' :
-                      'bg-green-600 hover:bg-green-700'
-                    } text-white`}
+                    disabled={loading !== null}
+                    className="w-full gap-2 text-sm h-11 rounded-xl bg-[#00420d] hover:bg-[#0B5A1E] text-white"
                   >
-                    {isLoading ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
-                    ) : (
-                      <><Download className="w-4 h-4" /> {isDone ? 'Baixar novamente' : opt.label}</>
-                    )}
+                    {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</> : <><Download className="w-4 h-4" /> {isDone ? 'Baixar novamente' : `Baixar ${opt.formato}`}</>}
                   </Button>
                 </div>
               );
@@ -168,24 +151,23 @@ export default function ExportPanel({ projeto, resultado }: Props) {
         </CardContent>
       </Card>
 
-      {/* Summary of what's included */}
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">O que está incluído nos relatórios</CardTitle>
+          <CardTitle className="text-base">O que vai no relatório</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid sm:grid-cols-2 gap-4 text-sm">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             {[
-              { titulo: 'Texto Técnico', itens: ['Metodologia', 'Resultados Gerais', 'Estrutura Horizontal', 'Estrutura Diamétrica', 'Índices de Diversidade', 'Conclusão Técnica'] },
-              { titulo: 'Tabelas', itens: ['Dados gerais do inventário', 'Fitossociologia por espécie', 'Fitossociologia por família', 'Distribuição diamétrica', 'Estratificação vertical', 'Índices de diversidade'] },
-              { titulo: 'Estatísticas', itens: ['Média, variância, desvio padrão', 'Coeficiente de variação', 'Erro amostral absoluto e relativo', 'Intervalo de confiança (parcela e população)', 't-Student', 'Volume estimado total'] },
-              { titulo: 'Score AMBISAFE', itens: ['Regularidade estatística (30%)', 'Diversidade florística (20%)', 'Sustentabilidade (20%)', 'Conformidade ambiental (20%)', 'Consistência dos dados (10%)', 'Nível: Excelente/Bom/Necessita Atenção'] },
-            ].map((section, i) => (
-              <div key={i} className="bg-gray-50 rounded-xl p-4">
+              { titulo: 'Abertura', itens: ['Capa com projeto e responsável', 'Sumário com páginas', 'Ficha de identificação', 'Resumo dos resultados'] },
+              { titulo: 'Texto técnico', itens: ['Introdução e objetivo', 'Material e métodos', 'Resultados e discussão', 'Conclusão por finalidade'] },
+              { titulo: 'Tabelas e gráficos', itens: ['Parâmetros estatísticos', 'Fitossociologia (todas as espécies)', 'Famílias, classes de DAP e estratos', 'Gráficos de VI% e diamétrico'] },
+              { titulo: 'Fechamento', itens: ['Score AMBISAFE detalhado', 'Local, data e assinatura', 'Referências (ABNT)', 'Anexo: resultados por parcela'] },
+            ].map(section => (
+              <div key={section.titulo} className="bg-[#f4f8f3] rounded-xl p-4">
                 <h4 className="font-semibold text-gray-800 mb-3">{section.titulo}</h4>
-                <ul className="space-y-1">
-                  {section.itens.map((item, j) => (
-                    <li key={j} className="flex items-center gap-2 text-gray-600 text-xs">
+                <ul className="space-y-1.5">
+                  {section.itens.map(item => (
+                    <li key={item} className="flex items-center gap-2 text-gray-600 text-xs">
                       <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A] flex-shrink-0" />
                       {item}
                     </li>
